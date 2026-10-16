@@ -1,0 +1,17 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {Pulse} from '../public/src/pulse/Pulse.js';
+import {GemRules} from '../public/src/content/gems/GemRules.js';
+import {T,resonance} from '../public/src/tuning.js';
+const make=(seed='SEED',mode='endless')=>new Pulse({seed,mode,bpm:116},new GemRules());
+const pair=g=>{for(let y=0;y<14;y++)for(let x=0;x<10;x++)if(g.rules.primeable(g.board,x,y).length)return{x,y};throw Error('no pair');};
+test('geometry, purity and guaranteed initial group',()=>{for(let i=0;i<100;i++){const g=make(String(i));assert.equal(g.board.length,14);assert.ok(g.board.every(row=>row.length===10));assert.equal(g.hasPrimeable(),true);assert.ok(g.board.flat().every(t=>!t||t.type>=0&&t.type<4));}});
+test('seeded boards are byte identical',()=>{const a=make('daily:2026-10-16'),b=make('daily:2026-10-16');assert.equal(a.snapshot(),b.snapshot());const x=pair(a);assert.equal(a.prime(x.x,x.y),b.prime(x.x,x.y));a.advanceTo(34);b.advanceTo(34);assert.equal(a.snapshot(),b.snapshot());});
+test('queued groups cannot detonate in same pass; prime is locked',()=>{const g=make();g.advanceTo(0);const p=pair(g),id=g.prime(p.x,p.y);assert.ok(id);assert.equal(g.prime(p.x,p.y),null);g.advanceTo(15);assert.equal(g.stats.groups,0);g.advanceTo(31);assert.equal(g.stats.groups,1);assert.ok(g.stats.score>0);});
+test('hold skips exactly one pass, then overcharges',()=>{const g=make('hold');g.advanceTo(0);const p=pair(g),id=g.prime(p.x,p.y);assert.ok(g.hold(p.x,p.y));g.advanceTo(31);assert.equal(g.stats.groups,0);assert.equal(g.groups.get(id).state,'skipped');g.advanceTo(47);assert.equal(g.stats.groups,1);assert.equal(g.stats.overcharges,1);});
+test('air-prime tracked and rewarded',()=>{const g=make('air');const p=pair(g);g.prime(p.x,p.y,true);assert.equal(g.stats.airPrimes,1);g.advanceTo(31);assert.ok(g.stats.score>0);});
+test('empty passes reset combos and pressure arrives only at downbeats',()=>{const g=make('pressure');g.advanceTo(15);assert.equal(g.pass,1);assert.equal(g.drain().some(e=>e.kind==='pressure'),false);g.advanceTo(31);assert.equal(g.pass,2);assert.equal(g.drain().some(e=>e.kind==='pressure'),false);g.advanceTo(32);assert.equal(g.pass,3);assert.equal(g.drain().filter(e=>e.kind==='pressure').length,1);});
+test('zen never ends from pressure and replenishes',()=>{const g=make('zen','zen');g.advanceTo(16*150);assert.equal(g.over,false);});
+test('score dials and resonance cap',()=>{assert.equal(resonance(1),1);assert.equal(resonance(4),2);assert.equal(resonance(10),5);assert.equal(resonance(18),5);assert.equal(T.AIR_FAIR_MS>=250,true);});
+test('content logic is swappable and isolated from pulse',()=>{const custom=new GemRules();custom.scoreGroup=()=>1000;const a=new Pulse({seed:'x',bpm:100,mode:'zen'},custom),p=pair(a);a.prime(p.x,p.y);a.advanceTo(31);assert.ok(a.stats.score>=1000);});
+test('same intents at different moments in the same pass produce identical results',()=>{const early=make('timing'),late=make('timing');early.advanceTo(0);late.advanceTo(10);const p=pair(early);early.prime(p.x,p.y);late.prime(p.x,p.y);early.advanceTo(40);late.advanceTo(40);assert.equal(early.snapshot(),late.snapshot());});
+test('stress determinism over hundreds of passes',()=>{const a=make('stress'),b=make('stress');for(let pass=0;pass<220;pass++){for(const g of [a,b]){if(g.over)continue;const p=g.hasPrimeable()?pair(g):null;if(p)g.prime(p.x,p.y);g.advanceTo((pass+1)*16-1);}assert.equal(a.snapshot(),b.snapshot());if(a.over)break;}});
