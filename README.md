@@ -6,15 +6,29 @@ BREAKBEAT is a standalone browser-first rhythm-demolition puzzle game built from
 
 ## Run
 
-Prerequisite: Node 22+, TypeScript 5.8+ (`tsc`) available globally. No third-party runtime libraries are required.
+Prerequisite: Node 20+. `npm ci` installs the pinned TypeScript compiler locally; no globally installed compiler is needed. There are no third-party runtime libraries.
 
 ```sh
+npm ci
 npm run build
 npm run start
 # visit http://localhost:4173
 ```
 
 To develop: `npm run dev`; to verify: `npm run gates`.
+
+## Deploy to Vercel
+
+Import `mikeylambo/Breakbeat` as a new Vercel project (repository root `/`). The committed `vercel.json` configures the **Other** framework preset, **`npm ci`** install, **`npm run build && npm run verify:deploy`** build command, and **`public`** output directory. No environment variables, Node.js server, or Vercel Functions are needed: Vercel serves the compiled `public/index.html` and the referenced static assets.
+
+Vercel project settings should not override the root directory to a nested folder. To reproduce the production pipeline locally, run:
+
+```sh
+npm ci
+npm run build
+npm run verify:deploy
+npm run gates
+```
 
 ## How to play
 
