@@ -10,3 +10,31 @@
 @media(max-height:780px){.dialog{padding:17px}.intro h1{font-size:66px}.hero-mark{margin:8px 0}.hero-divider{margin:10px 0}.mode-option{min-height:45px}.skin-select{margin:10px 0 6px}.hero-line{margin:8px 0}.menu-note{margin:7px 0 0}}
 @media(max-width:380px){.app{padding:12px 12px 10px}.keyhint{font-size:8px}.dialog{padding:17px}.intro h1{font-size:68px}.tagline{font-size:8px}.scoreleft strong{font-size:35px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+/* 0.3 — readable instruction, danger and access affordances */
+.lesson-action{display:block;margin-top:7px;font:800 9px var(--ui);letter-spacing:.14em;color:var(--mint)}
+.instruction{min-height:64px}.instruction .orb{transition:background .2s;flex-shrink:0}
+.assist-action{font-size:10px;color:var(--mint);border-color:#398b7a;margin-right:auto}.bottom-actions{gap:8px}.keyhint{text-align:right}
+.board-frame.danger-warn{border-color:#fc9b78;box-shadow:0 0 0 1px #e66f7780}.board-frame.danger-critical{border-color:#ff5178;box-shadow:0 0 12px #ff466666}
+.danger-warn .danger-label{background:#a4472388}.danger-critical .danger-label{background:#bc254880;color:white}
+.feedback-toast{position:fixed;top:66px;left:50%;transform:translate(-50%,-12px);z-index:200;border:1px solid #a66b89;background:#241a29f0;box-shadow:0 14px 36px #0008;padding:12px 20px;color:#fff;font:800 15px var(--display);letter-spacing:.13em;opacity:0;pointer-events:none;transition:opacity .22s,transform .22s;text-align:center;max-width:90vw}.feedback-toast.active{opacity:1;transform:translate(-50%,0)}
+.settings select{display:block;width:100%;margin-top:10px;color:#fff;background:#1b1d2b;padding:11px;border:1px solid #554d63;font-weight:700}
+.board-frame.high-contrast{box-shadow:0 0 0 2px #f9e9ce}.board-frame.high-contrast canvas{filter:contrast(1.3) saturate(1.05)}
+/* 0.4 — local progression, material personas and a reconstructed best-pass loop */
+.journey-overview{margin:15px 0 7px;border:1px solid #5b4b5e;background:#27202b;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px}.journey-overview>div{display:grid;gap:4px}.journey-overview strong{font:800 18px var(--display);letter-spacing:.06em}.journey-track{font:800 13px var(--display);white-space:nowrap;color:var(--mint);letter-spacing:.1em}
+.movement-info{color:#c3baca;font-size:10px;line-height:1.6;min-height:19px}.movement-info strong{color:var(--cream)}
+.persona-picker{margin:12px 0 1px}.persona-row{display:flex;gap:6px;margin-top:7px}.persona-row button{flex:1;background:#22202b;border:1px solid #65586b;color:#d8cedc;padding:8px 5px;font:800 13px var(--display);letter-spacing:.07em}.persona-row button.selected{background:#4a2d46;border-color:#ff8db6;color:#fff}.persona-row button:disabled{color:#827783;opacity:.5}.tutorial-action{padding:9px 0 3px;text-align:center;font-size:10px;color:var(--mint)}
+.result-accolade{font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--yellow);min-height:18px;margin:0 0 13px}
+.replay-panel{border:1px solid #5c475d;background:#0c1019;padding:9px;margin:12px 0}.replay-heading{display:flex;align-items:center;justify-content:space-between;gap:6px;color:#beafc4;font-size:9px;font-weight:800;letter-spacing:.1em}.replay-heading strong{color:var(--mint);font-size:12px}.replay-panel canvas{display:block;width:100%;height:132px;object-fit:fill;margin-top:8px;background:#0a0c15}.replay-panel.missing{display:none}
+.unlock-panel{font:800 11px var(--ui);letter-spacing:.05em;line-height:1.6;border:1px solid #66baa0;background:#19473d52;padding:12px;color:#baf8e5;margin:8px 0}.unlock-panel.hidden,.next-movement.hidden{display:none}
+.result-grid{margin:12px 0}.result-grid strong{font-size:25px}.results{max-height:96vh}
+.overlay:not(.hidden) .dialog{animation:rise-dialog .26s cubic-bezier(.16,1,.3,1) both}@keyframes rise-dialog{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media (max-height:780px){.journey-overview{margin:7px 0}.persona-picker{margin:6px 0 0}.persona-row button{padding:6px}.replay-panel canvas{height:104px}}
+
+.hidden{display:none!important}
+
+/* Fit wordmark even when network fonts are unavailable. */
+.intro h1{font-size:clamp(51px,14vw,75px);letter-spacing:-.065em}
+.menu-utilities{display:flex;justify-content:space-between;gap:14px}.menu-utilities .text-button{width:auto;flex:1;letter-spacing:.06em}
+@media(max-height:780px){.intro h1{font-size:clamp(51px,14vw,70px)}}
+
+.board-frame.fallen:after{content:'THE LAST BEAT';position:absolute;inset:0;background:#150b17a9;z-index:5;display:grid;place-items:center;color:#fff;font:900 47px var(--display);letter-spacing:.12em;text-shadow:0 0 22px #fb567b}

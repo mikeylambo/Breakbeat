@@ -1,9 +1,12 @@
 import { GemRules } from './content/gems/GemRules.js';
 import { Pulse } from './pulse/Pulse.js';
 import { Conductor } from './pulse/Conductor.js';
-import { skins, mastery } from './content/skins.js';
+import { skins } from './content/skins.js';
 import { T } from './tuning.js';
 import { renderTile, renderSweep } from './content/MaterialRenderer.js';
+import { migrateProgress, rankFor, personaUnlock, normalizedScore, recordResult } from './experience/Progression.js';
+import { advanceLesson, LESSONS } from './experience/Tutorial.js';
+import { PassRecorder, replayFrameAt } from './experience/Replay.js';
 const $ = (id) => document.getElementById(id);
 const canvas = $('board'), ctx = canvas.getContext('2d', { alpha: false });
 const conductor = new Conductor();
@@ -14,21 +17,124 @@ function getSaved(key, defaults) { try {
 catch {
     return defaults;
 } }
-const settings = getSaved(settingsKey, { volume: .7, flash: .7, strobeFree: false, reducedMotion: false, haptics: true, mute: false });
-const progress = getSaved(progressKey, { unlocked: 1, best: {}, daily: {} });
+const settings = getSaved(settingsKey, { volume: .7, flash: .7, strobeFree: false, reducedMotion: false, haptics: true, mute: false, autoPrime: false, highContrast: false, bpmScale: 1 });
+let progress;
+try {
+    progress = migrateProgress(JSON.parse(localStorage.getItem(progressKey) || 'null'));
+}
+catch {
+    progress = migrateProgress(null);
+}
+settings.bpmScale = [.8, .9, 1, 1.1, 1.2].includes(settings.bpmScale) ? settings.bpmScale : 1;
+const recorder = new PassRecorder();
+let lesson = 'prime', tutorialActive = !progress.tutorialComplete, trainingReplay = false, assistUsed = false, lastAssistPass = 0;
+let replayShown = null, replayStartMs = 0, feedbackTimeout = 0, sessionId = 0;
 let mode = 'odyssey', skinIndex = 0, game = null, playing = false, paused = false, finished = false, frameTime = 0;
 let selected = { x: 4, y: 10 }, hitstopUntil = 0;
 let bursts = [];
 let debris = [];
 let menuPhase = 'menu';
-let hintStage = 0;
-const cues = [
-    ['FIND YOUR FIRST GROUP', 'Tap two or more touching blocks of the same colour.'],
-    ['LET THE SWEEP PLAY', 'Every group you prime breaks on the next sweep. No timing judgment.'],
-    ['GO BIGGER', 'Prime multiple groups for a resonance chain.'],
-    ['HOLD TO OVERCHARGE', 'Long-press a primed group to skip a sweep, then explode outward.'],
-    ['CATCH THE FALL', 'Tap connecting colours while tiles are falling for an air-prime bonus.']
-];
+function sessionBpm() { return Math.round(skin().bpm * (mode === 'daily' ? 1 : settings.bpmScale)); }
+function currentScale() { return mode === 'daily' ? 1 : settings.bpmScale; }
+function scoreNow() { return normalizedScore(game?.stats.score ?? 0, currentScale()); }
+function recordKey() { return `${mode}:${skin().id}${assistUsed ? ':assisted' : ''}`; }
+function feedback(text) { const el = $('feedbackToast'); el.textContent = text; el.classList.add('active'); window.clearTimeout(feedbackTimeout); feedbackTimeout = window.setTimeout(() => el.classList.remove('active'), 1600); }
+function tip() {
+    if (!tutorialActive) {
+        $('tipTitle').textContent = 'CONDUCT THE WALL';
+        $('tipBody').textContent = 'Prime multiple groups for resonance. Hold one for an explosive second pass.';
+        $('lessonAction').textContent = 'TAP • HOLD • COMPOSE';
+        return;
+    }
+    const l = LESSONS[lesson];
+    $('tipTitle').textContent = l.title;
+    $('tipBody').textContent = l.body;
+    $('lessonAction').textContent = l.action;
+}
+function learn(event) {
+    if (!tutorialActive)
+        return;
+    const next = advanceLesson(lesson, event);
+    if (next === lesson)
+        return;
+    lesson = next;
+    tip();
+    if (lesson === 'complete') {
+        tutorialActive = false;
+        progress.tutorialComplete = true;
+        trainingReplay = false;
+        save();
+        feedback('LESSONS COMPLETE / YOU ARE THE CONDUCTOR');
+    }
+    else
+        feedback(LESSONS[lesson].action);
+}
+function findCandidate() {
+    if (!game || game.flight)
+        return null;
+    let candidate = null;
+    for (let y = 0; y < T.BOARD_ROWS; y++)
+        for (let x = 0; x < T.BOARD_COLS; x++) {
+            const len = game.rules.primeable(game.board, x, y).length;
+            if (len >= T.MIN_GROUP && (!candidate || len > candidate.size))
+                candidate = { x, y, size: len };
+        }
+    return candidate;
+}
+function performAssist(auto = false) {
+    if (!game || !playing || paused || mode === 'daily' || game.flight)
+        return;
+    const candidate = findCandidate();
+    if (!candidate)
+        return;
+    assistUsed = true;
+    selected = { x: candidate.x, y: candidate.y };
+    inputTile(candidate.x, candidate.y);
+    if (!auto)
+        feedback(`ASSIST / ${candidate.size} TILES PRIMED`);
+}
+function inspectSelected() {
+    if (!game)
+        return;
+    const tile = game.board[selected.y]?.[selected.x];
+    const size = game.rules.primeable(game.board, selected.x, selected.y).length;
+    $('selectedCell').textContent = `Column ${selected.x + 1}, row ${selected.y + 1}. ${tile ? `Color ${tile.type + 1}${tile.group === null ? '.' : ' primed.'}` : 'Empty.'} ${size >= 2 ? `${size}-tile group ready.` : ''}`;
+}
+function danger() {
+    if (!game)
+        return;
+    let highest = 14;
+    for (let y = 0; y < 14; y++)
+        if (game.board[y]?.some(Boolean)) {
+            highest = y;
+            break;
+        }
+    $('boardFrame').classList.toggle('danger-warn', highest < 7 && highest >= 4);
+    $('boardFrame').classList.toggle('danger-critical', highest < 4);
+    $('dangerText').textContent = highest < 4 ? '◆ CRITICAL / CLEAR NOW' : highest < 7 ? '◆ PRESSURE RISING' : '◂ DANGER ZONE';
+}
+function movementInfo() {
+    $('journeyOverview').classList.toggle('hidden', mode !== 'odyssey');
+    const completed = new Set(progress.completed);
+    $('journeyHeadline').textContent = `MOVEMENT ${String(skinIndex + 1).padStart(2, '0')} / 06`;
+    $('journeyTrack').textContent = Array.from({ length: 6 }, (_, i) => completed.has(String(i)) ? '◆' : i === skinIndex ? '◇' : '·').join(' ');
+    const key = `${mode}:${skin().id}`, record = progress.records[key], best = progress.best[key] ?? 0;
+    $('movementInfo').innerHTML = `<strong>${skin().name}</strong> / ${skin().subtitle.toUpperCase()} &nbsp; · &nbsp; ${best ? `BEST ${fmt(best)} / ${rankFor(best)}` : 'UNPLAYED'}${record?.assisted ? ' (ASSISTED)' : ''}`;
+    renderPersonas();
+}
+function renderPersonas() {
+    const row = $('personaRow');
+    row.replaceChildren();
+    for (const persona of ['blade', 'echo', 'prism']) {
+        const unlocked = personaUnlock(progress, persona), button = document.createElement('button');
+        button.textContent = unlocked ? persona.toUpperCase() : `LOCK / ${persona === 'echo' ? 'SILVER' : 'GOLD'}`;
+        button.className = progress.persona === persona ? 'selected' : '';
+        button.disabled = !unlocked;
+        button.title = unlocked ? `Use the ${persona} sweep persona` : `Earn ${persona === 'echo' ? 'Silver' : 'Gold'} mastery to unlock`;
+        button.addEventListener('click', () => { progress.persona = persona; save(); renderPersonas(); });
+        row.append(button);
+    }
+}
 function save() { try {
     localStorage.setItem(settingsKey, JSON.stringify(settings));
     localStorage.setItem(progressKey, JSON.stringify(progress));
@@ -39,8 +145,6 @@ function fmt(n) { return Math.floor(n).toLocaleString('en-US').padStart(6, '0');
 function skin() { return skins[skinIndex]; }
 function show(id, visible) { $(id).classList.toggle('hidden', !visible); }
 function announce(text) { $('announcer').textContent = text; }
-function tip(index) { if (index <= hintStage && index !== 0)
-    return; hintStage = index; const item = cues[Math.min(index, cues.length - 1)]; $('tipTitle').textContent = item[0]; $('tipBody').textContent = item[1]; }
 function selectMode(next) {
     mode = next;
     document.querySelectorAll('.mode-option').forEach(el => el.classList.toggle('selected', el.dataset.mode === mode));
@@ -49,6 +153,7 @@ function selectMode(next) {
         skinIndex = new Date().getUTCDate() % Math.min(progress.unlocked, skins.length);
     renderSkinRow();
     updateStartLabel();
+    movementInfo();
 }
 function renderSkinRow() {
     const root = $('skinRow');
@@ -62,7 +167,7 @@ function renderSkinRow() {
         const sw = document.createElement('i');
         sw.style.background = `linear-gradient(125deg,${s.palette[0]},${s.palette[2]})`;
         btn.append(sw);
-        btn.addEventListener('click', () => { skinIndex = i; renderSkinRow(); updateStartLabel(); });
+        btn.addEventListener('click', () => { skinIndex = i; renderSkinRow(); updateStartLabel(); movementInfo(); });
         root.append(btn);
     });
 }
@@ -82,12 +187,12 @@ function setHud() {
         $('multiplier').textContent = '×1.0';
         return;
     }
-    $('score').textContent = fmt(game.stats.score);
+    $('score').textContent = fmt(scoreNow());
     $('rank').textContent = game.combo >= 12 ? 'RESONANT' : game.combo >= 8 ? 'FRENZY' : game.combo >= 4 ? 'DRIVE' : game.combo >= 2 ? 'GROOVE' : 'PULSE';
     $('multiplier').textContent = `×${Math.min(3, 1 + game.combo * .1).toFixed(1)}`;
     $('barText').textContent = `BAR ${String(game.pass || 1).padStart(3, '0')}`;
     $('sweepLabel').textContent = `${Math.floor((conductor.absoluteStep % 16) / 4) + 1} / 04`;
-    $('bpmText').textContent = `${skin().bpm} BPM`;
+    $('bpmText').textContent = `${sessionBpm()} BPM`;
     $('trackTitle').textContent = skin().name;
 }
 function triggerHaptic(pattern) { if (settings.haptics && 'vibrate' in navigator)
@@ -101,16 +206,16 @@ function consume(events) {
             case 'prime': {
                 conductor.sustain(event.groupId, event.type, event.atStep);
                 triggerHaptic(skin().haptic.prime);
-                if (hintStage < 1)
-                    tip(1);
+                learn({ kind: 'prime', air: event.air });
                 if (event.air)
-                    tip(4);
+                    feedback('AIR PRIME +25%');
                 break;
             }
             case 'hold': {
                 conductor.hold(event.groupId, event.atStep);
                 triggerHaptic([14, 30, 14]);
-                tip(3);
+                learn({ kind: 'hold' });
+                feedback('HOLD / OVERCHARGE ARMED');
                 break;
             }
             case 'burst': {
@@ -128,8 +233,11 @@ function consume(events) {
                 }
                 if (event.resonance >= 4 && !settings.reducedMotion)
                     hitstopUntil = now + 60;
+                learn({ kind: 'burst', overcharged: event.overcharged });
                 if (event.overcharged)
-                    tip(3);
+                    feedback('OVERCHARGE ×2');
+                else if (event.resonance >= 3)
+                    feedback(`RESONANCE ×${event.resonance}`);
                 break;
             }
             case 'cascade': {
@@ -139,8 +247,7 @@ function consume(events) {
             }
             case 'land': break;
             case 'pressure': {
-                if (hintStage < 2)
-                    tip(2);
+                danger();
                 break;
             }
             case 'end':
@@ -150,8 +257,6 @@ function consume(events) {
     }
     // Overcharge can consume neighbouring primed groups: no dangling sustained notes.
     conductor.syncGroups(new Set(game.groups.keys()));
-    if (game.stats.groups > 2 && hintStage < 2)
-        tip(2);
     if (mode === 'odyssey' && !finished && game.stats.score >= [3600, 5600, 7600, 10000, 12500, 15000][skinIndex]) {
         end(true);
     }
@@ -160,12 +265,18 @@ function consume(events) {
 async function start() {
     if (mode === 'daily' && progress.daily[today()] !== undefined)
         return;
+    const thisSession = ++sessionId;
     finished = false;
     paused = false;
-    hintStage = 0;
-    tip(0);
+    lesson = 'prime';
+    tutorialActive = !progress.tutorialComplete || trainingReplay;
+    tip();
     menuPhase = 'play';
-    game = new Pulse({ seed: mode === 'daily' ? `breakbeat:${today()}` : `breakbeat:${mode}:${skin().id}:${Math.random().toString(36).slice(2)}`, mode, bpm: skin().bpm }, new GemRules());
+    assistUsed = false;
+    lastAssistPass = 0;
+    replayShown = null;
+    recorder.reset();
+    game = new Pulse({ seed: mode === 'daily' ? `breakbeat:${today()}` : `breakbeat:${mode}:${skin().id}:${Math.random().toString(36).slice(2)}`, mode, bpm: sessionBpm() }, new GemRules());
     selected = { x: 4, y: 10 };
     bursts = [];
     debris = [];
@@ -184,19 +295,25 @@ async function start() {
         console.info('Manifest unavailable. Starting synth fallback.', err);
     }
     try {
-        await conductor.start(skin().bpm, skin().key, track);
+        await conductor.start(sessionBpm(), skin().key, track);
     }
     catch (err) {
         console.warn('Stem load failed. Using synthesized score.', err);
-        await conductor.start(skin().bpm, skin().key);
+        await conductor.start(sessionBpm(), skin().key);
+    }
+    if (thisSession !== sessionId) {
+        await conductor.stop();
+        return;
     }
     playing = true;
+    $('assistBtn').toggleAttribute('disabled', mode === 'daily');
+    $('boardFrame').classList.toggle('high-contrast', settings.highContrast);
     show('menuOverlay', false);
     show('pauseOverlay', false);
     show('resultOverlay', false);
     $('pauseBtn').removeAttribute('disabled');
     $('modeLabel').textContent = mode === 'odyssey' ? `ODYSSEY / MOVEMENT ${String(skinIndex + 1).padStart(2, '0')}` : mode.toUpperCase().replace('ZEN', 'ZEN / FREE PLAY');
-    announce(`Session started. ${mode}. ${skin().name}, ${skin().bpm} beats per minute.`);
+    announce(`Session started. ${mode}. ${skin().name}, ${sessionBpm()} beats per minute.`);
     setHud();
 }
 async function end(success) {
@@ -205,33 +322,57 @@ async function end(success) {
     finished = true;
     playing = false;
     menuPhase = 'result';
+    recorder.finish(game.stats.score);
+    conductor.effect(success ? 'over' : 'resolve', 0, game.step);
+    if (!success) {
+        $('boardFrame').classList.add('fallen');
+        $('dangerText').textContent = '◆ PRESSURE OVERLOAD';
+    }
+    await new Promise(resolve => window.setTimeout(resolve, success ? 220 : 600));
     await conductor.setPause(true);
-    game.stats.bestPass = Math.max(game.stats.bestPass, 0);
-    const key = `${mode}:${skin().id}`, previousBest = progress.best[key] || 0;
-    progress.best[key] = Math.max(previousBest, game.stats.score);
+    $('boardFrame').classList.remove('fallen');
+    const score = scoreNow(), key = recordKey();
+    const priorPersona = new Set(['blade', 'echo', 'prism'].filter(p => personaUnlock(progress, p)));
+    const result = recordResult(progress, key, { score, bestPass: normalizedScore(game.stats.bestPass, currentScale()), longestCombo: game.stats.longestCombo, overcharges: game.stats.overcharges, airPrimes: game.stats.airPrimes, survivalSeconds: Math.round(conductor.elapsed), date: today(), assisted: assistUsed }, recorder.best);
     if (mode === 'daily')
-        progress.daily[today()] = game.stats.score;
-    if (success && mode === 'odyssey')
+        progress.daily[today()] = score;
+    if (success && mode === 'odyssey') {
         progress.unlocked = Math.max(progress.unlocked, Math.min(skinIndex + 2, skins.length));
+        if (!progress.completed.includes(String(skinIndex)))
+            progress.completed.push(String(skinIndex));
+    }
     save();
-    $('resultEyebrow').textContent = success ? 'MOVEMENT CLEARED // NEW TRACK UNLOCKED' : 'THE LAST BEAT';
+    const newlyUnlocked = ['echo', 'prism'].filter(p => !priorPersona.has(p) && personaUnlock(progress, p));
+    $('resultEyebrow').textContent = success ? 'MOVEMENT CLEARED // ODYSSEY' : 'THE LAST BEAT';
     $('resultTitle').innerHTML = success ? 'WHAT A<br><span>RELEASE.</span>' : 'THE WALL<br><span>FELL.</span>';
-    $('resultScore').textContent = fmt(game.stats.score);
-    $('resultRank').textContent = `${mastery(game.stats.score)} / ${skin().name}`;
-    $('bestPass').textContent = fmt(game.stats.bestPass);
+    $('resultScore').textContent = fmt(score);
+    $('resultRank').textContent = `${result.rank} / ${skin().name}`;
+    $('resultAccolade').textContent = `${result.newRecord ? '★ NEW PERSONAL BEST • ' : ''}${assistUsed ? 'ASSISTED RUN • ' : ''}${currentScale() !== 1 ? `BPM NORMALIZED ${Math.round(currentScale() * 100)}%` : 'PURE PERFORMANCE'}`;
+    $('bestPass').textContent = fmt(normalizedScore(game.stats.bestPass, currentScale()));
     $('longestCombo').textContent = String(game.stats.longestCombo);
     $('overcharges').textContent = String(game.stats.overcharges);
     $('airPrimes').textContent = String(game.stats.airPrimes);
+    $('survival').textContent = `${Math.floor(conductor.elapsed / 60)}:${String(Math.floor(conductor.elapsed % 60)).padStart(2, '0')}`;
+    $('personalBest').textContent = fmt(progress.best[key] || score);
+    replayShown = recorder.best ?? progress.replays[key] ?? null;
+    replayStartMs = performance.now();
+    $('replayPanel').classList.toggle('missing', !replayShown?.frames.length);
+    $('replayScore').textContent = fmt(normalizedScore(replayShown?.score ?? 0, currentScale()));
+    $('unlockPanel').classList.toggle('hidden', !newlyUnlocked.length && !success);
+    $('unlockPanel').textContent = [success ? `MOVEMENT ${skinIndex + 1} COMPLETE${skinIndex < 5 ? ' • NEXT MOVEMENT UNLOCKED' : ' • ODYSSEY COMPLETE'}` : '', ...newlyUnlocked.map(p => `NEW SWEEP PERSONA UNLOCKED: ${p.toUpperCase()}`)].filter(Boolean).join(' / ');
+    $('nextMovementBtn').classList.toggle('hidden', !success || mode !== 'odyssey' || skinIndex >= 5);
     show('pauseOverlay', false);
     show('resultOverlay', true);
     $('pauseBtn').setAttribute('disabled', 'true');
-    announce('Run completed. Score ' + fmt(game.stats.score));
+    $('assistBtn').setAttribute('disabled', 'true');
+    announce('Run completed. Score ' + fmt(score));
 }
 async function pause() { if (!playing || paused)
     return; paused = true; await conductor.setPause(true); show('pauseOverlay', true); announce('Game paused'); }
 async function resume() { if (!playing || !paused)
     return; paused = false; show('pauseOverlay', false); await conductor.setPause(false); announce('Game resumed'); }
 async function home() {
+    sessionId++;
     playing = false;
     paused = false;
     finished = false;
@@ -242,9 +383,11 @@ async function home() {
     show('resultOverlay', false);
     show('menuOverlay', true);
     $('pauseBtn').setAttribute('disabled', 'true');
+    $('assistBtn').setAttribute('disabled', 'true');
     $('modeLabel').textContent = 'THE RHYTHM DEMOLITION EXPERIMENT';
     renderSkinRow();
     updateStartLabel();
+    movementInfo();
     setHud();
 }
 function tileAt(clientX, clientY) { const r = canvas.getBoundingClientRect(); return { x: Math.floor((clientX - r.left) / r.width * T.BOARD_COLS), y: Math.floor((clientY - r.top) / r.height * T.BOARD_ROWS) }; }
@@ -254,6 +397,7 @@ function inputTile(x, y, held = false) {
     if (x < 0 || x >= T.BOARD_COLS || y < 0 || y >= T.BOARD_ROWS)
         return;
     selected = { x, y };
+    inspectSelected();
     if (held) {
         if (!game.hold(x, y))
             conductor.effect('error');
@@ -289,7 +433,7 @@ canvas.addEventListener('pointercancel', () => { if (pointer)
 window.addEventListener('keydown', e => {
     if (!playing || paused || !document.getElementById('settingsOverlay')?.classList.contains('hidden'))
         return;
-    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', 'Enter', 'h', 'H', 'p', 'P', 'Escape'].includes(e.key))
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', 'Enter', 'h', 'H', 'a', 'A', 'p', 'P', 'Escape'].includes(e.key))
         e.preventDefault();
     if (e.key === 'ArrowLeft')
         selected.x = Math.max(0, selected.x - 1);
@@ -301,6 +445,10 @@ window.addEventListener('keydown', e => {
         selected.y = Math.min(13, selected.y + 1);
     if (e.key === 'Enter' || e.key === ' ')
         inputTile(selected.x, selected.y);
+    if (e.key === 'a' || e.key === 'A')
+        performAssist();
+    if (e.key.startsWith('Arrow'))
+        inspectSelected();
     if (e.key === 'h' || e.key === 'H')
         inputTile(selected.x, selected.y, true);
     if (e.key === 'p' || e.key === 'P' || e.key === 'Escape')
@@ -413,6 +561,32 @@ function draw(now) {
         }
         const lineX = phase * w;
         renderSweep(ctx, s, lineX, w, h, settings.flash, conductor.elapsed * 1000);
+        if (s.sweep !== 'hidden' && progress.persona !== 'blade') {
+            ctx.save();
+            ctx.globalAlpha = settings.strobeFree ? .55 : Math.max(.2, settings.flash);
+            const x = lineX;
+            if (progress.persona === 'echo') {
+                for (let i = 1; i <= 3; i++) {
+                    ctx.strokeStyle = rgba(s.accent, .43 / i);
+                    ctx.lineWidth = 5 / i;
+                    ctx.beginPath();
+                    ctx.moveTo(x - i * 17, 0);
+                    ctx.lineTo(x - i * 17, h);
+                    ctx.stroke();
+                }
+            }
+            else {
+                for (let j = -1; j <= 1; j++) {
+                    ctx.strokeStyle = j === 0 ? '#ffffff' : s.palette[(j + 4) % 4];
+                    ctx.lineWidth = j === 0 ? 3 : 6;
+                    ctx.beginPath();
+                    ctx.moveTo(x + j * 9, 0);
+                    ctx.lineTo(x - j * 9, h);
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+        }
         if (flight) {
             ctx.font = '800 16px sans-serif';
             ctx.fillStyle = '#ffffffdc';
@@ -461,6 +635,44 @@ function draw(now) {
             ctx.fillRect(-size / 2, -size / 2, size, size);
             ctx.restore();
         }
+    if (replayShown && !$('resultOverlay').classList.contains('hidden')) {
+        const preview = $('replayCanvas'), rctx = preview.getContext('2d');
+        if (rctx) {
+            const frame = replayFrameAt(replayShown, now - replayStartMs);
+            if (frame) {
+                rctx.fillStyle = '#090c16';
+                rctx.fillRect(0, 0, 720, 1008);
+                for (let n = 0; n < frame.cells.length; n++) {
+                    const value = frame.cells[n];
+                    if (value < 0)
+                        continue;
+                    const type = value % 4, primed = value >= 4, held = value >= 8, x = n % 10 * 72, y = Math.floor(n / 10) * 72;
+                    rctx.fillStyle = s.palette[type];
+                    rctx.globalAlpha = primed ? 1 : .73;
+                    rctx.fillRect(x + 3, y + 3, 66, 66);
+                    rctx.strokeStyle = held ? '#ffffff' : primed ? '#edcde8' : '#20232c';
+                    rctx.lineWidth = held ? 5 : 2;
+                    rctx.strokeRect(x + 4, y + 4, 64, 64);
+                }
+                rctx.globalAlpha = 1;
+                rctx.strokeStyle = '#fff9';
+                rctx.lineWidth = 5;
+                rctx.beginPath();
+                const rx = frame.step / 16 * 720;
+                rctx.moveTo(rx, 0);
+                rctx.lineTo(rx, 1008);
+                rctx.stroke();
+                for (const pos of frame.blasts) {
+                    const x = (pos % 10 + .5) * 72, y = (Math.floor(pos / 10) + .5) * 72;
+                    rctx.strokeStyle = '#ffdfad';
+                    rctx.lineWidth = 7;
+                    rctx.beginPath();
+                    rctx.arc(x, y, 47, 0, 2 * Math.PI);
+                    rctx.stroke();
+                }
+            }
+        }
+    }
     document.querySelectorAll('#beatline b').forEach((el, i) => el.classList.toggle('lit', Math.floor(beat / 4) === i));
     ctx.restore();
 }
@@ -474,11 +686,23 @@ function tick(now) {
         const events = game.drain();
         if (events.length || game.step !== previousStep)
             consume(events);
+        recorder.capture(game.pass, game.step, game.stats.score, game.board, game.groups, events.filter(e => e.kind === 'burst').map(e => e.y * 10 + e.x));
+        if (settings.autoPrime && !tutorialActive && mode !== 'daily' && game.pass > lastAssistPass && !game.flight) {
+            lastAssistPass = game.pass;
+            performAssist(true);
+        }
+        danger();
         conductor.setRank(Math.floor(game.combo / 3));
     }
     draw(now);
     requestAnimationFrame(tick);
 }
+$('assistBtn').addEventListener('click', () => performAssist());
+$('tutorialBtn').addEventListener('click', () => { trainingReplay = true; lesson = 'prime'; feedback('LEARNING PATH ARMED / START A SESSION'); });
+$('nextMovementBtn').addEventListener('click', () => { if (mode === 'odyssey' && skinIndex < 5) {
+    skinIndex++;
+    void start();
+} });
 $('startBtn').addEventListener('click', () => void start());
 document.querySelectorAll('.mode-option').forEach(btn => btn.addEventListener('click', () => selectMode(btn.dataset.mode)));
 $('pauseBtn').addEventListener('click', () => void pause());
@@ -491,6 +715,7 @@ else
 $('againBtn').addEventListener('click', () => void start());
 $('resultsHomeBtn').addEventListener('click', () => void home());
 $('soundBtn').addEventListener('click', () => { settings.mute = !settings.mute; conductor.setMuted(settings.mute); $('soundBtn').textContent = settings.mute ? '◖×' : '◖))'; save(); });
+$('menuSettingsBtn').addEventListener('click', () => show('settingsOverlay', true));
 $('settingsBtn').addEventListener('click', () => { if (playing && !paused)
     void pause(); show('settingsOverlay', true); });
 $('closeSettings').addEventListener('click', () => show('settingsOverlay', false));
@@ -499,11 +724,15 @@ volume.value = String(settings.volume * 100);
 flash.value = String(settings.flash * 100);
 volume.addEventListener('input', () => { settings.volume = +volume.value / 100; conductor.setVolume(settings.volume); save(); });
 flash.addEventListener('input', () => { settings.flash = +flash.value / 100; save(); });
-for (const key of ['strobeFree', 'reducedMotion', 'haptics']) {
+for (const key of ['strobeFree', 'reducedMotion', 'haptics', 'autoPrime', 'highContrast']) {
     const input = $(key);
     input.checked = settings[key];
-    input.addEventListener('change', () => { settings[key] = input.checked; save(); });
+    input.addEventListener('change', () => { settings[key] = input.checked; if (key === 'highContrast')
+        $('boardFrame').classList.toggle('high-contrast', settings.highContrast); save(); });
 }
+const speed = $('bpmScale');
+speed.value = String(settings.bpmScale);
+speed.addEventListener('change', () => { settings.bpmScale = Number(speed.value); save(); movementInfo(); });
 window.addEventListener('visibilitychange', () => { if (document.hidden && playing && !paused)
     void pause(); });
 // No service worker is registered: offline play requires a locally cached installation or packaged build.

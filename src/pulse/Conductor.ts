@@ -51,7 +51,7 @@ export class Conductor {
     const loopStart=startBar*16*this.stepSeconds,loopEnd=endBar*16*this.stepSeconds;
     for(const {stem,buffer} of this.loaded){
       const src=ctx.createBufferSource(),gain=ctx.createGain();src.buffer=buffer;
-      src.loop=true;src.loopStart=Math.min(Math.max(0,loopStart),Math.max(0,buffer.duration-.02));
+      src.loop=true;src.playbackRate.value=this.bpm/(track.bpm||this.bpm);src.loopStart=Math.min(Math.max(0,loopStart),Math.max(0,buffer.duration-.02));
       src.loopEnd=Math.min(loopEnd,buffer.duration);
       if(src.loopEnd<=src.loopStart)src.loopEnd=buffer.duration;
       gain.gain.value=stem.rank<=this.rank?(stem.gain??.75):0;
@@ -161,7 +161,7 @@ export class Conductor {
     for(const oscillator of voice.oscillators){try{oscillator.stop(stop);}catch{}}
     this.voices.delete(id);
   }
-  effect(kind:'prime'|'hold'|'burst'|'over'|'slide'|'error',color=0,step?:number):void{
+  effect(kind:'prime'|'hold'|'burst'|'over'|'slide'|'error'|'resolve',color=0,step?:number):void{
     const ctx=this.ctx;if(!ctx||this.paused)return;
     const at=step===undefined?this.nextGridTime(ctx.currentTime+.006):this.eventAudioTime(step);
     const notes=[0,3,7,10,14],n=notes[color]??0;
@@ -171,5 +171,6 @@ export class Conductor {
     if(kind==='over'){this.kick(at,.24);this.tone(at,this.hz(n-12),.7,.10,'sawtooth',.7);}
     if(kind==='slide')this.tone(at,this.hz(-5),.12,.022,'sine',.7);
     if(kind==='error')this.tone(at,this.hz(-7),.1,.025,'triangle');
+    if(kind==='resolve'){this.tone(at,this.hz(0),.68,.07,'sine');this.tone(at+.03,this.hz(7),.6,.045,'triangle');this.tone(at+.09,this.hz(12),.55,.03,'sine');}
   }
 }

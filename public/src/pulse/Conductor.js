@@ -68,6 +68,7 @@ export class Conductor {
             const src = ctx.createBufferSource(), gain = ctx.createGain();
             src.buffer = buffer;
             src.loop = true;
+            src.playbackRate.value = this.bpm / (track.bpm || this.bpm);
             src.loopStart = Math.min(Math.max(0, loopStart), Math.max(0, buffer.duration - .02));
             src.loopEnd = Math.min(loopEnd, buffer.duration);
             if (src.loopEnd <= src.loopStart)
@@ -282,5 +283,10 @@ export class Conductor {
             this.tone(at, this.hz(-5), .12, .022, 'sine', .7);
         if (kind === 'error')
             this.tone(at, this.hz(-7), .1, .025, 'triangle');
+        if (kind === 'resolve') {
+            this.tone(at, this.hz(0), .68, .07, 'sine');
+            this.tone(at + .03, this.hz(7), .6, .045, 'triangle');
+            this.tone(at + .09, this.hz(12), .55, .03, 'sine');
+        }
     }
 }
