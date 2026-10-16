@@ -1,5 +1,13 @@
 # BREAKBEAT release history
 
+## 0.4.0 — Player Experience + Progression
+
+**0.3 player experience:** Event-gated first-run lessons and replay tutorial; beat and danger status; assisted manual/automatic priming; screen-reader cell narration and keyboard assist; contrast and tempo options; settings accessible before starting; pause and recovery; improved score feedback; tonic game-over resolve, transitions, and mobile-safe branding. Daily enforces original speed and disables assists.
+
+**0.4 mastery:** Schema-v2 save migration, Odyssey movement map and completion, local personal records split between assisted and pure scores, BPM-normalized scores, Bronze → Resonant mastery, Echo/Prism sweep-persona cosmetic unlocks, results card with survival time and strongest-pass display-only 3-second loop. Six new experience tests plus prior 16 game/audio tests pass. Vercel deployment verification is included. Original music remains deliberately deferred.
+
+Important limits: Replay visually reconstructs captured board frames only, not video/audio. This is local progression, not a server-backed profile. Screen-reader gameplay has focused-keyboard announcements, not a complete nonvisual alternative; real-device accessibility/performance certification and original music remain unfinished.
+
 ## 0.2.0 — The Instrument Pass
 
 1. Conductor: timestamped 16th-note effects, output latency–compensated rendering, 200-pass timing-grid tests, sustained chord voices, hold harmonics and an Overcharge drop.

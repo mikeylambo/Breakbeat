@@ -34,7 +34,7 @@ npm run gates
 
 Tap a touching same-colour group of **2 or more** to prime it. The group locks, then detonates when the **next measure's sweepline** crosses it; taps are not timed. Multiple clears on a pass increase resonance. Long-press a primed group (300 ms) to **hold** it through one pass and overcharge its next blast. Cascading blocks create air-prime opportunities. A new pressure row pushes the wall upwards on every second downbeat cycle, then every cycle later in Endless/Odyssey. Exceed the danger line and the session ends.
 
-Keyboard: **Arrow keys** select a tile, **Enter** or **Space** prime, **H** hold, **P** / **Esc** pause. Touch and mouse are supported. Headphones recommended.
+Keyboard: **Arrow keys** select a tile, **Enter** or **Space** prime, **H** hold, **A** manually prime the largest available group with assist, **P** / **Esc** pause. Touch and mouse are supported. Headphones recommended.
 
 ## Included
 
@@ -49,12 +49,23 @@ Keyboard: **Arrow keys** select a tile, **Enter** or **Space** prime, **H** hold
 
 `src/pulse/` owns clocks-independent deterministic rules, and imports a **ContentRules interface only**. It does not import gems content. `src/content/gems/` supplies the first ruleset; `src/content/skins.ts` supplies data-driven themes. `src/pulse/Conductor.ts` reads `AudioContext.currentTime` as the authoritative time. `src/main.ts` owns input / menus / rendering / audio hooks. `src/tuning.ts` owns game balance.
 
+## Player experience and progression (0.4.0)
+
+- **Action-gated learning path:** priming → sweep clear → hold → Overcharge → real air-prime. Progress advances only on successful game events, persists locally, and can be replayed from the main menu.
+- **Assist and accessibility:** a manual group-suggestion assist button (or keyboard `A`), optional one group auto-primed per new bar, five BPM scaling choices, high-contrast tile outlines, visual danger escalation, persistent flash/reduced-motion/strobe settings, keyboard navigation, and spoken cell inspection via a live region. Daily plays at native speed with no assist.
+- **Score integrity:** BPM-adjusted results normalize the score to the original speed. Assisted and unassisted records are stored separately and labeled; the local Daily is unranked.
+- **Odyssey journey:** six movement milestones, local unlocks and completion tracking; personal bests with Bronze/Silver/Gold/Platinum/Resonant mastery ranks. Earn Echo (Silver) and Prism (Gold) cosmetic sweeps by achieving score thresholds. Coda's ear-only sweep remains invisible regardless of cosmetic.
+- **Results:** local record cards with best pass, chain, air-primes, Overcharges, survival time, and a 3-second looping **visual reconstruction** of the strongest pass (not an audio replay). Best pass is recorded per run; records and replay data persist locally.
+- **Saves:** schema v2 migrates existing v0.1/v0.2 localStorage unlocks and personal best scores without wiping older progress. Data is device/browser-local.
+
+For automation/testing: `npm run gates` runs compiler checks, unit and integration tests, deterministic seed sweeps, and the static deployment asset check. No original licensed music required.
+
 ## Production blockers / honest release status
 
-This is a playable 0.2.0 browser milestone, not a certified commercial release. The provided archive contains no licensed original stems, so the soundtrack is procedurally synthesized. Original track stems, acoustic/hardware audio-output calibration, real-device 120 FPS performance certification, cross-platform latency calibration, a hosted authoritative Daily leaderboard/one-attempt validation, service-worker offline precaching and QA on the target mobile device matrix remain. Duet / Remix / Quest mixed reality are explicitly post-v1 and not included.
+This is a playable 0.4.0 browser milestone, not a certified commercial release. The provided archive contains no licensed original stems, so the soundtrack is procedurally synthesized. Original track stems, acoustic/hardware audio-output calibration, real-device 120 FPS performance certification, cross-platform latency calibration, a hosted authoritative Daily leaderboard/one-attempt validation, service-worker offline precaching and QA on the target mobile device matrix remain. Duet / Remix / Quest mixed reality are explicitly post-v1 and not included.
 
 No analytics or ads are present. Audio manifests and optional stems preload before a session, with no in-session network requests. The app does not register a service worker, so an online web hosting setup is needed for initial load.
 
 ## Instrument milestone (0.2.0)
 
-The five systems from the first audit are implemented in this milestone: conductor math and output-latency compensation; real in-flight cascade input; stem transport with the current synth fallback; layered burst/held/anticipation effects; and six distinct visual themes with per-skin sweep and haptic identities. `AUDIO_STEMS.md` is the authoritative integration guide for final compositions. `npm run gates` validates 16 unit/integration checks and structure, but an audio-loopback test and physical phone frame profiling remain required for shipping guarantees.
+The five systems from the first audit are implemented in this milestone: conductor math and output-latency compensation; real in-flight cascade input; stem transport with the current synth fallback; layered burst/held/anticipation effects; and six distinct visual themes with per-skin sweep and haptic identities. `AUDIO_STEMS.md` is the authoritative integration guide for final compositions. `npm run gates` validates 22+ unit/integration checks and structure, but an audio-loopback test and physical phone frame profiling remain required for shipping guarantees.
