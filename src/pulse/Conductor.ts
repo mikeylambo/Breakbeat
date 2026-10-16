@@ -1,81 +1,175 @@
-/** Web Audio is the clock. Rendering and sim sample its timeline, not a JS metronome. */
+import { loadAudioStem } from '../shell/StemLoader.js';
+/** WebAudio conductor: one transport for the rendered sweep, stems, key-aware notes,
+ *  queued sound effects and sustained priming chords. No JS time-based metronome. */
+export interface Stem { id:string; src:string; rank:number; gain?:number; }
+export interface Track { id:string; bpm:number; key:string; offsetMs:number; stems:Stem[]; loopStartBar:number; loopEndBar:number; skin:string; }
+interface Layer { stem:Stem; buffer:AudioBuffer; gain:GainNode; source:AudioBufferSourceNode; }
+interface Voice { oscillators:OscillatorNode[]; gain:GainNode; note:number; held:boolean; }
+export const SIXTEENTHS_PER_BAR=16;
+export function stepTime(origin:number,step:number,bpm:number):number{return origin+step*60/bpm/4;}
+export function quantizeStep(time:number,origin:number,bpm:number):number{return Math.max(0,Math.ceil(Math.max(0,time-origin)*bpm/60*4-1e-8));}
+export function visualElapsed(audioCurrentTime:number,origin:number,outputLatency:number):number{
+  return Math.max(0,audioCurrentTime-origin-Math.max(0,outputLatency));
+}
 export class Conductor {
-  private ctx: AudioContext | null = null;
-  private origin = 0; private lastScheduled = -1; private paused = true;
-  private interval = 0; private rank = 0; private volume = .7;
-  bpm = 124; key = 0; muted = false;
-  get ready(): boolean { return !!this.ctx; }
-  get running(): boolean { return !!this.ctx && !this.paused; }
-  get contextTime(): number { return this.ctx?.currentTime ?? 0; }
-  get beatSeconds():number {return 60/this.bpm;}
-  get stepSeconds():number {return this.beatSeconds/4;}
-  get elapsed():number {return Math.max(0,(this.ctx?.currentTime ?? this.origin)-this.origin);}
-  get absoluteStep():number {return Math.floor(this.elapsed/this.stepSeconds + 1e-6);}
-  get sweep():number {return (this.elapsed%(this.beatSeconds*4))/(this.beatSeconds*4);}
-  get latencyMs():number {return Math.round(((this.ctx?.outputLatency??0)+(this.ctx?.baseLatency??0))*1000);}
-  async start(bpm:number,key=0):Promise<void> {
-    await this.stop();
-    this.ctx = new AudioContext({latencyHint:'interactive'});
-    await this.ctx.resume(); this.bpm=bpm;this.key=key;
-    this.origin=this.ctx.currentTime+.095;this.lastScheduled=-1;this.paused=false;
-    this.interval=window.setInterval(()=>this.schedule(),25);
-    this.schedule();
+  private ctx:AudioContext|null=null;
+  private origin=0;private lastScheduled=-1;private paused=true;private interval=0;
+  private rank=0;private volume=.7;private master:GainNode|null=null;
+  private layers:Layer[]=[];private voices=new Map<number,Voice>();private loaded: {stem:Stem;buffer:AudioBuffer}[]=[];
+  bpm=124;key=0;muted=false;usingStems=false;profile='ignition';
+  get ready():boolean{return !!this.ctx;}
+  get running():boolean{return !!this.ctx&&!this.paused;}
+  get contextTime():number{return this.ctx?.currentTime??0;}
+  get beatSeconds():number{return 60/this.bpm;}
+  get stepSeconds():number{return this.beatSeconds/4;}
+  get outputLatency():number{return (this.ctx?.outputLatency??0)+(this.ctx?.baseLatency??0);}
+  get elapsed():number{return visualElapsed(this.contextTime,this.origin,this.outputLatency);}
+  get absoluteStep():number{return Math.floor(this.elapsed/this.stepSeconds+1e-6);}
+  get sweep():number{return this.elapsed%(this.stepSeconds*16)/(this.stepSeconds*16);}
+  get latencyMs():number{return Math.round(this.outputLatency*1000);}
+  get trackMode():string{return this.usingStems?'STEMS':'LIVE SYNTH';}
+  async start(bpm:number,key=0,track?:Track):Promise<void>{
+    await this.stop();this.ctx=new AudioContext({latencyHint:'interactive'});await this.ctx.resume();
+    this.bpm=bpm;this.key=key;this.profile=track?.id??'ignition';
+    this.master=this.ctx.createGain();this.master.gain.value=this.muted?0:this.volume;
+    this.master.connect(this.ctx.destination);
+    this.loaded=[];
+    // All asset loading completes BEFORE the clock starts. No play-time HTTP calls.
+    if(track?.stems.length){
+      this.loaded=await Promise.all(track.stems.map(async stem=>{
+        return {stem,buffer:await loadAudioStem(this.ctx!,stem.src)};
+      }));
+    }
+    this.origin=this.ctx.currentTime+.18+(track?.offsetMs??0)/1000;
+    this.lastScheduled=-1;this.paused=false;this.usingStems=this.loaded.length>0;
+    this.createLayers(track);
+    this.interval=window.setInterval(()=>this.schedule(),20);this.schedule();
   }
-  async stop():Promise<void> {
+  private createLayers(track?:Track):void{
+    const ctx=this.ctx;if(!ctx||!track)return;
+    const startBar=Math.max(0,track.loopStartBar-1),endBar=Math.max(track.loopEndBar,startBar+1);
+    const loopStart=startBar*16*this.stepSeconds,loopEnd=endBar*16*this.stepSeconds;
+    for(const {stem,buffer} of this.loaded){
+      const src=ctx.createBufferSource(),gain=ctx.createGain();src.buffer=buffer;
+      src.loop=true;src.loopStart=Math.min(Math.max(0,loopStart),Math.max(0,buffer.duration-.02));
+      src.loopEnd=Math.min(loopEnd,buffer.duration);
+      if(src.loopEnd<=src.loopStart)src.loopEnd=buffer.duration;
+      gain.gain.value=stem.rank<=this.rank?(stem.gain??.75):0;
+      src.connect(gain).connect(this.master!);src.start(this.origin,src.loopStart);
+      this.layers.push({stem,buffer,gain,source:src});
+    }
+  }
+  async stop():Promise<void>{
     if(this.interval)window.clearInterval(this.interval);this.interval=0;
-    const old=this.ctx;this.ctx=null;this.paused=true;
+    for(const id of [...this.voices.keys()])this.release(id,true);
+    for(const layer of this.layers){try{layer.source.stop();}catch{}layer.source.disconnect();}this.layers=[];
+    const old=this.ctx;this.ctx=null;this.master=null;this.paused=true;this.usingStems=false;
     if(old)await old.close().catch(()=>{});
   }
-  async setPause(paused:boolean):Promise<void>{
-    if(!this.ctx||this.paused===paused)return;
-    this.paused=paused;
-    if(paused)await this.ctx.suspend();else {await this.ctx.resume();this.schedule();}
+  async setPause(paused:boolean):Promise<void>{if(!this.ctx||this.paused===paused)return;this.paused=paused;
+    if(paused)await this.ctx.suspend();else {await this.ctx.resume();this.schedule();}}
+  setRank(rank:number):void{
+    const target=Math.max(0,Math.min(4,rank));if(target===this.rank)return;this.rank=target;
+    const ctx=this.ctx;if(!ctx)return;
+    const at=this.nextGridTime(ctx.currentTime+.005);
+    for(const layer of this.layers){layer.gain.gain.cancelScheduledValues(at);layer.gain.gain.setTargetAtTime(layer.stem.rank<=target?(layer.stem.gain??.75):0,at,.06);}
   }
-  setRank(rank:number):void {this.rank=Math.min(4,rank);}
-  setVolume(volume:number):void {this.volume=Math.max(0,Math.min(1,volume));}
+  setVolume(volume:number):void{this.volume=Math.max(0,Math.min(1,volume));this.syncVolume();}
+  setMuted(muted:boolean):void{this.muted=muted;this.syncVolume();}
+  private syncVolume():void{if(this.ctx&&this.master)this.master.gain.setTargetAtTime(this.muted?0:this.volume,this.ctx.currentTime,.015);}
   private hz(semitones:number):number{return 220*Math.pow(2,(semitones+this.key)/12);}
+  nextGridTime(time:number):number{return stepTime(this.origin,quantizeStep(time,this.origin,this.bpm),this.bpm);}
+  /** Contract: event step always maps to the exact audio grid; late callbacks are
+   *  recovered at the next grid rather than emitting an off-grid sound. */
+  eventAudioTime(atStep:number):number{
+    const now=(this.ctx?.currentTime??0)+.006;
+    const nominal=stepTime(this.origin,atStep,this.bpm);
+    return nominal>=now?nominal:this.nextGridTime(now);
+  }
   private tone(at:number,hz:number,duration:number,gain:number,wave:OscillatorType='sine',cutoff=0):void{
-    const ctx=this.ctx;if(!ctx||this.muted)return;
+    const ctx=this.ctx;if(!ctx||!this.master)return;
     const osc=ctx.createOscillator(),amp=ctx.createGain();osc.type=wave;osc.frequency.setValueAtTime(hz,at);
     if(cutoff)osc.frequency.exponentialRampToValueAtTime(Math.max(50,hz*cutoff),at+duration);
-    amp.gain.setValueAtTime(.0001,at);
-    amp.gain.exponentialRampToValueAtTime(Math.max(.0001,gain*this.volume),at+.009);
+    amp.gain.setValueAtTime(.0001,at);amp.gain.exponentialRampToValueAtTime(Math.max(.0001,gain),at+.008);
     amp.gain.exponentialRampToValueAtTime(.0001,at+duration);
-    osc.connect(amp).connect(ctx.destination);osc.start(at);osc.stop(at+duration+.015);
+    osc.connect(amp).connect(this.master);osc.start(at);osc.stop(at+duration+.02);
   }
-  private noiseKick(at:number,gain:number):void{
-    const ctx=this.ctx;if(!ctx||this.muted)return;
-    const osc=ctx.createOscillator(),amp=ctx.createGain();osc.type='sine';
-    osc.frequency.setValueAtTime(130,at);osc.frequency.exponentialRampToValueAtTime(43,at+.14);
-    amp.gain.setValueAtTime(gain*this.volume,at);amp.gain.exponentialRampToValueAtTime(.0001,at+.19);
-    osc.connect(amp).connect(ctx.destination);osc.start(at);osc.stop(at+.2);
+  private kick(at:number,gain:number):void{
+    const ctx=this.ctx;if(!ctx||!this.master)return;const osc=ctx.createOscillator(),amp=ctx.createGain();osc.type='sine';
+    osc.frequency.setValueAtTime(128,at);osc.frequency.exponentialRampToValueAtTime(44,at+.14);
+    amp.gain.setValueAtTime(Math.max(.0001,gain),at);amp.gain.exponentialRampToValueAtTime(.0001,at+.19);
+    osc.connect(amp).connect(this.master);osc.start(at);osc.stop(at+.2);
   }
   private schedule():void{
     if(!this.ctx||this.paused)return;
-    const ctx=this.ctx, horizon=ctx.currentTime+.12;
-    while(this.origin+(this.lastScheduled+1)*this.stepSeconds<horizon){
-      const index=++this.lastScheduled,at=this.origin+index*this.stepSeconds;
-      if(at<ctx.currentTime-.015)continue;
-      const beat=index%16;
-      if(beat%4===0)this.noiseKick(at,beat===0?.18:.10);
-      if(beat===4||beat===12)this.tone(at,185,.085,.053,'triangle',.55);
-      if(beat%2===0)this.tone(at,this.hz(22),.04,.009+(this.rank*.005),'square');
-      if(this.rank>=1 && beat%4===2)this.tone(at,this.hz([0,3,7,10][Math.floor(index/16)%4]!),.18,.032,'triangle');
-      if(this.rank>=2 && beat===0)this.tone(at,this.hz(-12+[0,5,3,7][Math.floor(index/16)%4]!),1,.045,'sine');
-      if(this.rank>=3 && beat%4===3)this.tone(at,this.hz(12+((index*7)%12)),.07,.02,'triangle');
+    const ctx=this.ctx,horizon=ctx.currentTime+.14;
+    while(stepTime(this.origin,this.lastScheduled+1,this.bpm)<horizon){
+      const index=++this.lastScheduled,at=stepTime(this.origin,index,this.bpm);
+      if(at<ctx.currentTime-.012||this.usingStems)continue;
+      const beat=index%16,bar=Math.floor(index/16);
+      // Six movement-specific procedural arrangements are temporary music, not the OST.
+      const p=this.profile;
+      const sparse=p==='stillwater'||p==='coda',broken=p==='neon-rush'||p==='fracture';
+      if(beat===0||(!sparse&&(p==='fracture'?beat===7||beat===11:beat===8))||(p==='ignition'&&beat===4))
+        this.kick(at,beat===0?.19:.10);
+      if((p==='afterglow'?(beat===4||beat===12):(broken?[3,7,11,15].includes(beat):beat===12)))
+        this.tone(at,185,.09,p==='fracture'?.08:.047,'triangle',.55);
+      if((p==='neon-rush'?beat%1===0:sparse?beat%4===0:beat%2===0))
+        this.tone(at,this.hz(22),.042,(sparse?.005:.009)+(this.rank*.003),'square');
+      if(this.rank>=1&&(sparse?beat===2:broken?beat%4===3:beat%4===2))
+        this.tone(at,this.hz([0,3,7,10][bar%4]!),sparse?.5:.18,.026,'triangle');
+      if(this.rank>=2&&beat===0)this.tone(at,this.hz(-12+[0,5,3,7][bar%4]!),sparse?1.8:1,.05,'sine');
+      if(this.rank>=3&&(sparse?beat===10:beat%4===3))this.tone(at,this.hz(12+(index*7)%12),.1,.023,'triangle');
+      if(this.rank>=4&&beat===0)this.tone(at,this.hz(12+([0,3,7,10][bar%4]??0)),1.2,.035,'sine');
     }
   }
-  /** Quantize effects to next future 16th. No input timing penalty. */
-  effect(kind:'prime'|'hold'|'burst'|'over'|'slide'|'error',color=0):void {
+  /** Persistent note sounds throughout the group's life; holds add an octave. */
+  sustain(id:number,color:number,step:number):void{
+    if(!this.ctx||!this.master||this.paused)return;
+    const at=this.eventAudioTime(step),notes=[0,3,7,10,14],note=notes[color]??0;
+    if(this.voices.has(id))return;
+    const amp=this.ctx.createGain(),osc=this.ctx.createOscillator();osc.type='sine';osc.frequency.value=this.hz(note);
+    amp.gain.setValueAtTime(.0001,at);amp.gain.setTargetAtTime(.018,at,.06);
+    osc.connect(amp).connect(this.master);osc.start(at);
+    this.voices.set(id,{oscillators:[osc],gain:amp,note,held:false});
+    this.tone(at,this.hz(note+12),.13,.055,'triangle');
+  }
+  hold(id:number,step:number):void{
+    const ctx=this.ctx,voice=this.voices.get(id);if(!ctx||!voice||voice.held)return;
+    const at=this.eventAudioTime(step),harmonic=ctx.createOscillator();harmonic.type='triangle';harmonic.frequency.value=this.hz(voice.note+12);
+    harmonic.connect(voice.gain);harmonic.start(at);voice.oscillators.push(harmonic);voice.held=true;
+    voice.gain.gain.setTargetAtTime(.03,at,.05);
+  }
+  /** An Overcharge temporarily unmutes one extra rank until the next bar. */
+  overchargeDrop(step:number,heldGroups=1):void{
+    const ctx=this.ctx;if(!ctx)return;
+    const at=this.eventAudioTime(step);
+    const end=Math.max(at+.1,stepTime(this.origin,(Math.floor(step/16)+1)*16,this.bpm));
+    for(const layer of this.layers){
+      if(layer.stem.rank>this.rank&&layer.stem.rank<=Math.min(4,this.rank+heldGroups)){
+        layer.gain.gain.setTargetAtTime(layer.stem.gain??.75,at,.03);
+        layer.gain.gain.setTargetAtTime(0,end,.05);
+      }
+    }
+    if(!this.usingStems)this.tone(at,this.hz(-12),Math.max(.18,end-at),.065,'sawtooth',.55);
+  }
+  syncGroups(ids:ReadonlySet<number>):void{for(const id of this.voices.keys())if(!ids.has(id))this.release(id);}
+  release(id:number,immediate=false):void{
+    const voice=this.voices.get(id),ctx=this.ctx;if(!voice||!ctx)return;
+    const at=ctx.currentTime,stop=at+(immediate?.004:.12);
+    voice.gain.gain.cancelScheduledValues(at);voice.gain.gain.setTargetAtTime(.0001,at,immediate?.001:.028);
+    for(const oscillator of voice.oscillators){try{oscillator.stop(stop);}catch{}}
+    this.voices.delete(id);
+  }
+  effect(kind:'prime'|'hold'|'burst'|'over'|'slide'|'error',color=0,step?:number):void{
     const ctx=this.ctx;if(!ctx||this.paused)return;
-    const step=Math.ceil((ctx.currentTime-this.origin+.002)/this.stepSeconds);
-    const at=Math.max(ctx.currentTime+.003,this.origin+step*this.stepSeconds);
-    const notes=[0,3,7,10,14];
-    if(kind==='prime')this.tone(at,this.hz(notes[color]??0),.35,.075,'sine');
-    if(kind==='hold')this.tone(at,this.hz((notes[color]??0)+12),.65,.07,'triangle');
-    if(kind==='burst'){this.noiseKick(at,.10);this.tone(at,this.hz((notes[color]??0)+12),.22,.065,'triangle',.46);}
-    if(kind==='over'){this.noiseKick(at,.27);this.tone(at,this.hz((notes[color]??0)-12),.72,.10,'sawtooth',.68);}
-    if(kind==='slide')this.tone(at,this.hz(-5),.1,.02,'sine',.7);
+    const at=step===undefined?this.nextGridTime(ctx.currentTime+.006):this.eventAudioTime(step);
+    const notes=[0,3,7,10,14],n=notes[color]??0;
+    if(kind==='prime')this.tone(at,this.hz(n),.19,.065,'sine');
+    if(kind==='hold')this.tone(at,this.hz(n+12),.43,.075,'triangle');
+    if(kind==='burst'){this.kick(at,.10);this.tone(at,this.hz(n+12),.25,.07,'triangle',.5);}
+    if(kind==='over'){this.kick(at,.24);this.tone(at,this.hz(n-12),.7,.10,'sawtooth',.7);}
+    if(kind==='slide')this.tone(at,this.hz(-5),.12,.022,'sine',.7);
     if(kind==='error')this.tone(at,this.hz(-7),.1,.025,'triangle');
   }
 }

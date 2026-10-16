@@ -40,9 +40,9 @@ Keyboard: **Arrow keys** select a tile, **Enter** or **Space** prime, **H** hold
 
 - Four playable modes: six-track **Odyssey**, **Endless**, pressure-free **Zen**, and a locally seeded **Daily** with per-device one-attempt lock (not network-ranked).
 - Deterministic `Pulse` game simulation and interchangeable `ContentRules`, with `GemRules` as the first content pack.
-- Web Audio conductor and in-key, on-sixteenth procedural synthesizer soundtrack. **These are placeholders for Michael's final multistem compositions.**
-- Pressure / priming / holds / eight-neighbor overcharge / gravity / inward column closure / air-prime assist / resonance / chain scoring / progression and locally saved scores.
-- Responsive 390 px portrait cabinet UI, rendered tile material glyphs, sweep, pause/results, colour-independent symbols, beat lights, mute, volume, reduced motion preference, flash limiter, strobe-free mode and haptics where supported.
+- Web Audio transport with latency-compensated sweep, timed keyed FX and real multi-stem gain mixing (see `AUDIO_STEMS.md`). Six distinctive synthesized arrangements remain **placeholders until the original multistem OST is supplied.**
+- Pressure / priming / holds / eight-neighbor overcharge / audio-clock-staged gravity / inward column closure / real midfall contact priming / resonance / chain scoring / progression and locally saved scores.
+- Responsive 390 px portrait cabinet UI, six material shaders, distinct sweep personas, debris, group lighting, anticipation, impact hitstop, pitched chords, pause/results, colour-independent symbols, beat lights, mute, volume, reduced motion preference, flash limiter, strobe-free mode and haptics where supported.
 - `npm run gates` for isolation, determinism, pure modes, solubility and other automated checks.
 
 ## Architecture
@@ -51,6 +51,10 @@ Keyboard: **Arrow keys** select a tile, **Enter** or **Space** prime, **H** hold
 
 ## Production blockers / honest release status
 
-This is a fully playable first browser build, not a certified commercial release. The provided archive contains no licensed original stems, so the soundtrack is procedurally synthesized. True per-stem mixing, real-device 120 FPS performance certification, cross-platform latency calibration, a hosted authoritative Daily leaderboard/one-attempt validation, service-worker offline precaching and QA on the target mobile device matrix remain. Duet / Remix / Quest mixed reality are explicitly post-v1 and not included.
+This is a playable 0.2.0 browser milestone, not a certified commercial release. The provided archive contains no licensed original stems, so the soundtrack is procedurally synthesized. Original track stems, acoustic/hardware audio-output calibration, real-device 120 FPS performance certification, cross-platform latency calibration, a hosted authoritative Daily leaderboard/one-attempt validation, service-worker offline precaching and QA on the target mobile device matrix remain. Duet / Remix / Quest mixed reality are explicitly post-v1 and not included.
 
-No analytics, gameplay-time network calls or ads are present. The app does not register a service worker, so an online web hosting setup is needed for initial load.
+No analytics or ads are present. Audio manifests and optional stems preload before a session, with no in-session network requests. The app does not register a service worker, so an online web hosting setup is needed for initial load.
+
+## Instrument milestone (0.2.0)
+
+The five systems from the first audit are implemented in this milestone: conductor math and output-latency compensation; real in-flight cascade input; stem transport with the current synth fallback; layered burst/held/anticipation effects; and six distinct visual themes with per-skin sweep and haptic identities. `AUDIO_STEMS.md` is the authoritative integration guide for final compositions. `npm run gates` validates 16 unit/integration checks and structure, but an audio-loopback test and physical phone frame profiling remain required for shipping guarantees.

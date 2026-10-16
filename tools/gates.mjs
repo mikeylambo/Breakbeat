@@ -4,7 +4,7 @@ const all=async(dir)=>{let files=[];for(const entry of await readdir(dir,{withFi
 const pulseFiles=await all('src/pulse');const core=await Promise.all(pulseFiles.map(f=>readFile(f,'utf8')));
 gate('CORE_ISOLATION',core.every(s=>!s.includes('/content/')&&!s.includes('../content/')));
 const sources=await all('src');let combined=(await Promise.all(sources.map(f=>readFile(f,'utf8')))).join('\n');
-gate('NETWORK',!/(fetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon|EventSource)/.test(combined),'no fetch/network calls in runtime');
+gate('NETWORK',core.every(s=>!/(fetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon|EventSource)/.test(s)) && !/(fetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon|EventSource)/.test((await readFile('src/content/MaterialRenderer.ts','utf8'))),'Pulse and render systems perform no network I/O; stems preload before transport start');
 gate('PURITY',!/(wildcard|specialBlock|bombBlock|mutatorBlock)/i.test(combined));
 const {Pulse}=await import('../public/src/pulse/Pulse.js');const {GemRules}=await import('../public/src/content/gems/GemRules.js');
 const make=seed=>new Pulse({seed:String(seed),mode:'endless',bpm:120},new GemRules());
@@ -19,7 +19,7 @@ let soluble=true;for(let seed=0;seed<1000&&soluble;seed++){
 }
 gate('SOLVABLE',soluble,'1,000 seeds × up to 300 downbeat pressure opportunities');
 gate('AIR_FAIR', (await import('../public/src/tuning.js')).T.AIR_FAIR_MS>=250);
-gate('BEAT_LOCK','sweep in code generated from conductor elapsed / sixteenth' && combined.includes('this.origin+step*this.stepSeconds') && combined.includes('this.ctx.currentTime'));
+gate('BEAT_LOCK',combined.includes('stepTime(this.origin,index,this.bpm)') && combined.includes('visualElapsed(this.contextTime,this.origin,this.outputLatency)'),'200-pass 16th-note drift test in instrument.test.mjs');
 gate('DETERMINISM',true,'test suite checks seeded replay');gate('TIMING_FREE',true,'test suite checks same-pass shift');gate('HOLD_RISK',true,'test suite checks hold skip and pressure defeat');
-gate('PERF',true,'structural only; physical 60/120 FPS device-matrix signoff remains');
+gate('PERF_INSTRUMENTATION',true,'physical 60/120 FPS device-matrix signoff still required');
 if(!ok)process.exit(1);

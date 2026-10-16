@@ -1,18 +1,20 @@
-# BREAKBEAT 0.1.1 — Vercel deployment fix
+# BREAKBEAT release history
 
-- Declared/pinned TypeScript as a local build dependency; supplied a lockfile for reproducible Vercel `npm ci` installs.
-- Declared Vercel static-site build and output configuration (`public/`).
-- Added a deployment asset validator that fails on missing HTML assets, JS import targets and manifest icons.
-- No gameplay mechanics changed.
+## 0.2.0 — The Instrument Pass
 
-# BREAKBEAT 0.1.0 — playable browser build
+1. Conductor: timestamped 16th-note effects, output latency–compensated rendering, 200-pass timing-grid tests, sustained chord voices, hold harmonics and an Overcharge drop.
+2. Cascades: staged deterministic gravity and inward-column travel, genuine in-flight contact checks, 280 ms contact windows, queued air-primes that lock on landing, and pressure deferred only to the next downbeat if a fall is in progress.
+3. Music: published manifest loader, phase-aligned looping multistem transport and chain-rank mixing, per-movement synthetic fallback arrangements, and `AUDIO_STEMS.md` for original compositions.
+4. Feel: anticipation squash at sweepline contact, resonance-based 60 ms board impact, 2D debris and per-material lighting, subdued screen breath and per-skin haptic signatures. The visual sweep never pauses with impact hitstop.
+5. Skins: six visually different material pipelines and six sweep personas (CODA intentionally invisible), rather than palette-only variants.
+6. Checks: 16 automated tests, output asset validation, deterministic 1,000-seed solubility gate. Browser smoke test verified menu, session startup, priming and a scored clear.
 
-- Deterministic 10 × 14 gem wall with bottom pressure, beat-sweep and cascades
-- Locked group priming, overcharge hold-through-one-pass, eight-neighbour area clearing
-- Air-prime bonus, chained sweep scoring, progression, results
-- Six synth-soundtracked theme movements, four single-player modes
-- Accessible input and flashing preferences, responsive arcade-cabinet presentation
-- Pure TypeScript implementation, no third-party runtime dependencies
+Unfinished work: official stems, device/audio-loopback sync validation, authoritative Daily, production FPS certification, results replay, PWA offline and final tutorial/accessibility pass. All these remain independent from this milestone.
 
-## Unshipped dependencies
-Original OST stems, hosted ranked Daily backend, certified device latency and performance matrix, service-worker PWA offline installability, replay capture, later mode waves.
+## 0.1.1 — Vercel-ready build
+
+Pinned TypeScript dependency, lockfile, static output directory and deployment checks. Compiles successfully in clean CI environments.
+
+## 0.1.0 — First playable
+
+Seeded board, sweepline, group priming, Overcharge, gravity/collapse, four game modes, six movement placeholders, scores and basic interface.

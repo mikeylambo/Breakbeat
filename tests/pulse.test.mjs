@@ -8,7 +8,23 @@ test('geometry, purity and guaranteed initial group',()=>{for(let i=0;i<100;i++)
 test('seeded boards are byte identical',()=>{const a=make('daily:2026-10-16'),b=make('daily:2026-10-16');assert.equal(a.snapshot(),b.snapshot());const x=pair(a);assert.equal(a.prime(x.x,x.y),b.prime(x.x,x.y));a.advanceTo(34);b.advanceTo(34);assert.equal(a.snapshot(),b.snapshot());});
 test('queued groups cannot detonate in same pass; prime is locked',()=>{const g=make();g.advanceTo(0);const p=pair(g),id=g.prime(p.x,p.y);assert.ok(id);assert.equal(g.prime(p.x,p.y),null);g.advanceTo(15);assert.equal(g.stats.groups,0);g.advanceTo(31);assert.equal(g.stats.groups,1);assert.ok(g.stats.score>0);});
 test('hold skips exactly one pass, then overcharges',()=>{const g=make('hold');g.advanceTo(0);const p=pair(g),id=g.prime(p.x,p.y);assert.ok(g.hold(p.x,p.y));g.advanceTo(31);assert.equal(g.stats.groups,0);assert.equal(g.groups.get(id).state,'skipped');g.advanceTo(47);assert.equal(g.stats.groups,1);assert.equal(g.stats.overcharges,1);});
-test('air-prime tracked and rewarded',()=>{const g=make('air');const p=pair(g);g.prime(p.x,p.y,true);assert.equal(g.stats.airPrimes,1);g.advanceTo(31);assert.ok(g.stats.score>0);});
+test('air-prime requires actual in-flight contact and settles with locked group',()=>{
+  const g=make('16');g.advanceTo(0);const p=pair(g);g.prime(p.x,p.y);
+  for(let step=1;step<32&&!g.flight;step++)g.advanceTo(step);
+  assert.ok(g.flight,'explosion created a staged collapse');
+  const f=g.flight,now=f.sinceStep*60/116/4+f.seconds*.65;
+  assert.equal(g.primeAir(3,8,f.sinceStep*60/116/4),null,'too early for air-prime contact');
+  let id=null;
+  for(const t of f.tiles.filter(t=>t.moved&&!t.group)){
+    const pos=g.flightPosition(t,now);
+    id=g.primeAir(Math.round(pos.x),Math.round(pos.y),now);if(id)break;
+  }
+  assert.ok(id,'a physically touching falling pair is primeable');
+  assert.equal(g.stats.airPrimes,1);
+  g.advancePhysics(f.sinceStep*60/116/4+f.seconds+.01);
+  assert.equal(g.flight,null);assert.ok(g.groups.has(id));assert.equal(g.groups.get(id).state,'queued');
+  assert.equal(g.groups.get(id).tiles.every(tileId=>g.getTile(tileId)?.group===id),true);
+});
 test('empty passes reset combos and pressure arrives only at downbeats',()=>{const g=make('pressure');g.advanceTo(15);assert.equal(g.pass,1);assert.equal(g.drain().some(e=>e.kind==='pressure'),false);g.advanceTo(31);assert.equal(g.pass,2);assert.equal(g.drain().some(e=>e.kind==='pressure'),false);g.advanceTo(32);assert.equal(g.pass,3);assert.equal(g.drain().filter(e=>e.kind==='pressure').length,1);});
 test('zen never ends from pressure and replenishes',()=>{const g=make('zen','zen');g.advanceTo(16*150);assert.equal(g.over,false);});
 test('score dials and resonance cap',()=>{assert.equal(resonance(1),1);assert.equal(resonance(4),2);assert.equal(resonance(10),5);assert.equal(resonance(18),5);assert.equal(T.AIR_FAIR_MS>=250,true);});
