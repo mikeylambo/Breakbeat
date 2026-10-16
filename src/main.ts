@@ -3,9 +3,11 @@ import { Pulse, type Event as PulseEvent, type Tile } from './pulse/Pulse.js';
 import { Conductor } from './pulse/Conductor.js';
 import { skins, type Skin } from './content/skins.js';
 import { T, type Mode } from './tuning.js';
+import { CHALLENGES, challengeById, type ChallengeId } from './pulse/Challenges.js';
+import { pressureBand } from './pulse/Balance.js';
 import { renderTile, renderSweep } from './content/MaterialRenderer.js';
 import type { Track } from './pulse/Conductor.js';
-import { migrateProgress,rankFor,personaUnlock,normalizedScore,recordResult,type Progress,type ReplayData,type Persona } from './experience/Progression.js';
+import { migrateProgress,rankFor,personaUnlock,normalizedScore,recordResult,completeChallenge,type Progress,type ReplayData,type Persona } from './experience/Progression.js';
 import { advanceLesson,LESSONS,type Lesson,type LearningEvent } from './experience/Tutorial.js';
 import { PassRecorder,replayFrameAt } from './experience/Replay.js';
 
@@ -21,6 +23,7 @@ settings.bpmScale=[.8,.9,1,1.1,1.2].includes(settings.bpmScale)?settings.bpmScal
 const recorder=new PassRecorder();
 let lesson:Lesson='prime',tutorialActive=!progress.tutorialComplete,trainingReplay=false,assistUsed=false,lastAssistPass=0;
 let replayShown:ReplayData|null=null,replayStartMs=0,feedbackTimeout=0,sessionId=0;
+let challengeSelection:ChallengeId|null=null,challengeAnnounced=false,lastPressurePreview='';
 
 let mode:Mode='odyssey',skinIndex=0,game:Pulse|null=null,playing=false,paused=false,finished=false,frameTime=0;
 let selected={x:4,y:10},hitstopUntil=0;
@@ -30,7 +33,7 @@ let menuPhase:'menu'|'play'|'result'='menu';
 function sessionBpm():number{return Math.round(skin().bpm*(mode==='daily'?1:settings.bpmScale));}
 function currentScale():number{return mode==='daily'?1:settings.bpmScale;}
 function scoreNow():number{return normalizedScore(game?.stats.score??0,currentScale());}
-function recordKey():string{return `${mode}:${skin().id}${assistUsed?':assisted':''}`;}
+function recordKey():string{return `${mode}:${skin().id}${mode==='endless'&&challengeSelection?`:challenge:${challengeSelection}`:''}${assistUsed?':assisted':''}`;}
 function feedback(text:string){const el=$('feedbackToast');el.textContent=text;el.classList.add('active');window.clearTimeout(feedbackTimeout);feedbackTimeout=window.setTimeout(()=>el.classList.remove('active'),1600);}
 function tip(){
   if(!tutorialActive){$('tipTitle').textContent='CONDUCT THE WALL';$('tipBody').textContent='Prime multiple groups for resonance. Hold one for an explosive second pass.';$('lessonAction').textContent='TAP • HOLD • COMPOSE';return;}
@@ -58,9 +61,25 @@ function inspectSelected(){if(!game)return;
 }
 function danger(){if(!game)return;
   let highest=14;for(let y=0;y<14;y++)if(game.board[y]?.some(Boolean)){highest=y;break;}
-  $('boardFrame').classList.toggle('danger-warn',highest<7&&highest>=4);
-  $('boardFrame').classList.toggle('danger-critical',highest<4);
+  const severity=pressureBand(14-highest);
+  $('boardFrame').classList.toggle('danger-warn',severity==='rising');
+  $('boardFrame').classList.toggle('danger-critical',severity==='critical');
   $('dangerText').textContent=highest<4?'◆ CRITICAL / CLEAR NOW':highest<7?'◆ PRESSURE RISING':'◂ DANGER ZONE';
+}
+function renderChallenges(){
+  const visible=mode==='endless';show('challengeSelect',visible);
+  const row=$('challengeList');row.replaceChildren();if(!visible)return;
+  const choices:[ChallengeId|null,string,string][]=[[null,'STANDARD','FREE SURVIVAL'],...CHALLENGES.map(c=>[c.id,c.name,progress.completedChallenges.includes(c.id)?'◆ COMPLETED':`${c.target} TO CLEAR`] as [ChallengeId,string,string])];
+  for(const [id,name,detail] of choices){const b=document.createElement('button');b.className=`challenge-option${challengeSelection===id?' selected':''}`;
+    b.innerHTML=`<span>${name}</span><small>${detail}</small>`;b.addEventListener('click',()=>{challengeSelection=id;renderChallenges();updateStartLabel();});row.append(b);}
+  const c=challengeById(challengeSelection);
+  $('challengeDescription').textContent=c?`${c.subtitle} No modifiers, boosts or special blocks. Trial results are kept separate.`:'The original endless run, with no challenge conditions.';
+}
+function updateChallengeHud(){const state=game?.challengeProgress,c=challengeById(challengeSelection);
+  const active=!!state&&!!c;show('challengeHud',active);if(!state||!c)return;
+  $('challengeHudLabel').textContent=c.name;$('challengeHudProgress').textContent=state.complete?'◆ COMPLETE':`${state.value} / ${state.target}`;
+  $('challengeHud').classList.toggle('complete',state.complete);
+  if(state.complete&&!challengeAnnounced){challengeAnnounced=true;completeChallenge(progress,c.id,scoreNow());save();feedback(`${c.name} / CONTRACT CLEARED`);}
 }
 function movementInfo(){
   $('journeyOverview').classList.toggle('hidden',mode!=='odyssey');
@@ -69,7 +88,7 @@ function movementInfo(){
   $('journeyTrack').textContent=Array.from({length:6},(_,i)=>completed.has(String(i))?'◆':i===skinIndex?'◇':'·').join(' ');
   const key=`${mode}:${skin().id}`,record=progress.records[key],best=progress.best[key]??0;
   $('movementInfo').innerHTML=`<strong>${skin().name}</strong> / ${skin().subtitle.toUpperCase()} &nbsp; · &nbsp; ${best?`BEST ${fmt(best)} / ${rankFor(best)}`:'UNPLAYED'}${record?.assisted?' (ASSISTED)':''}`;
-  renderPersonas();
+  renderPersonas();renderChallenges();
 }
 function renderPersonas(){const row=$('personaRow');row.replaceChildren();
   for(const persona of ['blade','echo','prism'] as Persona[]){const unlocked=personaUnlock(progress,persona),button=document.createElement('button');
@@ -95,7 +114,7 @@ function renderSkinRow(){const root=$('skinRow');root.replaceChildren();skins.fo
   const sw=document.createElement('i');sw.style.background=`linear-gradient(125deg,${s.palette[0]},${s.palette[2]})`;btn.append(sw);
   btn.addEventListener('click',()=>{skinIndex=i;renderSkinRow();updateStartLabel();movementInfo();});root.append(btn);
 });}
-function updateStartLabel(){const btn=$('startBtn');let title=mode==='daily'?'START DAILY DESCENT':mode==='zen'?'ENTER THE FLOW':mode==='endless'?'START ENDLESS':'PLAY '+skin().name;
+function updateStartLabel(){const btn=$('startBtn');let title=mode==='daily'?'START DAILY DESCENT':mode==='zen'?'ENTER THE FLOW':mode==='endless'?(challengeSelection?`START ${challengeById(challengeSelection)?.name??'ENDLESS'}`:'START ENDLESS'):'PLAY '+skin().name;
   if(mode==='daily'&&progress.daily[today()]!==undefined)title='DAILY ALREADY PLAYED';
   btn.innerHTML=`${title} <span>→</span>`;(btn as HTMLButtonElement).disabled=mode==='daily'&&progress.daily[today()]!==undefined;}
 function color(index:number){return skin().palette[index%skin().palette.length]!;}
@@ -104,7 +123,17 @@ function setHud(){if(!game){$('score').textContent='000000';$('rank').textConten
   $('multiplier').textContent=`×${Math.min(3,1+game.combo*.1).toFixed(1)}`;
   $('barText').textContent=`BAR ${String(game.pass||1).padStart(3,'0')}`;
   $('sweepLabel').textContent=`${Math.floor((conductor.absoluteStep%16)/4)+1} / 04`;
-  $('bpmText').textContent=`${sessionBpm()} BPM`; $('trackTitle').textContent=skin().name;}
+  $('bpmText').textContent=`${sessionBpm()} BPM`; $('trackTitle').textContent=skin().name;
+  const forecast=game.nextPressureBars;const occupied=game.board.filter(row=>row.some(Boolean)).length;
+  $('pressureForecast').textContent=forecast===null?'ZEN / NO PRESSURE':forecast===1?'PRESSURE NEXT BAR':`PRESSURE IN ${forecast} BARS`;
+  $('pressureRows').textContent=`${game.stats.pressureRows} ROWS RISEN`;
+  $('pressureFill').style.width=`${Math.min(100,occupied/T.BOARD_ROWS*100)}%`;
+  const preview=forecast===1?game.previewNextRow():[];
+  const signature=preview.join(',')+':'+skinIndex;
+  if(signature!==lastPressurePreview){lastPressurePreview=signature;
+    $('rowPreview').replaceChildren(...preview.map(type=>{const dot=document.createElement('i');dot.style.background=color(type);return dot;}));}
+  $('rowPreview').classList.toggle('hidden',!preview.length);
+  updateChallengeHud();}
 function triggerHaptic(pattern:number|number[]){if(settings.haptics&&'vibrate' in navigator)navigator.vibrate(pattern);}
 function burstScore(points:number){const el=$('floatingScore');el.textContent=`+${Math.floor(points).toLocaleString()}`;el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop');}
 function consume(events:PulseEvent[]){if(!game)return;
@@ -135,7 +164,8 @@ function consume(events:PulseEvent[]){if(!game)return;
   setHud();}
 async function start(){if(mode==='daily'&&progress.daily[today()]!==undefined)return;
   const thisSession=++sessionId;finished=false;paused=false;lesson='prime';tutorialActive=!progress.tutorialComplete||trainingReplay;tip();menuPhase='play';assistUsed=false;lastAssistPass=0;replayShown=null;recorder.reset();
-  game=new Pulse({seed:mode==='daily'?`breakbeat:${today()}`:`breakbeat:${mode}:${skin().id}:${Math.random().toString(36).slice(2)}`,mode,bpm:sessionBpm()},new GemRules());
+  challengeAnnounced=false;lastPressurePreview='';
+  game=new Pulse({seed:mode==='daily'?`breakbeat:${today()}`:`breakbeat:${mode}:${skin().id}:${Math.random().toString(36).slice(2)}`,mode,bpm:sessionBpm(),skinLevel:skinIndex+1,challenge:mode==='endless'?challengeSelection:null},new GemRules());
   selected={x:4,y:10};bursts=[];debris=[];hitstopUntil=0;
   conductor.setMuted(settings.mute);conductor.setVolume(settings.volume);
   let track:Track|undefined;
@@ -161,6 +191,8 @@ async function end(success:boolean){if(!game||finished)return;finished=true;play
   const priorPersona=new Set((['blade','echo','prism'] as Persona[]).filter(p=>personaUnlock(progress,p)));
   const result=recordResult(progress,key,{score,bestPass:normalizedScore(game.stats.bestPass,currentScale()),longestCombo:game.stats.longestCombo,overcharges:game.stats.overcharges,airPrimes:game.stats.airPrimes,survivalSeconds:Math.round(conductor.elapsed),date:today(),assisted:assistUsed},recorder.best);
   if(mode==='daily')progress.daily[today()]=score;
+  const completedContract=mode==='endless'?challengeById(challengeSelection):null;
+  if(completedContract&&game.challengeProgress?.complete)completeChallenge(progress,completedContract.id,score);
   if(success&&mode==='odyssey'){
     progress.unlocked=Math.max(progress.unlocked,Math.min(skinIndex+2,skins.length));
     if(!progress.completed.includes(String(skinIndex)))progress.completed.push(String(skinIndex));
@@ -179,6 +211,11 @@ async function end(success:boolean){if(!game||finished)return;finished=true;play
   replayShown=recorder.best??progress.replays[key]??null;replayStartMs=performance.now();
   $('replayPanel').classList.toggle('missing',!replayShown?.frames.length);
   $('replayScore').textContent=fmt(normalizedScore(replayShown?.score??0,currentScale()));
+  const contract=mode==='endless'?challengeById(challengeSelection):null,state=game.challengeProgress;
+  show('challengeResult',!!contract);
+  if(contract&&state){$('challengeResult').classList.toggle('unfinished',!state.complete);
+    $('challengeResult').textContent=`${state.complete?'◆ CONTRACT CLEARED':'◇ CONTRACT INCOMPLETE'} / ${contract.name} • ${state.value} OF ${state.target}${state.complete?` • BEST ${fmt(progress.challengeBest[contract.id]||score)}`:''}`;
+  }
   $('unlockPanel').classList.toggle('hidden',!newlyUnlocked.length&&!success);
   $('unlockPanel').textContent=[success?`MOVEMENT ${skinIndex+1} COMPLETE${skinIndex<5?' • NEXT MOVEMENT UNLOCKED':' • ODYSSEY COMPLETE'}`:'',...newlyUnlocked.map(p=>`NEW SWEEP PERSONA UNLOCKED: ${p.toUpperCase()}`)].filter(Boolean).join(' / ');
   $('nextMovementBtn').classList.toggle('hidden',!success||mode!=='odyssey'||skinIndex>=5);
@@ -188,7 +225,7 @@ async function end(success:boolean){if(!game||finished)return;finished=true;play
 async function pause(){if(!playing||paused)return;paused=true;await conductor.setPause(true);show('pauseOverlay',true);announce('Game paused');}
 async function resume(){if(!playing||!paused)return;paused=false;show('pauseOverlay',false);await conductor.setPause(false);announce('Game resumed');}
 async function home(){sessionId++;playing=false;paused=false;finished=false;menuPhase='menu';await conductor.stop();game=null;
-  show('pauseOverlay',false);show('resultOverlay',false);show('menuOverlay',true);
+  show('pauseOverlay',false);show('resultOverlay',false);show('menuOverlay',true);show('challengeHud',false);
   $('pauseBtn').setAttribute('disabled','true');$('assistBtn').setAttribute('disabled','true');$('modeLabel').textContent='THE RHYTHM DEMOLITION EXPERIMENT';renderSkinRow();updateStartLabel();movementInfo();setHud();}
 function tileAt(clientX:number,clientY:number){const r=canvas.getBoundingClientRect();return{x:Math.floor((clientX-r.left)/r.width*T.BOARD_COLS),y:Math.floor((clientY-r.top)/r.height*T.BOARD_ROWS)};}
 function inputTile(x:number,y:number,held=false){if(!game||!playing||paused||finished)return;

@@ -12,6 +12,8 @@ export class GemRules implements ContentRules {
       row.push(type);
       if (pair && row.length < count) row.push(type);
     }
+    // Every rising row contains a normal legal pair, without placing a special block.
+    if(count>=2&&!row.some((v,i)=>i>0&&v===row[i-1]))row[1]=row[0]!;
     return row;
   }
   primeable(board: (Tile | null)[][], x: number, y: number): number[] {

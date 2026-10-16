@@ -1,12 +1,14 @@
 import { DeterministicRng, stableHashString } from '../shell/DeterministicRNG.js';
 import { T, resonance } from '../tuning.js';
+import { pressureCadence, pressureForecast } from './Balance.js';
+import { challengeState } from './Challenges.js';
 /** Entirely deterministic game rules. No DOM, WebAudio or presentation dependencies. */
 export class Pulse {
     config;
     rules;
     board = [];
     groups = new Map();
-    stats = { score: 0, bestPass: 0, longestCombo: 0, overcharges: 0, airPrimes: 0, groups: 0, passes: 0 };
+    stats = { score: 0, bestPass: 0, longestCombo: 0, overcharges: 0, airPrimes: 0, groups: 0, passes: 0, pressureRows: 0, maxPassGroups: 0, overchargeTiles: 0 };
     pass = 0;
     step = -1;
     combo = 0;
@@ -20,6 +22,9 @@ export class Pulse {
     passScore = 0;
     passKills = 0;
     pressureDebt = false;
+    get nextPressureBars() { return pressureForecast(this.config.mode, this.pass, this.config.skinLevel); }
+    previewNextRow() { return this.rules.spawnRow(new DeterministicRng(this.rng.state), T.BOARD_COLS); }
+    get challengeProgress() { return this.config.mode === 'endless' ? challengeState(this.config.challenge, this.stats) : null; }
     constructor(config, rules) {
         this.config = config;
         this.rules = rules;
@@ -178,7 +183,7 @@ export class Pulse {
         if (this.config.mode === 'zen' && !this.flight && this.countTiles() < T.ZEN_REPLENISH_ROWS * T.BOARD_COLS)
             this.pushPressure();
     }
-    pressureBars() { return this.pass >= 22 ? 1 : T.RISE_BARS; }
+    pressureBars() { return pressureCadence(this.config.mode, this.pass, this.config.skinLevel); }
     pushPressure() {
         if (this.board[0].some(Boolean)) {
             this.over = true;
@@ -193,6 +198,7 @@ export class Pulse {
         }
         this.board[T.BOARD_ROWS - 1] = Array(T.BOARD_COLS).fill(null);
         const row = this.fillRow(T.BOARD_ROWS - 1);
+        this.stats.pressureRows++;
         this.events.push({ kind: 'pressure', row, atStep: this.step });
         this.ensurePairs();
     }
@@ -217,25 +223,37 @@ export class Pulse {
         }
         if (!toDetonate.length)
             return;
-        const resonanceCount = this.expectedGroupsForPass(toDetonate);
-        const factor = resonance(resonanceCount), comboFactor = Math.min(T.COMBO_CAP, 1 + this.combo * T.COMBO_STEP);
-        const removed = new Set(), bursts = [];
+        // Build an exact, non-overlapping detonation plan before calculating resonance.
+        // Skipped/held groups that do not burst cannot inflate the reward; and a
+        // neighboring group swallowed by an Overcharge does not count as two bursts.
+        const removed = new Set();
+        const planned = [];
         for (const g of toDetonate) {
-            const remaining = g.tiles.filter(id => this.getTile(id));
+            const remaining = g.tiles.filter(id => this.getTile(id) && !removed.has(id));
             if (!remaining.length) {
                 this.groups.delete(g.id);
                 continue;
             }
-            const ids = g.held ? this.rules.expandClear(this.board, remaining) : remaining, anchor = this.getTile(remaining[0]);
+            const ids = (g.held ? this.rules.expandClear(this.board, remaining) : remaining).filter(id => !removed.has(id));
+            const anchor = this.getTile(remaining[0]);
             ids.forEach(id => removed.add(id));
+            planned.push({ group: g, ids, anchor });
+        }
+        const resonanceCount = this.passKills + planned.length;
+        const factor = resonance(resonanceCount), comboFactor = Math.min(T.COMBO_CAP, 1 + this.combo * T.COMBO_STEP);
+        const bursts = [];
+        for (const { group: g, ids, anchor } of planned) {
             const points = Math.round(this.rules.scoreGroup(ids.length) * factor * comboFactor * (g.air ? T.AIR_MULT : 1) * (g.held ? T.OVERCHARGE_MULT : 1));
             this.stats.score += points;
             this.passScore += points;
             this.stats.bestPass = Math.max(this.stats.bestPass, this.passScore);
             this.passKills++;
+            this.stats.maxPassGroups = Math.max(this.stats.maxPassGroups, this.passKills);
             this.stats.groups++;
-            if (g.held)
+            if (g.held) {
                 this.stats.overcharges++;
+                this.stats.overchargeTiles += ids.length;
+            }
             bursts.push({ kind: 'burst', ids, x: anchor.x, y: anchor.y, overcharged: g.held, points, groupId: g.id, type: anchor.type, resonance: resonanceCount, atStep: this.step });
             this.groups.delete(g.id);
         }
@@ -268,10 +286,6 @@ export class Pulse {
         const durationSeconds = Math.max(T.AIR_FAIR_MS / 1000 / (1 - T.AIR_CONTACT_FROM), T.FALL_DURATION / T.FALL_SPEED_SCALE);
         this.flight = { sinceStep: this.step, seconds: durationSeconds, tiles };
         this.events.push(...bursts, { kind: 'cascade', ids: moved.moved, durationSeconds, atStep: this.step }, { kind: 'score', value: this.stats.score, atStep: this.step });
-    }
-    expectedGroupsForPass(current) {
-        const available = [...this.groups.values()].filter(g => g.readyPass <= this.pass && !['held', 'queued', 'airborne'].includes(g.state));
-        return Math.max(current.length, available.length);
     }
     finishPass() {
         if (this.passKills) {

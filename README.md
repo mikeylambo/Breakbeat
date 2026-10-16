@@ -15,7 +15,7 @@ npm run start
 # visit http://localhost:4173
 ```
 
-To develop: `npm run dev`; to verify: `npm run gates`.
+To develop: `npm run dev`; to verify: `npm run gates`. To generate repeatable 40-seed tuning measurements, run `npm run balance:report`.
 
 ## Deploy to Vercel
 
@@ -49,6 +49,13 @@ Keyboard: **Arrow keys** select a tile, **Enter** or **Space** prime, **H** hold
 
 `src/pulse/` owns clocks-independent deterministic rules, and imports a **ContentRules interface only**. It does not import gems content. `src/content/gems/` supplies the first ruleset; `src/content/skins.ts` supplies data-driven themes. `src/pulse/Conductor.ts` reads `AudioContext.currentTime` as the authoritative time. `src/main.ts` owns input / menus / rendering / audio hooks. `src/tuning.ts` owns game balance.
 
+## Balance and skill contracts (0.5.0)
+
+- Endless now has **four entirely optional skill contracts**: Resonance Relay (four clears in one pass), Overcharge Forge (three successful holds), Skyline Catch (three air-primes) and Pressure Gauntlet (survive twelve pressure rows). Choose STANDARD to play the unchanged mode. Contract successes and best scores are stored locally and never mixed with standard records.
+- A deterministic pressure forecast and **exact upcoming-row preview** make rising danger legible; rows guarantee one ordinary pair. Odyssey's two-to-one bar cadence increases in later movements; Daily's cadence remains fixed. Zen remains pressure-free.
+- Simultaneous Overcharges no longer double-award the same block. Resonance counts genuine, resolved detonations, rather than predicted held or skipped groups. The original score curves and cosmetic threshold structure remain.
+- `BALANCE.md` describes the rule changes and the 40-seed novice/intermediate/expert simulation in detail. These scripted policies are **not human playtests**.
+
 ## Player experience and progression (0.4.0)
 
 - **Action-gated learning path:** priming → sweep clear → hold → Overcharge → real air-prime. Progress advances only on successful game events, persists locally, and can be replayed from the main menu.
@@ -62,10 +69,10 @@ For automation/testing: `npm run gates` runs compiler checks, unit and integrati
 
 ## Production blockers / honest release status
 
-This is a playable 0.4.0 browser milestone, not a certified commercial release. The provided archive contains no licensed original stems, so the soundtrack is procedurally synthesized. Original track stems, acoustic/hardware audio-output calibration, real-device 120 FPS performance certification, cross-platform latency calibration, a hosted authoritative Daily leaderboard/one-attempt validation, service-worker offline precaching and QA on the target mobile device matrix remain. Duet / Remix / Quest mixed reality are explicitly post-v1 and not included.
+This is a playable 0.5.0 browser milestone, not a certified commercial release. The provided archive contains no licensed original stems, so the soundtrack is procedurally synthesized. Original track stems, acoustic/hardware audio-output calibration, real-device 120 FPS performance certification, cross-platform latency calibration, a hosted authoritative Daily leaderboard/one-attempt validation, service-worker offline precaching and QA on the target mobile device matrix remain. Duet / Remix / Quest mixed reality are explicitly post-v1 and not included.
 
 No analytics or ads are present. Audio manifests and optional stems preload before a session, with no in-session network requests. The app does not register a service worker, so an online web hosting setup is needed for initial load.
 
 ## Instrument milestone (0.2.0)
 
-The five systems from the first audit are implemented in this milestone: conductor math and output-latency compensation; real in-flight cascade input; stem transport with the current synth fallback; layered burst/held/anticipation effects; and six distinct visual themes with per-skin sweep and haptic identities. `AUDIO_STEMS.md` is the authoritative integration guide for final compositions. `npm run gates` validates 22+ unit/integration checks and structure, but an audio-loopback test and physical phone frame profiling remain required for shipping guarantees.
+The five systems from the first audit are implemented in this milestone: conductor math and output-latency compensation; real in-flight cascade input; stem transport with the current synth fallback; layered burst/held/anticipation effects; and six distinct visual themes with per-skin sweep and haptic identities. `AUDIO_STEMS.md` is the authoritative integration guide for final compositions. `npm run gates` validates 29+ unit/integration checks and structure, but an audio-loopback test and physical phone frame profiling remain required for shipping guarantees.

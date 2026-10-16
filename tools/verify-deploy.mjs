@@ -28,7 +28,7 @@ for (const a of assets) await checkAsset(a, htmlFile);
 const manifestFile = resolve(root, 'manifest.webmanifest');
 const manifest = JSON.parse(await readFile(manifestFile, 'utf8'));
 for (const i of manifest.icons ?? []) await checkAsset(i.src, resolve(root, 'index.html'));
-const requiredIds=['menuSettingsBtn','tutorialBtn','journeyOverview','personaRow','lessonAction','assistBtn','bpmScale','autoPrime','highContrast','resultAccolade','replayCanvas','replayPanel','unlockPanel','nextMovementBtn','selectedCell'];
+const requiredIds=['menuSettingsBtn','tutorialBtn','journeyOverview','personaRow','lessonAction','assistBtn','bpmScale','autoPrime','highContrast','resultAccolade','replayCanvas','replayPanel','unlockPanel','nextMovementBtn','selectedCell','challengeSelect','challengeList','challengeDescription','challengeHud','challengeHudLabel','challengeHudProgress','challengeResult','pressureForecast','pressureRows','pressureFill','rowPreview'];
 for(const id of requiredIds){
   const occurrence=html.split(`id="${id}"`).length-1;
   if(occurrence!==1)throw Error(`Required 0.4 UI control ${id} has ${occurrence} elements`);

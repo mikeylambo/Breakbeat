@@ -1,5 +1,14 @@
 # BREAKBEAT release history
 
+## 0.5.0 — Balance and Game Depth
+
+- Pressure phase tuning: predictable two-to-one bar escalation (movement-aware in Odyssey), wall-pressure gauge, downbeat countdown and non-consuming deterministic preview of the incoming row. Every new row contains at least one ordinary legal pair.
+- Scoring integrity: exact overlap resolution prevents double-counted tiles; resonance is awarded only for confirmed detonations, with stable cross-order settlement. Air ×1.25, held ×2, size curve and combo rules remain.
+- Endless contract deck: four opt-in pure-rules skill goals (Resonance Relay, Overcharge Forge, Skyline Catch, Pressure Gauntlet), saved completion and separately categorized personal records; no special blocks or score boosts.
+- Automated tuning: 40-seed scripted novice/intermediate/expert report in `BALANCE.md`, plus skill-gradient CI gate and 7 additional balance/fairness tests (29 total).
+- Music intentionally deferred. Full interactive browser QA blocked in this environment; device performance and human balancing remain outstanding.
+
+
 ## 0.4.0 — Player Experience + Progression
 
 **0.3 player experience:** Event-gated first-run lessons and replay tutorial; beat and danger status; assisted manual/automatic priming; screen-reader cell narration and keyboard assist; contrast and tempo options; settings accessible before starting; pause and recovery; improved score feedback; tonic game-over resolve, transitions, and mobile-safe branding. Daily enforces original speed and disables assists.
