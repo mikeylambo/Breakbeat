@@ -1,83 +1,265 @@
 import type { Skin } from './skins.js';
 import type { Tile } from '../pulse/Pulse.js';
 
-function rgba(hex:string,alpha:number):string{
- const clean=hex.replace('#','');const vals=[0,2,4].map(i=>parseInt(clean.slice(i,i+2),16));
- return `rgba(${vals.join(',')},${alpha})`;
+export interface TileEdges {
+  top?: boolean;
+  right?: boolean;
+  bottom?: boolean;
+  left?: boolean;
+  sameTop?: boolean;
+  sameRight?: boolean;
+  sameBottom?: boolean;
+  sameLeft?: boolean;
+  queued?: boolean;
 }
+
+function rgba(hex: string, alpha: number): string {
+  const clean = hex.replace('#', '');
+  const vals = [0, 2, 4].map(i => parseInt(clean.slice(i, i + 2), 16));
+  return `rgba(${vals.join(',')},${alpha})`;
+}
+
+function roundedRectPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  rTL: number,
+  rTR: number,
+  rBR: number,
+  rBL: number
+): void {
+  ctx.beginPath();
+  ctx.moveTo(x + rTL, y);
+  ctx.lineTo(x + w - rTR, y);
+  if (rTR > 0) ctx.quadraticCurveTo(x + w, y, x + w, y + rTR);
+  else ctx.lineTo(x + w, y);
+  ctx.lineTo(x + w, y + h - rBR);
+  if (rBR > 0) ctx.quadraticCurveTo(x + w, y + h, x + w - rBR, y + h);
+  else ctx.lineTo(x + w, y + h);
+  ctx.lineTo(x + rBL, y + h);
+  if (rBL > 0) ctx.quadraticCurveTo(x, y + h, x, y + h - rBL);
+  else ctx.lineTo(x, y + h);
+  ctx.lineTo(x, y + rTL);
+  if (rTL > 0) ctx.quadraticCurveTo(x, y, x + rTL, y);
+  else ctx.lineTo(x, y);
+  ctx.closePath();
+}
+
 /** Material rendering is skin-data-driven; no puzzle rules depend on presentation. */
-export function renderTile(ctx:CanvasRenderingContext2D,skin:Skin,tile:Tile,x:number,y:number,primed:boolean,held:boolean,beat:number,flash:number,nearbyGlow=0):void{
- const u=72,c=skin.palette[tile.type]!,pulse=primed?Math.sin(beat*Math.PI*8)*1.2:0;
- const pad=primed?3+pulse:3,xx=x+pad,yy=y+pad,w=u-2*pad,cx=x+36,cy=y+36;
- ctx.save();
- if(primed||nearbyGlow>0){ctx.shadowBlur=primed?(held?31:20):nearbyGlow*12;ctx.shadowColor=c;}
- ctx.fillStyle=rgba(c,primed?.98:.8);ctx.fillRect(xx,yy,w,w);ctx.shadowBlur=0;
- switch(skin.texture){
- case 'enamel':{
-   const g=ctx.createLinearGradient(xx,yy,xx+w,yy+w);g.addColorStop(0,'#ffffff44');g.addColorStop(.35,'#ffffff06');g.addColorStop(1,'#0707118e');ctx.fillStyle=g;ctx.fillRect(xx,yy,w,w);
-   ctx.fillStyle='#ffffff22';ctx.fillRect(xx+5,yy+5,w-10,7);
-   ctx.strokeStyle='#121021a0';ctx.lineWidth=2;ctx.strokeRect(xx+5,yy+5,w-10,w-10);break;
- }
- case 'glass':{
-   ctx.fillStyle='#ffffff40';ctx.beginPath();ctx.moveTo(xx,yy);ctx.lineTo(xx+w,yy);ctx.lineTo(xx+w*.28,yy+w);ctx.closePath();ctx.fill();
-   ctx.fillStyle='#0b102b65';ctx.beginPath();ctx.moveTo(xx+w,yy);ctx.lineTo(xx+w,yy+w);ctx.lineTo(xx+w*.25,yy+w);ctx.closePath();ctx.fill();
-   ctx.strokeStyle='#ffffffbd';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(xx+8,yy+w-9);ctx.lineTo(xx+w*.61,yy+8);ctx.lineTo(xx+w-8,yy+8);ctx.stroke();break;
- }
- case 'phosphor':{
-   ctx.fillStyle='#080c22d5';ctx.fillRect(xx+4,yy+4,w-8,w-8);
-   ctx.fillStyle=rgba(c,.42);ctx.fillRect(xx+7,yy+7,w-14,w-14);
-   ctx.fillStyle='#ffffff13';for(let i=8;i<w-6;i+=5)ctx.fillRect(xx+5,yy+i,w-10,2);
-   ctx.strokeStyle=rgba(c,.95);ctx.lineWidth=2;ctx.strokeRect(xx+6,yy+6,w-12,w-12);break;
- }
- case 'stone':{
-   ctx.fillStyle='#05041166';ctx.fillRect(xx+5,yy+7,w-10,w-12);
-   ctx.fillStyle=rgba(c,.9);ctx.fillRect(xx+7,yy+6,w-14,w-17);
-   ctx.strokeStyle='#ffffff70';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(xx+11,yy+7);ctx.lineTo(xx+11,yy+w-11);ctx.moveTo(xx+11,yy+26);ctx.lineTo(xx+w-9,yy+26);ctx.moveTo(xx+27,yy+w-10);ctx.lineTo(xx+27,yy+26);ctx.moveTo(xx+32,yy+7);ctx.lineTo(xx+32,yy+26);ctx.stroke();break;
- }
- case 'crystal':{
-   ctx.fillStyle='#ffffff5a';ctx.beginPath();ctx.moveTo(cx,yy+5);ctx.lineTo(xx+w-6,cy-9);ctx.lineTo(cx,cy+12);ctx.lineTo(xx+6,cy-7);ctx.closePath();ctx.fill();
-   ctx.fillStyle='#081a3b65';ctx.beginPath();ctx.moveTo(cx,cy+12);ctx.lineTo(xx+w-6,cy-9);ctx.lineTo(cx,yy+w-5);ctx.closePath();ctx.fill();
-   ctx.strokeStyle='#ffffff9b';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(cx,yy+5);ctx.lineTo(cx,yy+w-5);ctx.moveTo(xx+7,cy-7);ctx.lineTo(xx+w-7,cy-7);ctx.stroke();break;
- }
- case 'obsidian':{
-   ctx.fillStyle='#080911dc';ctx.fillRect(xx+4,yy+4,w-8,w-8);
-   const grad=ctx.createLinearGradient(xx,yy,xx+w,yy+w);grad.addColorStop(0,rgba(c,.75));grad.addColorStop(.55,'#06070d10');grad.addColorStop(1,rgba(c,.28));ctx.fillStyle=grad;ctx.fillRect(xx+5,yy+5,w-10,w-10);
-   ctx.strokeStyle=rgba(c,.85);ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(xx+12,yy+8);ctx.lineTo(cx-4,cy-8);ctx.lineTo(cx+12,cy+5);ctx.lineTo(xx+w-11,yy+w-9);ctx.stroke();break;
- }
- }
- // Colour-vision-safe marks: four unique inner profiles, across all materials.
- ctx.fillStyle='#060617b0';ctx.strokeStyle='#f9fafbcc';ctx.lineWidth=2;
- if(tile.type===0){ctx.beginPath();ctx.moveTo(cx-15,cy+11);ctx.lineTo(cx+12,cy-16);ctx.lineTo(cx+17,cy-10);ctx.lineTo(cx-10,cy+17);ctx.stroke();ctx.fillRect(cx-15,cy-17,7,7);}
- if(tile.type===1){ctx.beginPath();ctx.moveTo(cx,cy-18);ctx.lineTo(cx+17,cy);ctx.lineTo(cx,cy+18);ctx.lineTo(cx-17,cy);ctx.closePath();ctx.fill();ctx.stroke();}
- if(tile.type===2){ctx.beginPath();ctx.arc(cx,cy,15,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(cx,cy,6,0,Math.PI*2);ctx.fill();}
- if(tile.type===3){ctx.beginPath();ctx.moveTo(cx-16,cy-13);ctx.lineTo(cx+16,cy+13);ctx.moveTo(cx+16,cy-13);ctx.lineTo(cx-16,cy+13);ctx.stroke();ctx.fillRect(cx-4,cy-4,8,8);}
- if(primed){ctx.lineWidth=held?3:2;ctx.strokeStyle=held?'#fffefb':'#ffffffd6';ctx.strokeRect(xx+4,yy+4,w-8,w-8);
-   ctx.fillStyle=rgba('#ffffff',Math.max(.12,flash*.5));ctx.fillRect(xx+7,yy+7,w-14,3);
-   if(held){ctx.beginPath();ctx.moveTo(cx,yy+8);ctx.lineTo(xx+w-8,cy);ctx.lineTo(cx,yy+w-8);ctx.lineTo(xx+8,cy);ctx.closePath();ctx.stroke();}
- }
- if(nearbyGlow>0&&!primed){ctx.strokeStyle=rgba(c,Math.min(.45,nearbyGlow*.15));ctx.strokeRect(xx+2,yy+2,w-4,w-4);}
- ctx.restore();
+export function renderTile(
+  ctx: CanvasRenderingContext2D,
+  skin: Skin,
+  tile: Tile,
+  x: number,
+  y: number,
+  primed: boolean,
+  held: boolean,
+  beat: number,
+  flash: number,
+  nearbyGlow = 0,
+  edges: TileEdges = {}
+): void {
+  const u = 72;
+  const c = skin.palette[tile.type]!;
+  const pulse = primed ? (0.5 + 0.5 * Math.sin(beat * Math.PI * 8)) : 0;
+  const basePad = primed ? 2.5 : 3.5;
+
+  // When primed, adjacent tiles in the same group fuse seamlessly across their shared edges.
+  const padT = primed && edges.top ? 0 : basePad;
+  const padR = primed && edges.right ? 0 : basePad;
+  const padB = primed && edges.bottom ? 0 : basePad;
+  const padL = primed && edges.left ? 0 : basePad;
+
+  const xx = x + padL;
+  const yy = y + padT;
+  const w = u - padL - padR;
+  const h = u - padT - padB;
+  const cx = x + 36;
+  const cy = y + 36;
+
+  const r = primed ? 7 : 6;
+  const rTL = primed && (edges.top || edges.left) ? 0 : r;
+  const rTR = primed && (edges.top || edges.right) ? 0 : r;
+  const rBR = primed && (edges.bottom || edges.right) ? 0 : r;
+  const rBL = primed && (edges.bottom || edges.left) ? 0 : r;
+
+  ctx.save();
+
+  // Subtle micro-connectors between unprimed same-color neighbors so clusters read at a glance
+  if (!primed) {
+    ctx.fillStyle = rgba(c, 0.26);
+    if (edges.sameRight) ctx.fillRect(x + u - basePad - 1, cy - 10, basePad * 2 + 2, 20);
+    if (edges.sameBottom) ctx.fillRect(cx - 10, y + u - basePad - 1, 20, basePad * 2 + 2);
+  }
+
+  // Outer glow for primed / held / neighbor-lit tiles
+  if (primed || nearbyGlow > 0) {
+    ctx.shadowBlur = primed ? (held ? 28 : 16) : nearbyGlow * 10;
+    ctx.shadowColor = held ? '#ffffff' : c;
+  }
+
+  // Base block fill
+  roundedRectPath(ctx, xx, yy, w, h, rTL, rTR, rBR, rBL);
+  ctx.fillStyle = primed ? c : rgba(c, 0.86);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Clean tactile bevel sheen (inspired by 0.1.0's clean look, elevated)
+  const sheen = ctx.createLinearGradient(xx, yy, xx + w * 0.6, yy + h);
+  if (primed) {
+    sheen.addColorStop(0, rgba('#ffffff', held ? 0.45 : 0.28 + pulse * 0.14));
+    sheen.addColorStop(0.5, rgba('#ffffff', 0.05));
+    sheen.addColorStop(1, rgba('#060712', 0.28));
+  } else {
+    sheen.addColorStop(0, '#ffffff30');
+    sheen.addColorStop(0.42, '#ffffff04');
+    sheen.addColorStop(1, '#06081468');
+  }
+  ctx.fillStyle = sheen;
+  ctx.fill();
+
+  // Top specular rim on unmerged top edges
+  if (!edges.top) {
+    ctx.fillStyle = primed ? rgba('#ffffff', held ? 0.65 : 0.42) : '#ffffff24';
+    ctx.fillRect(xx + rTL * 0.7, yy + 1.5, Math.max(0, w - (rTL + rTR) * 0.7), primed ? 3 : 2);
+  }
+
+  // Subtle tone-on-tone engraved emblem (never loud white/black clutter)
+  ctx.save();
+  ctx.fillStyle = primed ? rgba('#060814', 0.22) : rgba('#060814', 0.2);
+  ctx.strokeStyle = primed ? rgba('#ffffff', 0.35) : rgba('#ffffff', 0.16);
+  ctx.lineWidth = 1.75;
+  if (tile.type === 0) {
+    // Diagonal slash
+    ctx.beginPath();
+    ctx.moveTo(cx - 10, cy + 8);
+    ctx.lineTo(cx + 8, cy - 10);
+    ctx.lineTo(cx + 11, cy - 6);
+    ctx.lineTo(cx - 7, cy + 11);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else if (tile.type === 1) {
+    // Diamond
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 12);
+    ctx.lineTo(cx + 12, cy);
+    ctx.lineTo(cx, cy + 12);
+    ctx.lineTo(cx - 12, cy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else if (tile.type === 2) {
+    // Ring
+    ctx.beginPath();
+    ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // Cross pip
+    ctx.beginPath();
+    ctx.moveTo(cx - 9, cy - 9);
+    ctx.lineTo(cx + 9, cy + 9);
+    ctx.moveTo(cx + 9, cy - 9);
+    ctx.lineTo(cx - 9, cy + 9);
+    ctx.stroke();
+    ctx.fillRect(cx - 3, cy - 3, 6, 6);
+  }
+  ctx.restore();
+
+  // Unprimed crisp border
+  if (!primed) {
+    roundedRectPath(ctx, xx + 0.5, yy + 0.5, w - 1, h - 1, rTL, rTR, rBR, rBL);
+    ctx.strokeStyle = nearbyGlow > 0 ? rgba(c, Math.min(0.65, 0.25 + nearbyGlow * 0.2)) : '#ffffff1e';
+    ctx.lineWidth = nearbyGlow > 0 ? 1.5 : 1;
+    ctx.stroke();
+  } else {
+    // Continuous outer perimeter border on exposed edges of the fused primed cluster
+    ctx.strokeStyle = held ? '#ffffff' : rgba('#ffffff', 0.85 + pulse * 0.15);
+    ctx.lineWidth = held ? 3 : 2.2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    if (!edges.top) { ctx.moveTo(xx, yy + 1); ctx.lineTo(xx + w, yy + 1); }
+    if (!edges.right) { ctx.moveTo(xx + w - 1, yy); ctx.lineTo(xx + w - 1, yy + h); }
+    if (!edges.bottom) { ctx.moveTo(xx, yy + h - 1); ctx.lineTo(xx + w, yy + h - 1); }
+    if (!edges.left) { ctx.moveTo(xx + 1, yy); ctx.lineTo(xx + 1, yy + h); }
+    ctx.stroke();
+
+    // If held (Overcharged), draw glowing inner energy frame & star marker
+    if (held) {
+      ctx.strokeStyle = rgba('#fff7d6', 0.6 + pulse * 0.35);
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(xx + 5, yy + 5, w - 10, h - 10);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '800 13px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('✦', cx, cy);
+    } else if (edges.queued) {
+      // Subtle corner indicator when queued behind the sweepline for the next pass
+      ctx.fillStyle = '#ffffffcc';
+      ctx.beginPath();
+      ctx.arc(x + u - 11, y + 11, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
 }
-export function renderSweep(ctx:CanvasRenderingContext2D,skin:Skin,lineX:number,w:number,h:number,intensity:number,time:number):void{
- if(skin.sweep==='hidden'){// CODA intentionally removes the visual sweep; musical cues continue.
-   return;
- }
- ctx.save();
- const accent=skin.accent;
- if(skin.sweep==='rain'){
-   ctx.strokeStyle=rgba(accent,intensity*.7);ctx.lineWidth=2;
-   for(let i=0;i<15;i++){const xx=lineX-45+(i*43)%74,yy=(i*119+time*0.08)%h;ctx.beginPath();ctx.moveTo(xx,yy);ctx.lineTo(xx-8,yy+45);ctx.stroke();}
- }else if(skin.sweep==='scan'){
-   ctx.fillStyle=rgba(accent,.10*intensity);ctx.fillRect(lineX-50,0,50,h);
-   ctx.setLineDash([9,12]);ctx.lineWidth=5;ctx.strokeStyle=rgba(accent,.75*intensity);ctx.beginPath();ctx.moveTo(lineX,0);ctx.lineTo(lineX,h);ctx.stroke();
- }else if(skin.sweep==='fracture'){
-   ctx.lineWidth=4;ctx.strokeStyle=rgba(accent,.85*intensity);ctx.beginPath();ctx.moveTo(lineX,0);
-   for(let y=0;y<=h;y+=36)ctx.lineTo(lineX+(Math.floor(y/36)%2?9:-9),y);ctx.stroke();
- }else{
-   const g=ctx.createLinearGradient(lineX-65,0,lineX+10,0);g.addColorStop(0,rgba(accent,0));g.addColorStop(.78,rgba(accent,.24*intensity));g.addColorStop(1,rgba('#ffffff',.85*intensity));
-   ctx.fillStyle=g;ctx.fillRect(lineX-65,0,75,h);
-   ctx.strokeStyle=rgba(skin.sweep==='sunset'?'#ffceae':'#ffffff',.9*intensity);ctx.lineWidth=skin.sweep==='sunset'?6:3;
-   ctx.beginPath();ctx.moveTo(lineX,0);ctx.lineTo(lineX,h);ctx.stroke();
- }
- ctx.restore();
+
+export function renderSweep(
+  ctx: CanvasRenderingContext2D,
+  skin: Skin,
+  lineX: number,
+  w: number,
+  h: number,
+  intensity: number,
+  time: number
+): void {
+  if (skin.sweep === 'hidden') return;
+  ctx.save();
+  const accent = skin.accent;
+
+  // Trailing wake gradient
+  const wakeWidth = 78;
+  const g = ctx.createLinearGradient(lineX - wakeWidth, 0, lineX + 6, 0);
+  g.addColorStop(0, rgba(accent, 0));
+  g.addColorStop(0.65, rgba(accent, 0.08 * intensity));
+  g.addColorStop(0.92, rgba(accent, 0.28 * intensity));
+  g.addColorStop(1, rgba('#ffffff', 0.55 * intensity));
+  ctx.fillStyle = g;
+  ctx.fillRect(lineX - wakeWidth, 0, wakeWidth + 6, h);
+
+  // Subtle row-crossing ticks along the blade
+  ctx.fillStyle = rgba('#ffffff', 0.35 * intensity);
+  for (let y = 72; y < h; y += 72) {
+    ctx.fillRect(lineX - 4, y - 1, 8, 2);
+  }
+
+  // Core laser blade
+  ctx.shadowBlur = 14;
+  ctx.shadowColor = accent;
+  ctx.strokeStyle = skin.sweep === 'sunset' ? '#ffe0c2' : '#ffffff';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(lineX, 0);
+  ctx.lineTo(lineX, h);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Playhead diamond cap at the top of the blade
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.moveTo(lineX, 2);
+  ctx.lineTo(lineX + 6, 9);
+  ctx.lineTo(lineX, 16);
+  ctx.lineTo(lineX - 6, 9);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
 }

@@ -29,11 +29,11 @@ test('overlapping held blast and adjacent primed groups never award the same til
  at(g,2,10,0);at(g,2,11,0);at(g,2,9,1);at(g,3,9,1);
  g.advanceTo(0);
  const held=g.prime(2,10);assert.ok(held);assert.ok(g.hold(2,10));
- g.advanceTo(16); // held group skips this pass
- const neighbor=g.prime(2,9);assert.ok(neighbor); // enters when the held group is due
- g.advanceTo(31);
+ g.advanceTo(15); // held group skips Pass 1 when blade crosses x=2
  assert.equal(g.stats.groups,0,'held group waits for next sweep');
- g.advanceTo(38);
+ g.advanceTo(16);
+ const neighbor=g.prime(2,9);assert.ok(neighbor); // enters when the held group is due
+ g.advanceTo(22);
  const bursts=g.drain().filter(e=>e.kind==='burst');
  const ids=bursts.flatMap(e=>e.ids);
  assert.equal(ids.length,new Set(ids).size,'each cleared tile contributes to at most one burst');

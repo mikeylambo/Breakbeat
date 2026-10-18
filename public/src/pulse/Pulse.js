@@ -15,7 +15,6 @@ export class Pulse {
     over = false;
     events = [];
     flight = null;
-    landing = null;
     rng;
     nextTile = 1;
     nextGroup = 1;
@@ -37,114 +36,164 @@ export class Pulse {
     }
     get stepSeconds() { return 60 / this.config.bpm / 4; }
     makeTile(x, y, type) { return { id: this.nextTile++, x, y, type, group: null }; }
-    fillRow(y) { const types = this.rules.spawnRow(this.rng, T.BOARD_COLS); types.forEach((type, x) => this.board[y][x] = this.makeTile(x, y, type)); return types; }
-    ensurePairs() { if (!this.hasPrimeable() && !this.flight) {
-        const b = this.board[T.BOARD_ROWS - 1];
-        if (b[0] && b[1])
-            b[1].type = b[0].type;
-    } }
-    hasPrimeable() { for (let y = 0; y < T.BOARD_ROWS; y++)
-        for (let x = 0; x < T.BOARD_COLS; x++)
-            if (this.rules.primeable(this.board, x, y).length)
-                return true; return false; }
-    getTile(id) { for (const row of this.board)
-        for (const t of row)
-            if (t?.id === id)
-                return t; return this.landing?.flat().find(t => t?.id === id) ?? undefined; }
+    fillRow(y) {
+        const types = this.rules.spawnRow(this.rng, T.BOARD_COLS);
+        types.forEach((type, x) => this.board[y][x] = this.makeTile(x, y, type));
+        return types;
+    }
+    ensurePairs() {
+        if (!this.hasPrimeable()) {
+            const b = this.board[T.BOARD_ROWS - 1];
+            if (b[0] && b[1])
+                b[1].type = b[0].type;
+        }
+    }
+    hasPrimeable() {
+        for (let y = 0; y < T.BOARD_ROWS; y++)
+            for (let x = 0; x < T.BOARD_COLS; x++)
+                if (this.rules.primeable(this.board, x, y).length)
+                    return true;
+        return false;
+    }
+    getTile(id) {
+        for (const row of this.board)
+            for (const t of row)
+                if (t?.id === id)
+                    return t;
+        return undefined;
+    }
+    /**
+     * Prime a group at (x, y).
+     * - Never locks out the board during cascades.
+     * - If the group is ahead of the sweepline on the current pass, it becomes active immediately
+     *   so the approaching sweepline detonates it on this pass.
+     * - If the sweepline has already passed the group's left edge on this bar, it queues for the next bar.
+     */
     prime(x, y, air = false) {
-        if (air)
-            return this.primeAir(x, y, this.step * this.stepSeconds);
-        if (this.over || this.flight)
+        if (this.over)
             return null;
+        if (air)
+            return this.primeAir(x, y, Math.max(0, this.step) * this.stepSeconds);
         const ids = this.rules.primeable(this.board, x, y);
         if (!ids.length)
             return null;
-        return this.queueGroup(ids, false);
+        const isMidAir = !!this.flight && this.flight.tiles.some(f => f.moved && ids.includes(f.id));
+        return this.queueGroup(ids, isMidAir);
+    }
+    currentCoveredColumns() {
+        if (this.step < 0 || this.pass <= 0)
+            return 0;
+        const substep = this.step % T.SIXTEENTHS;
+        return ((substep + 1) * T.BOARD_COLS) / T.SIXTEENTHS;
     }
     queueGroup(ids, air) {
-        const id = this.nextGroup++, type = this.getTile(ids[0]).type;
+        const id = this.nextGroup++;
+        const firstTile = this.getTile(ids[0]);
+        const type = firstTile.type;
+        let minX = T.BOARD_COLS;
         for (const tileId of ids) {
             const tile = this.getTile(tileId);
-            if (tile)
+            if (tile) {
                 tile.group = id;
-            if (this.landing)
-                for (const row of this.landing)
-                    for (const landed of row)
-                        if (landed?.id === tileId)
-                            landed.group = id;
+                if (tile.x < minX)
+                    minX = tile.x;
+            }
         }
-        if (this.flight)
+        if (this.flight) {
             for (const f of this.flight.tiles)
                 if (ids.includes(f.id))
                     f.group = id;
-        this.groups.set(id, { id, tiles: ids, state: air ? 'airborne' : 'queued', air, held: false, readyPass: this.pass + 1 });
+        }
+        // If primed ahead of the sweepline during an active pass, the approaching sweep takes it on THIS pass!
+        const covered = this.currentCoveredColumns();
+        const aheadOfSweep = this.pass >= 1 && minX >= covered;
+        const readyPass = aheadOfSweep ? this.pass : Math.max(1, this.pass + 1);
+        const state = air ? 'airborne' : (aheadOfSweep ? 'active' : 'queued');
+        this.groups.set(id, { id, tiles: ids, state, air, held: false, readyPass });
         this.events.push({ kind: 'prime', ids, air, groupId: id, type, atStep: this.step });
         if (air)
             this.stats.airPrimes++;
         return id;
     }
     /** Progress derives from the conductor's clock, not wall-clock frame time. */
-    flightProgress(atSeconds) {
+    flightProgress(atSeconds, sinceStep) {
         if (!this.flight)
             return 1;
-        return Math.max(0, Math.min(1, (atSeconds - this.flight.sinceStep * this.stepSeconds) / this.flight.seconds));
+        const originStep = sinceStep ?? this.flight.sinceStep;
+        return Math.max(0, Math.min(1, (atSeconds - originStep * this.stepSeconds) / this.flight.seconds));
     }
     flightPosition(tile, atSeconds) {
-        const p = this.flightProgress(atSeconds);
-        // Tiles travel and make visible contact BEFORE the interaction window opens.
-        // The second phase is the landing's gentle settle, keeping a full 280ms to tap.
-        const travel = Math.min(1, p / T.AIR_CONTACT_FROM), smooth = 1 - Math.pow(1 - travel, 2);
-        const settle = p > T.AIR_CONTACT_FROM ? Math.sin((p - T.AIR_CONTACT_FROM) / (1 - T.AIR_CONTACT_FROM) * Math.PI) * .05 : 0;
-        return { x: tile.fromX + (tile.toX - tile.fromX) * smooth, y: tile.fromY + (tile.toY - tile.fromY) * smooth - settle };
+        if (!tile.moved)
+            return { x: tile.toX, y: tile.toY };
+        const p = this.flightProgress(atSeconds, tile.sinceStep);
+        const travel = Math.min(1, p / T.AIR_CONTACT_FROM);
+        const smooth = 1 - Math.pow(1 - travel, 3);
+        const settle = p > T.AIR_CONTACT_FROM ? Math.sin((p - T.AIR_CONTACT_FROM) / (1 - T.AIR_CONTACT_FROM) * Math.PI) * 0.035 : 0;
+        return {
+            x: tile.fromX + (tile.toX - tile.fromX) * smooth,
+            y: tile.fromY + (tile.toY - tile.fromY) * smooth - settle
+        };
     }
-    /** Air groups are checked against actual in-flight positions AND future landing contact.
-        The active contact window lasts at least 300 ms at the supported 100-160 BPM. */
+    /**
+     * Air groups are checked against in-flight positions OR landed positions while a cascade is active.
+     * If the user taps a stationary group while another column is falling, this falls back cleanly in main.ts.
+     */
     primeAir(x, y, atSeconds) {
-        const flight = this.flight, landing = this.landing;
-        if (!flight || !landing || this.over)
+        const flight = this.flight;
+        if (!flight || this.over)
             return null;
         const p = this.flightProgress(atSeconds);
         if (p < T.AIR_CONTACT_FROM || p > 1)
             return null;
         const candidates = flight.tiles.filter(t => t.moved && !t.group);
-        const selected = candidates.find(t => { const pos = this.flightPosition(t, atSeconds); return Math.abs(pos.x - x) < .57 && Math.abs(pos.y - y) < .57; });
+        const selected = candidates.find(t => {
+            const pos = this.flightPosition(t, atSeconds);
+            return Math.abs(pos.x - x) < 0.65 && Math.abs(pos.y - y) < 0.65;
+        });
         if (!selected)
             return null;
-        const occupied = landing[selected.toY]?.[selected.toX];
+        const occupied = this.board[selected.toY]?.[selected.toX];
         if (!occupied || occupied.group !== null)
             return null;
-        const ids = this.rules.primeable(landing, selected.toX, selected.toY);
+        const ids = this.rules.primeable(this.board, selected.toX, selected.toY);
         if (ids.length < 2 || !ids.some(id => candidates.some(t => t.id === id)))
             return null;
-        // Require a visibly adjacent same-type tile to be in contact as it falls.
         const others = flight.tiles.filter(t => ids.includes(t.id) && t.id !== selected.id);
         const center = this.flightPosition(selected, atSeconds);
-        if (!others.some(t => { const v = this.flightPosition(t, atSeconds); return Math.abs(center.x - v.x) + Math.abs(center.y - v.y) < 1.65; }))
+        if (!others.some(t => {
+            const v = this.flightPosition(t, atSeconds);
+            return Math.abs(center.x - v.x) + Math.abs(center.y - v.y) < 1.75;
+        }))
             return null;
         return this.queueGroup(ids, true);
     }
     hold(x, y) {
-        const tile = this.board[y]?.[x] ?? this.landing?.[y]?.[x];
+        const tile = this.board[y]?.[x];
         const group = tile?.group == null ? undefined : this.groups.get(tile.group);
-        if (!group || group.held || !['queued', 'active'].includes(group.state))
+        if (!group || group.held || !['queued', 'active', 'airborne'].includes(group.state))
             return false;
         group.held = true;
         group.state = 'held';
         this.events.push({ kind: 'hold', ids: group.tiles, groupId: group.id, type: tile.type, atStep: this.step });
         return true;
     }
-    advancePhysics(atSeconds) { if (this.flight && this.flightProgress(atSeconds) >= 1)
-        this.land(); }
+    advancePhysics(atSeconds) {
+        if (this.flight && this.flightProgress(atSeconds) >= 1)
+            this.land();
+    }
     land() {
-        if (!this.flight || !this.landing)
+        if (!this.flight)
             return;
         const flight = this.flight;
-        this.board = this.landing;
-        this.landing = null;
         this.flight = null;
-        for (const g of this.groups.values())
-            if (g.state === 'airborne')
-                g.state = 'queued';
+        for (const g of this.groups.values()) {
+            if (g.state === 'airborne') {
+                const minX = Math.min(...g.tiles.map(id => this.getTile(id)?.x ?? T.BOARD_COLS));
+                const ahead = this.pass >= 1 && minX >= this.currentCoveredColumns();
+                g.state = ahead ? 'active' : 'queued';
+                g.readyPass = ahead ? this.pass : Math.max(1, this.pass + 1);
+            }
+        }
         this.events.push({ kind: 'land', ids: flight.tiles.filter(t => t.moved).map(t => t.id), atStep: this.step });
         this.ensurePairs();
     }
@@ -157,8 +206,8 @@ export class Pulse {
             this.advancePhysics(s * this.stepSeconds);
             if (s % T.SIXTEENTHS === 0)
                 this.startPass();
-            if (!this.flight)
-                this.cross(s % T.SIXTEENTHS);
+            // Sweepline ALWAYS crosses on every 16th note — cascades never freeze the sweepline!
+            this.cross(s % T.SIXTEENTHS);
             if (this.over)
                 break;
         }
@@ -177,11 +226,14 @@ export class Pulse {
         }
         if (this.over)
             return;
-        for (const g of this.groups.values())
-            if (g.readyPass <= this.pass && g.state === 'queued')
+        for (const g of this.groups.values()) {
+            if (g.readyPass <= this.pass && (g.state === 'queued' || g.state === 'airborne')) {
                 g.state = 'active';
-        if (this.config.mode === 'zen' && !this.flight && this.countTiles() < T.ZEN_REPLENISH_ROWS * T.BOARD_COLS)
+            }
+        }
+        if (this.config.mode === 'zen' && !this.flight && this.countTiles() < T.ZEN_REPLENISH_ROWS * T.BOARD_COLS) {
             this.pushPressure();
+        }
     }
     pressureBars() { return pressureCadence(this.config.mode, this.pass, this.config.skinLevel); }
     pushPressure() {
@@ -203,9 +255,12 @@ export class Pulse {
         this.ensurePairs();
     }
     cross(substep) {
-        const covered = ((substep + 1) * T.BOARD_COLS) / T.SIXTEENTHS, toDetonate = [];
+        const covered = ((substep + 1) * T.BOARD_COLS) / T.SIXTEENTHS;
+        const toDetonate = [];
         for (const g of this.groups.values()) {
             if (g.readyPass > this.pass || g.state === 'queued' || g.state === 'airborne')
+                continue;
+            if (g.state === 'skipped' && this.pass < g.readyPass)
                 continue;
             const tiles = g.tiles.map(id => this.getTile(id)).filter((t) => !!t);
             if (!tiles.length) {
@@ -223,9 +278,6 @@ export class Pulse {
         }
         if (!toDetonate.length)
             return;
-        // Build an exact, non-overlapping detonation plan before calculating resonance.
-        // Skipped/held groups that do not burst cannot inflate the reward; and a
-        // neighboring group swallowed by an Overcharge does not count as two bursts.
         const removed = new Set();
         const planned = [];
         for (const g of toDetonate) {
@@ -239,11 +291,18 @@ export class Pulse {
             ids.forEach(id => removed.add(id));
             planned.push({ group: g, ids, anchor });
         }
+        if (!planned.length)
+            return;
         const resonanceCount = this.passKills + planned.length;
-        const factor = resonance(resonanceCount), comboFactor = Math.min(T.COMBO_CAP, 1 + this.combo * T.COMBO_STEP);
+        const factor = resonance(resonanceCount);
+        const comboFactor = Math.min(T.COMBO_CAP, 1 + this.combo * T.COMBO_STEP);
         const bursts = [];
         for (const { group: g, ids, anchor } of planned) {
-            const points = Math.round(this.rules.scoreGroup(ids.length) * factor * comboFactor * (g.air ? T.AIR_MULT : 1) * (g.held ? T.OVERCHARGE_MULT : 1));
+            const points = Math.round(this.rules.scoreGroup(ids.length) *
+                factor *
+                comboFactor *
+                (g.air ? T.AIR_MULT : 1) *
+                (g.held ? T.OVERCHARGE_MULT : 1));
             this.stats.score += points;
             this.passScore += points;
             this.stats.bestPass = Math.max(this.stats.bestPass, this.passScore);
@@ -254,37 +313,75 @@ export class Pulse {
                 this.stats.overcharges++;
                 this.stats.overchargeTiles += ids.length;
             }
-            bursts.push({ kind: 'burst', ids, x: anchor.x, y: anchor.y, overcharged: g.held, points, groupId: g.id, type: anchor.type, resonance: resonanceCount, atStep: this.step });
+            bursts.push({
+                kind: 'burst',
+                ids,
+                x: anchor.x,
+                y: anchor.y,
+                overcharged: g.held,
+                points,
+                groupId: g.id,
+                type: anchor.type,
+                resonance: resonanceCount,
+                atStep: this.step
+            });
             this.groups.delete(g.id);
         }
-        for (const g of [...this.groups.values()])
+        for (const g of [...this.groups.values()]) {
             if (g.tiles.some(id => removed.has(id))) {
                 g.tiles = g.tiles.filter(id => !removed.has(id));
                 if (!g.tiles.length)
                     this.groups.delete(g.id);
             }
+        }
+        // Capture current visual positions (accounting for any already-falling tiles) before collapsing.
+        const nowSec = this.step * this.stepSeconds;
+        const prevFlightMap = new Map(this.flight?.tiles.map(f => [f.id, f]) ?? []);
         const from = new Map();
-        for (const row of this.board)
+        for (const row of this.board) {
             for (let x = 0; x < row.length; x++) {
                 const tile = row[x];
                 if (!tile)
                     continue;
-                if (removed.has(tile.id))
+                if (removed.has(tile.id)) {
                     row[x] = null;
-                else
-                    from.set(tile.id, { x: tile.x, y: tile.y, type: tile.type, group: tile.group });
+                }
+                else {
+                    const pf = prevFlightMap.get(tile.id);
+                    const pos = pf ? this.flightPosition(pf, nowSec) : { x: tile.x, y: tile.y };
+                    from.set(tile.id, {
+                        x: pos.x,
+                        y: pos.y,
+                        type: tile.type,
+                        group: tile.group,
+                        prevSince: pf?.sinceStep,
+                        wasMoving: pf?.moved
+                    });
+                }
             }
-        // Collapse happens on a copy. Tiles continue to exist at their intermediate positions
-        // until the conductor advances enough audio time for their physically staged landing.
-        const copy = this.board.map(row => row.map(t => t ? { ...t } : null));
-        const moved = this.rules.collapse(copy);
-        this.landing = moved.board;
+        }
+        const moved = this.rules.collapse(this.board);
+        this.board = moved.board;
+        const movedSet = new Set(moved.moved);
         const tiles = moved.board.flat().filter((t) => !!t).map(t => {
             const old = from.get(t.id);
-            return { id: t.id, type: t.type, group: t.group, fromX: old.x, fromY: old.y, toX: t.x, toY: t.y, moved: old.x !== t.x || old.y !== t.y };
+            const newlyMoved = movedSet.has(t.id);
+            const isMoving = newlyMoved || !!old.wasMoving;
+            return {
+                id: t.id,
+                type: t.type,
+                group: t.group,
+                fromX: old.x,
+                fromY: old.y,
+                toX: t.x,
+                toY: t.y,
+                moved: isMoving,
+                sinceStep: newlyMoved ? this.step : (old.prevSince ?? this.step)
+            };
         });
         const durationSeconds = Math.max(T.AIR_FAIR_MS / 1000 / (1 - T.AIR_CONTACT_FROM), T.FALL_DURATION / T.FALL_SPEED_SCALE);
         this.flight = { sinceStep: this.step, seconds: durationSeconds, tiles };
+        this.ensurePairs();
         this.events.push(...bursts, { kind: 'cascade', ids: moved.moved, durationSeconds, atStep: this.step }, { kind: 'score', value: this.stats.score, atStep: this.step });
     }
     finishPass() {
@@ -292,13 +389,26 @@ export class Pulse {
             this.combo++;
             this.stats.longestCombo = Math.max(this.stats.longestCombo, this.combo);
         }
-        else
+        else {
             this.combo = 0;
+        }
         this.stats.bestPass = Math.max(this.stats.bestPass, this.passScore);
         this.passScore = 0;
         this.passKills = 0;
     }
     countTiles() { return this.board.flat().filter(Boolean).length; }
-    snapshot() { return JSON.stringify({ board: this.board.map(r => r.map(t => t ? [t.id, t.type, t.group] : null)), flight: this.flight, landing: this.landing?.map(r => r.map(t => t ? [t.id, t.type, t.group] : null)), groups: [...this.groups.values()].sort((a, b) => a.id - b.id), stats: this.stats, pass: this.pass, step: this.step, combo: this.combo, over: this.over, pressureDebt: this.pressureDebt }); }
+    snapshot() {
+        return JSON.stringify({
+            board: this.board.map(r => r.map(t => t ? [t.id, t.type, t.group] : null)),
+            flight: this.flight,
+            groups: [...this.groups.values()].sort((a, b) => a.id - b.id),
+            stats: this.stats,
+            pass: this.pass,
+            step: this.step,
+            combo: this.combo,
+            over: this.over,
+            pressureDebt: this.pressureDebt
+        });
+    }
     drain() { const events = this.events; this.events = []; return events; }
 }
