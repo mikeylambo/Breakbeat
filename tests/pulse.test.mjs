@@ -1,33 +1,108 @@
-import test from 'node:test';import assert from 'node:assert/strict';
-import {Pulse} from '../public/src/pulse/Pulse.js';
-import {GemRules} from '../public/src/content/gems/GemRules.js';
-import {T,resonance} from '../public/src/tuning.js';
-const make=(seed='SEED',mode='endless')=>new Pulse({seed,mode,bpm:116},new GemRules());
-const pair=g=>{for(let y=0;y<14;y++)for(let x=0;x<10;x++)if(g.rules.primeable(g.board,x,y).length)return{x,y};throw Error('no pair');};
-test('geometry, purity and guaranteed initial group',()=>{for(let i=0;i<100;i++){const g=make(String(i));assert.equal(g.board.length,14);assert.ok(g.board.every(row=>row.length===10));assert.equal(g.hasPrimeable(),true);assert.ok(g.board.flat().every(t=>!t||t.type>=0&&t.type<4));}});
-test('seeded boards are byte identical',()=>{const a=make('daily:2026-10-16'),b=make('daily:2026-10-16');assert.equal(a.snapshot(),b.snapshot());const x=pair(a);assert.equal(a.prime(x.x,x.y),b.prime(x.x,x.y));a.advanceTo(34);b.advanceTo(34);assert.equal(a.snapshot(),b.snapshot());});
-test('queued groups cannot detonate in same pass; prime is locked',()=>{const g=make();g.advanceTo(0);const p=pair(g),id=g.prime(p.x,p.y);assert.ok(id);assert.equal(g.prime(p.x,p.y),null);g.advanceTo(15);assert.equal(g.stats.groups,0);g.advanceTo(31);assert.equal(g.stats.groups,1);assert.ok(g.stats.score>0);});
-test('hold skips exactly one pass, then overcharges',()=>{const g=make('hold');g.advanceTo(0);const p=pair(g),id=g.prime(p.x,p.y);assert.ok(g.hold(p.x,p.y));g.advanceTo(31);assert.equal(g.stats.groups,0);assert.equal(g.groups.get(id).state,'skipped');g.advanceTo(47);assert.equal(g.stats.groups,1);assert.equal(g.stats.overcharges,1);});
-test('air-prime requires actual in-flight contact and settles with locked group',()=>{
-  const g=make('16');g.advanceTo(0);const p=pair(g);g.prime(p.x,p.y);
-  for(let step=1;step<32&&!g.flight;step++)g.advanceTo(step);
-  assert.ok(g.flight,'explosion created a staged collapse');
-  const f=g.flight,now=f.sinceStep*60/116/4+f.seconds*.65;
-  assert.equal(g.primeAir(3,8,f.sinceStep*60/116/4),null,'too early for air-prime contact');
-  let id=null;
-  for(const t of f.tiles.filter(t=>t.moved&&!t.group)){
-    const pos=g.flightPosition(t,now);
-    id=g.primeAir(Math.round(pos.x),Math.round(pos.y),now);if(id)break;
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import { TUNING, computeChainRank, computeResonanceMultiplier } from '../public/src/tuning.js';
+import { BeatClock } from '../public/src/pulse/BeatClock.js';
+import { PulseEngine } from '../public/src/pulse/PulseEngine.js';
+import { GemRules } from '../public/src/content/gems/GemRules.js';
+import { SKINS } from '../public/src/content/gems/Skins.js';
+
+test('10x14 Wall dimensions and initial deal', () => {
+  const rules = new GemRules('brick');
+  const engine = new PulseEngine({ seed: 'init-test', mode: 'odyssey', bpm: 104 }, rules);
+
+  assert.equal(engine.board.length, 14);
+  assert.equal(engine.board[0].length, 10);
+
+  // Top 8 rows empty, bottom 6 rows filled
+  for (let r = 0; r < 8; r++) {
+    assert.equal(engine.board[r].every(t => t === null), true);
   }
-  assert.ok(id,'a physically touching falling pair is primeable');
-  assert.equal(g.stats.airPrimes,1);
-  g.advancePhysics(f.sinceStep*60/116/4+f.seconds+.01);
-  assert.equal(g.flight,null);assert.ok(g.groups.has(id));assert.equal(g.groups.get(id).state,'queued');
-  assert.equal(g.groups.get(id).tiles.every(tileId=>g.getTile(tileId)?.group===id),true);
+  for (let r = 8; r < 14; r++) {
+    assert.equal(engine.board[r].every(t => t !== null), true);
+  }
 });
-test('empty passes reset combos and pressure arrives only at downbeats',()=>{const g=make('pressure');g.advanceTo(15);assert.equal(g.pass,1);assert.equal(g.drain().some(e=>e.kind==='pressure'),false);g.advanceTo(31);assert.equal(g.pass,2);assert.equal(g.drain().some(e=>e.kind==='pressure'),false);g.advanceTo(32);assert.equal(g.pass,3);assert.equal(g.drain().filter(e=>e.kind==='pressure').length,1);});
-test('zen never ends from pressure and replenishes',()=>{const g=make('zen','zen');g.advanceTo(16*150);assert.equal(g.over,false);});
-test('score dials and resonance cap',()=>{assert.equal(resonance(1),1);assert.equal(resonance(4),2);assert.equal(resonance(10),5);assert.equal(resonance(18),5);assert.equal(T.AIR_FAIR_MS>=250,true);});
-test('content logic is swappable and isolated from pulse',()=>{const custom=new GemRules();custom.scoreGroup=()=>1000;const a=new Pulse({seed:'x',bpm:100,mode:'zen'},custom),p=pair(a);a.prime(p.x,p.y);a.advanceTo(31);assert.ok(a.stats.score>=1000);});
-test('same intents at different moments in the same pass produce identical results',()=>{const early=make('timing'),late=make('timing');early.advanceTo(0);late.advanceTo(10);const p=pair(early);early.prime(p.x,p.y);late.prime(p.x,p.y);early.advanceTo(40);late.advanceTo(40);assert.equal(early.snapshot(),late.snapshot());});
-test('stress determinism over hundreds of passes',()=>{const a=make('stress'),b=make('stress');for(let pass=0;pass<220;pass++){for(const g of [a,b]){if(g.over)continue;const p=g.hasPrimeable()?pair(g):null;if(p)g.prime(p.x,p.y);g.advanceTo((pass+1)*16-1);}assert.equal(a.snapshot(),b.snapshot());if(a.over)break;}});
+
+test('Tap to prime locks 2+ connected same-colour cluster and rejects singletons', () => {
+  const rules = new GemRules('brick');
+  const engine = new PulseEngine({ seed: 'prime-test', mode: 'zen', bpm: 110 }, rules);
+
+  // Clear board and set up a 3-cluster of colour 2 and a singleton of colour 1
+  for (let r = 0; r < 14; r++) {
+    for (let c = 0; c < 10; c++) engine.board[r][c] = null;
+  }
+  engine.board[13][0] = { id: 1, col: 0, row: 13, kind: 1, special: 'none' };
+  engine.board[13][3] = { id: 2, col: 3, row: 13, kind: 2, special: 'none' };
+  engine.board[13][4] = { id: 3, col: 4, row: 13, kind: 2, special: 'none' };
+  engine.board[12][4] = { id: 4, col: 4, row: 12, kind: 2, special: 'none' };
+
+  assert.equal(engine.primeAt(0, 13), null, 'Singleton must not prime');
+  const group = engine.primeAt(3, 13);
+  assert.ok(group, 'Connected 3-group should prime');
+  assert.equal(group.tileIds.length, 3);
+  assert.equal(engine.primeAt(4, 13), null, 'Already locked group cannot be re-primed');
+});
+
+test('Destruct-O-Match collapse drops blocks and slides empty columns inward', () => {
+  const rules = new GemRules('glass');
+  const engine = new PulseEngine({ seed: 'collapse-test', mode: 'zen', bpm: 120 }, rules);
+
+  for (let r = 0; r < 14; r++) {
+    for (let c = 0; c < 10; c++) engine.board[r][c] = null;
+  }
+  // Place a floating block at (col 1, row 10) while col 2, 3, 4 are empty
+  engine.board[10][1] = { id: 50, col: 1, row: 10, kind: 0, special: 'none' };
+
+  const res = rules.collapse(engine.board, new Set());
+  assert.equal(res.movedTileIds.includes(50), true);
+  // Should have fallen to row 13 and slid all the way inward to centerLeft (col 4)
+  assert.notEqual(engine.board[13][4], null);
+  assert.equal(engine.board[13][4].id, 50);
+});
+
+test('Overcharge hold skips one sweep pass and blasts 8-way neighbours with x2 score on next pass', () => {
+  const rules = new GemRules('obsidian');
+  const engine = new PulseEngine({ seed: 'overcharge-test', mode: 'endless', bpm: 120, riseBars: 99 }, rules);
+
+  for (let r = 0; r < 14; r++) {
+    for (let c = 0; c < 10; c++) engine.board[r][c] = null;
+  }
+  // Core 2-cluster at (4,12) and (4,13), plus a diagonal neighbour of different colour at (5,11)
+  engine.board[12][4] = { id: 10, col: 4, row: 12, kind: 0, special: 'none' };
+  engine.board[13][4] = { id: 11, col: 4, row: 13, kind: 0, special: 'none' };
+  engine.board[11][5] = { id: 12, col: 5, row: 11, kind: 3, special: 'none' };
+
+  engine.advanceToStep(0);
+  const g = engine.primeAt(4, 12);
+  assert.ok(g);
+  engine.holdAt(4, 12);
+
+  // Pass 1 (steps 0..15): skipped
+  engine.advanceToStep(15);
+  assert.notEqual(engine.board[11][5], null, 'Diagonal neighbour still present after skipped pass');
+
+  // Pass 2 (steps 16..31): detonates Overcharged and clears diagonal neighbour (5,11)
+  engine.advanceToStep(31);
+  assert.equal(engine.board[11][5], null, 'Diagonal neighbour cleared by 8-way Overcharge blast');
+  assert.equal(engine.telemetry.overchargesLanded, 1);
+});
+
+test('BeatClock background tab clamp prevents catch-up freezes', () => {
+  const clock = new BeatClock(120, 0);
+  clock.start(0);
+  const q1 = clock.query(1.0);
+  // Simulate tab suspended for 30 seconds
+  const q2 = clock.query(31.0);
+  assert.ok(
+    q2.elapsedSec - q1.elapsedSec < 0.1,
+    'BeatClock must clamp sudden background tab jumps to prevent catch-up freezes'
+  );
+});
+
+test('All 7 GDD Odyssey skins and Coda are configured with distinct materials and personas', () => {
+  assert.equal(SKINS.length, 7);
+  const coda = SKINS[SKINS.length - 1];
+  assert.equal(coda.sweepPersona, 'invisible');
+  assert.equal( computeResonanceMultiplier(10), 5.0);
+  assert.equal(computeChainRank(8), 4);
+});

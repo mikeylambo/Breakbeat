@@ -1,8 +1,0 @@
-[
- {"id":"ignition","bpm":116,"key":"A minor","offsetMs":0,"stems":[],"loopStartBar":1,"loopEndBar":16,"skin":"ignition","quota":3600,"placeholder":"synth"},
- {"id":"afterglow","bpm":122,"key":"B minor","offsetMs":0,"stems":[],"loopStartBar":1,"loopEndBar":16,"skin":"afterglow","quota":5600,"placeholder":"synth"},
- {"id":"neon-rush","bpm":132,"key":"D minor","offsetMs":0,"stems":[],"loopStartBar":1,"loopEndBar":16,"skin":"neon-rush","quota":7600,"placeholder":"synth"},
- {"id":"fracture","bpm":144,"key":"E minor","offsetMs":0,"stems":[],"loopStartBar":1,"loopEndBar":16,"skin":"fracture","quota":10000,"placeholder":"synth"},
- {"id":"stillwater","bpm":108,"key":"F-sharp minor","offsetMs":0,"stems":[],"loopStartBar":1,"loopEndBar":16,"skin":"stillwater","quota":12500,"placeholder":"synth"},
- {"id":"coda","bpm":120,"key":"G-sharp minor","offsetMs":0,"stems":[],"loopStartBar":1,"loopEndBar":16,"skin":"coda","quota":15000,"placeholder":"synth"}
-]

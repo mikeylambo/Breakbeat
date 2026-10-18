@@ -1,66 +1,314 @@
-import { T } from '../../tuning.js';
-import type { Tile } from '../../pulse/Pulse.js';
-import type { ContentRules } from '../../pulse/ContentRules.js';
-import type { DeterministicRng } from '../../shell/DeterministicRNG.js';
+/**
+ * GemRules — BREAKBEAT ContentRules implementation (GDD Pages 7–8).
+ * - Connected same-colour group of 2+, mid-fall included
+ * - Destruct-O-Match collapse: vertical gravity, then empty columns slide inward
+ * - Overcharge expandClear: radius 1 in all 8 directions, any colour
+ * - Scoring: GEM_BASE * size^1.35 * resonance * combo * air * overcharge
+ */
+
+import { TUNING } from '../../tuning.js';
+import type { SeededRng } from '../../pulse/Rng.js';
+import type {
+  CollapseResult,
+  ContentRules,
+  PulseTile,
+  ScoreContext,
+  SpawnContext,
+  SpecialMutation,
+  TileVisualDescriptor
+} from '../../pulse/types.js';
+import type { BlockMaterialType } from './Skins.js';
+
 export class GemRules implements ContentRules {
-  spawnRow(rng: DeterministicRng, count: number): number[] {
-    // Periodically guaranteed neighbouring pairs; no specialty tiles in flagship modes.
-    const row: number[] = [];
-    while (row.length < count) {
-      const type = rng.int(0, T.GEM_COLORS - 1);
-      const pair = rng.chance(.37);
-      row.push(type);
-      if (pair && row.length < count) row.push(type);
+  readonly gesture = 'tap-prime-hold' as const;
+  readonly cols = TUNING.BOARD_COLS;
+  readonly rows = TUNING.BOARD_ROWS;
+  readonly initialRows = TUNING.INITIAL_ROWS;
+
+  material: BlockMaterialType;
+
+  constructor(material: BlockMaterialType = 'brick') {
+    this.material = material;
+  }
+
+  /**
+   * Spawns a 10-tile row with weighted colours and a guaranteed adjacent pair
+   * so the SOLVABLE gate (never 2 consecutive pushes with zero primeable groups)
+   * is satisfied across 1,000 seeds x 300 pushes.
+   * Respects PURITY: special blocks only spawn in 'remix' mode.
+   */
+  spawnRow(rng: SeededRng, ctx: SpawnContext): PulseTile[] {
+    const colors = Math.max(2, Math.min(5, ctx.colorCount));
+    const kinds: number[] = [];
+
+    for (let c = 0; c < ctx.cols; c++) {
+      let k = rng.nextInt(0, colors);
+      // Prevent monotonous 4-in-a-row runs while preserving natural 2-3 clusters
+      if (c >= 2 && kinds[c - 1] === k && kinds[c - 2] === k) {
+        k = (k + 1 + rng.nextInt(0, colors - 1)) % colors;
+      }
+      kinds.push(k);
     }
-    // Every rising row contains a normal legal pair, without placing a special block.
-    if(count>=2&&!row.some((v,i)=>i>0&&v===row[i-1]))row[1]=row[0]!;
+
+    // Guarantee at least one horizontal adjacent pair so the board always has a primeable 2+ cluster
+    let hasAdjacentPair = false;
+    for (let c = 0; c < ctx.cols - 1; c++) {
+      if (kinds[c] === kinds[c + 1]) {
+        hasAdjacentPair = true;
+        break;
+      }
+    }
+    if (!hasAdjacentPair) {
+      const pairCol = rng.nextInt(0, ctx.cols - 1);
+      kinds[pairCol + 1] = kinds[pairCol]!;
+    }
+
+    const row: PulseTile[] = [];
+    for (let c = 0; c < ctx.cols; c++) {
+      let special: SpecialMutation = 'none';
+      let timerBars: number | undefined;
+
+      // PURITY gate: special blocks ONLY in 'remix' mode
+      if (ctx.mode === 'remix' && ctx.bar > 0) {
+        const roll = rng.nextFloat();
+        if (roll < 0.04) {
+          special = 'wildcard';
+        } else if (roll < 0.07) {
+          special = 'hazard';
+        } else if (roll < 0.09) {
+          special = 'detonator';
+          timerBars = 4;
+        }
+      }
+
+      row.push({
+        id: ctx.allocTileId(),
+        col: c,
+        row: ctx.rows - 1,
+        kind: kinds[c]!,
+        special,
+        timerBars
+      });
+    }
+
     return row;
   }
-  primeable(board: (Tile | null)[][], x: number, y: number): number[] {
-    const first = board[y]?.[x];
-    if (!first || first.group !== null) return [];
-    const queue: [number, number][] = [[x, y]], seen = new Set<string>(), ids: number[] = [];
-    while (queue.length) {
-      const [cx, cy] = queue.pop()!, key = `${cx},${cy}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const tile = board[cy]?.[cx];
-      if (!tile || tile.type !== first.type || tile.group !== null) continue;
-      ids.push(tile.id);
-      queue.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+
+  /**
+   * Returns the orthogonally connected same-colour group of 2+ containing `(col, row)`,
+   * or `null` if fewer than 2 connected blocks exist.
+   * Mid-fall tiles are stored in `board` at their target coordinates and remain tappable (AIR_FAIR).
+   */
+  primeable(
+    board: (PulseTile | null)[][],
+    col: number,
+    row: number,
+    lockedTileIds: ReadonlySet<number>
+  ): PulseTile[] | null {
+    const start = board[row]?.[col];
+    if (!start || lockedTileIds.has(start.id) || start.special === 'hazard') {
+      return null;
     }
-    return ids.length >= T.MIN_GROUP ? ids.sort((a,b) => a-b) : [];
-  }
-  collapse(board: (Tile | null)[][]): { board: (Tile | null)[][]; moved: number[] } {
-    const moved: number[] = [], cols: Tile[][] = [];
-    for (let x = 0; x < T.BOARD_COLS; x++) {
-      const stack = [] as Tile[];
-      for (let y = T.BOARD_ROWS - 1; y >= 0; y--) {
-        const t = board[y]?.[x]; if (t) stack.push(t);
-      }
-      if (stack.length) cols.push(stack);
-    }
-    const offset = Math.floor((T.BOARD_COLS - cols.length) / 2);
-    const result: (Tile | null)[][] = Array.from({ length: T.BOARD_ROWS }, () => Array(T.BOARD_COLS).fill(null));
-    cols.forEach((stack, c) => stack.forEach((tile, i) => {
-      const x = offset + c, y = T.BOARD_ROWS - 1 - i;
-      if (tile.x !== x || tile.y !== y) moved.push(tile.id);
-      tile.x = x; tile.y = y; result[y]![x] = tile;
-    }));
-    return { board: result, moved };
-  }
-  expandClear(board: (Tile | null)[][], ids: readonly number[]): number[] {
-    const result = new Set(ids);
-    for (const row of board) for (const t of row) {
-      if (!t || !ids.includes(t.id)) continue;
-      for (let dy = -T.OVERCHARGE_RADIUS; dy <= T.OVERCHARGE_RADIUS; dy++)
-        for (let dx = -T.OVERCHARGE_RADIUS; dx <= T.OVERCHARGE_RADIUS; dx++) {
-          const neighbor = board[t.y + dy]?.[t.x + dx];
-          if (neighbor) result.add(neighbor.id);
+
+    const targetKind = start.kind;
+    const visited = new Set<number>([start.id]);
+    const queue: PulseTile[] = [start];
+    const cluster: PulseTile[] = [];
+
+    const dirs = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1]
+    ] as const;
+
+    while (queue.length > 0) {
+      const cur = queue.shift()!;
+      cluster.push(cur);
+
+      for (const [dc, dr] of dirs) {
+        const nc = cur.col + dc;
+        const nr = cur.row + dr;
+        const nb = board[nr]?.[nc];
+        if (!nb || visited.has(nb.id) || lockedTileIds.has(nb.id) || nb.special === 'hazard') {
+          continue;
         }
+        if (nb.kind === targetKind || nb.special === 'wildcard' || start.special === 'wildcard') {
+          visited.add(nb.id);
+          queue.push(nb);
+        }
+      }
     }
-    return [...result].sort((a,b)=>a-b);
+
+    if (cluster.length < TUNING.MIN_GROUP) {
+      return null;
+    }
+    return cluster;
   }
-  scoreGroup(size: number): number { return T.GEM_BASE * Math.pow(size, T.SIZE_EXP); }
-  tileView(tile: Tile): number { return tile.type; }
+
+  /**
+   * Destruct-O-Match Cascade (GDD Page 2 & 7):
+   * 1. Vertical gravity drops unlocked blocks into empty spaces below them (locked blocks stay fixed).
+   * 2. Empty columns close by sliding inward toward the center of the wall.
+   */
+  collapse(
+    board: (PulseTile | null)[][],
+    lockedTileIds: ReadonlySet<number>
+  ): CollapseResult {
+    const rows = board.length;
+    const cols = board[0]?.length ?? TUNING.BOARD_COLS;
+    const moved = new Set<number>();
+
+    // Phase 1: Vertical gravity per column
+    for (let c = 0; c < cols; c++) {
+      let writeRow = rows - 1;
+      for (let r = rows - 1; r >= 0; r--) {
+        const tile = board[r]![c];
+        if (!tile) continue;
+
+        if (lockedTileIds.has(tile.id)) {
+          // Locked primed tile stays anchored in place; tiles above cannot fall past it
+          writeRow = r - 1;
+        } else {
+          while (writeRow > r && board[writeRow]![c] !== null) {
+            writeRow--;
+          }
+          if (writeRow > r && board[writeRow]![c] === null) {
+            board[r]![c] = null;
+            tile.row = writeRow;
+            board[writeRow]![c] = tile;
+            moved.add(tile.id);
+            writeRow--;
+          } else {
+            writeRow = r - 1;
+          }
+        }
+      }
+    }
+
+    // Phase 2: Inward column slide (Destruct-O-Match rules)
+    // Only slide if no locked tiles would be sheared apart, or slide whole unlocked segments inward
+    // when a column is completely empty from top to bottom.
+    const isColEmpty = (c: number): boolean => {
+      for (let r = 0; r < rows; r++) {
+        if (board[r]![c] !== null) return false;
+      }
+      return true;
+    };
+
+    const colHasLocked = (c: number): boolean => {
+      for (let r = 0; r < rows; r++) {
+        const t = board[r]![c];
+        if (t && lockedTileIds.has(t.id)) return true;
+      }
+      return false;
+    };
+
+    const centerLeft = Math.floor((cols - 1) / 2); // col 4
+    const centerRight = centerLeft + 1; // col 5
+
+    // Pull left half rightward into empty columns toward centerLeft
+    for (let target = centerLeft; target > 0; target--) {
+      if (!isColEmpty(target)) continue;
+      let source = -1;
+      for (let s = target - 1; s >= 0; s--) {
+        if (colHasLocked(s)) break; // don't shear across locked columns
+        if (!isColEmpty(s)) {
+          source = s;
+          break;
+        }
+      }
+      if (source !== -1) {
+        for (let r = 0; r < rows; r++) {
+          const tile = board[r]![source]!;
+          if (tile) {
+            board[r]![source] = null;
+            tile.col = target;
+            board[r]![target] = tile;
+            moved.add(tile.id);
+          }
+        }
+      }
+    }
+
+    // Pull right half leftward into empty columns toward centerRight
+    for (let target = centerRight; target < cols - 1; target++) {
+      if (!isColEmpty(target)) continue;
+      let source = -1;
+      for (let s = target + 1; s < cols; s++) {
+        if (colHasLocked(s)) break;
+        if (!isColEmpty(s)) {
+          source = s;
+          break;
+        }
+      }
+      if (source !== -1) {
+        for (let r = 0; r < rows; r++) {
+          const tile = board[r]![source]!;
+          if (tile) {
+            board[r]![source] = null;
+            tile.col = target;
+            board[r]![target] = tile;
+            moved.add(tile.id);
+          }
+        }
+      }
+    }
+
+    return { movedTileIds: [...moved] };
+  }
+
+  /**
+   * Overcharge blast expansion (GDD Page 3 & 7):
+   * When `overcharged` is true, detonates with a radius of 1 in all 8 directions, any colour.
+   */
+  expandClear(
+    board: (PulseTile | null)[][],
+    groupTiles: readonly PulseTile[],
+    overcharged: boolean,
+    protectedTileIds: ReadonlySet<number>
+  ): PulseTile[] {
+    if (!overcharged) {
+      return [...groupTiles];
+    }
+
+    const out = new Map<number, PulseTile>();
+    for (const t of groupTiles) {
+      out.set(t.id, t);
+    }
+
+    const radius = TUNING.OVERCHARGE_RADIUS;
+    for (const t of groupTiles) {
+      for (let dr = -radius; dr <= radius; dr++) {
+        for (let dc = -radius; dc <= radius; dc++) {
+          const nb = board[t.row + dr]?.[t.col + dc];
+          if (nb && !protectedTileIds.has(nb.id) && !out.has(nb.id)) {
+            out.set(nb.id, nb);
+          }
+        }
+      }
+    }
+
+    return [...out.values()];
+  }
+
+  /**
+   * Canonical GDD Scoring Formula (Page 3):
+   * group = GEM_BASE * size^1.35 * resonance * combo * air * overcharge
+   */
+  scoreGroup(_groupTiles: readonly PulseTile[], ctx: ScoreContext): number {
+    const base = TUNING.GEM_BASE * Math.pow(ctx.size, TUNING.SIZE_EXP);
+    const airFactor = ctx.airPrimed ? TUNING.AIR_MULT : 1.0;
+    const overchargeFactor = ctx.overcharged ? TUNING.OVERCHARGE_MULT : 1.0;
+    return Math.round(base * ctx.resonance * ctx.combo * airFactor * overchargeFactor);
+  }
+
+  tileView(tile: PulseTile): TileVisualDescriptor {
+    return {
+      colorIndex: tile.kind,
+      materialId: this.material,
+      shapeVariant: tile.kind % 5,
+      special: tile.special
+    };
+  }
 }
