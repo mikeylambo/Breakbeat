@@ -29,6 +29,7 @@ import { RunHud } from './RunHud.js';
 import { PauseSheet } from './PauseSheet.js';
 import { RotateCard } from './RotateCard.js';
 import { announce } from './dom.js';
+import { SettingsSheet } from './SettingsSheet.js';
 
 /** Per-movement light behind the wall (crossfaded on movement morphs). */
 export const MOVEMENT_TINT: Record<string, number> = {
@@ -103,6 +104,7 @@ export class App {
   readonly hud: RunHud;
   readonly pause: PauseSheet;
   readonly rotate = new RotateCard();
+  readonly settingsSheet: SettingsSheet;
   input!: InputController;
 
   settings: Settings = loadSettings();
@@ -116,8 +118,8 @@ export class App {
   private lastHapticStep = -1;
   private lastTickBeat = -1;
   private readonly cellPt = { x: 0, y: 0 };
-  /** Opens the settings sheet (set by SettingsSheet in step 11). */
-  openSettings: () => void = () => {};
+  /** Opens the settings sheet. */
+  openSettings: () => void;
   /** Returns to the title (set by TitleScreen). */
   showTitle: () => void = () => {};
   /** Starts the Overture again (Settings). */
@@ -125,9 +127,19 @@ export class App {
   /** Closes any open sheet (settings/pause). */
   closeSheets: () => void = () => {
     this.pause.show(false);
+    this.paused = false;
+    if (this.settingsSheet.open) this.settingsSheet.show(false);
   };
 
   constructor() {
+    this.settingsSheet = new SettingsSheet({
+      settings: this.settings,
+      hapticsSupported: typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function',
+      apply: () => this.persistSettings(),
+      replayOverture: () => this.replayOverture(),
+      onClose: () => undefined
+    });
+    this.openSettings = () => this.settingsSheet.show(true);
     this.hud = new RunHud(() => this.setPaused(true));
     this.pause = new PauseSheet({
       resume: () => this.setPaused(false),
@@ -160,7 +172,7 @@ export class App {
     this.applySettings();
 
     this.hud.show(false);
-    this.ui.append(this.hud.root, this.pause.root);
+    this.ui.append(this.hud.root, this.pause.root, this.settingsSheet.root);
     this.stage.onLayout(l => {
       this.ui.style.transform = `translate(${l.x}px, ${l.y}px) scale(${l.scale})`;
       this.fx.setTextResolution(this.stage.resolution * Math.max(1, l.scale));
@@ -197,7 +209,7 @@ export class App {
         this.settings.hudHidden = !this.settings.hudHidden;
         saveSettings(this.settings);
         this.hud.setHidden(this.settings.hudHidden);
-      } else if (e.key === 'Escape' && this.run && !this.run.ended) {
+      } else if (e.key === 'Escape' && this.run && !this.run.ended && !this.settingsSheet.open) {
         this.setPaused(!this.paused);
       }
     });
@@ -242,6 +254,8 @@ export class App {
 
   async startRun(cfg: RunConfig): Promise<void> {
     this.abandonRun();
+    // Restart / replay from the pause sheet arrives with the context suspended by the app
+    await this.audio.resume();
     await this.audio.unlock();
     const overture = cfg.mode === 'overture';
     const index = overture ? 0 : Math.max(0, Math.min(MOVEMENTS.length - 1, cfg.movement));
