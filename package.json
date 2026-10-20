@@ -1,23 +1,29 @@
 {
   "name": "breakbeat",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
-  "description": "Breakbeat \u2014 you choose what breaks; the music chooses when.",
+  "description": "Breakbeat — you choose what breaks; the music chooses when.",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node tools/bundle.mjs",
     "check": "tsc -p tsconfig.json --noEmit",
     "dev": "npm run build && node tools/serve.mjs",
     "start": "node tools/serve.mjs",
-    "test": "npm run build && node --test tests/*.test.mjs",
-    "gates": "npm run check && npm test && node tools/gates.mjs && node tools/check-balance.mjs && npm run verify:deploy",
-    "verify:deploy": "node tools/verify-deploy.mjs",
-    "balance:report": "npm run build && node tools/balance-report.mjs 40 42"
+    "test": "tsc -p tsconfig.json && node --test tests/*.test.mjs",
+    "gates": "npm run build && node --test tests/*.test.mjs && node tools/gates.mjs && node tools/check-balance.mjs && npm run verify:deploy",
+    "gates:browser": "node tools/browser-gates.mjs",
+    "verify:deploy": "node tools/verify-deploy.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
+    "esbuild": "0.28.2",
+    "playwright": "1.56.1",
     "typescript": "5.8.3"
+  },
+  "dependencies": {
+    "pixi-filters": "6.1.5",
+    "pixi.js": "8.22.0"
   }
 }

@@ -6,14 +6,8 @@ const requiredFiles = [
   'public/index.html',
   'public/style.css',
   'public/manifest.webmanifest',
-  'public/src/main.js',
-  'public/src/tuning.js',
-  'public/src/pulse/PulseEngine.js',
-  'public/src/pulse/BeatClock.js',
-  'public/src/content/gems/GemRules.js',
-  'public/src/content/gems/Skins.js',
-  'public/src/audio/StemConductor.js',
-  'public/src/render/WallRenderer.js'
+  'public/app.js',
+  'public/fonts/fonts.css',
 ];
 
 for (const rel of requiredFiles) {

@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { TUNING, computeChainRank, computeResonanceMultiplier } from '../public/src/tuning.js';
-import { BeatClock } from '../public/src/pulse/BeatClock.js';
-import { PulseEngine } from '../public/src/pulse/PulseEngine.js';
-import { GemRules } from '../public/src/content/gems/GemRules.js';
-import { SKINS } from '../public/src/content/gems/Skins.js';
+import { TUNING, computeChainRank, computeResonanceMultiplier } from '../build/src/tuning.js';
+import { BeatClock } from '../build/src/pulse/BeatClock.js';
+import { PulseEngine } from '../build/src/pulse/PulseEngine.js';
+import { GemRules } from '../build/src/content/gems/GemRules.js';
+import { SKINS } from '../build/src/content/gems/Skins.js';
 
 test('10x14 Wall dimensions and initial deal', () => {
   const rules = new GemRules('brick');

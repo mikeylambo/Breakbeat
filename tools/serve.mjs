@@ -13,7 +13,11 @@ const MIME = {
   '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
-  '.ico': 'image/x-icon'
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+  '.map': 'application/json',
+  '.ogg': 'audio/ogg',
+  '.wav': 'audio/wav'
 };
 
 const server = http.createServer((req, res) => {

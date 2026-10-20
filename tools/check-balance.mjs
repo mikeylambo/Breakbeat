@@ -3,8 +3,8 @@ import {
   TUNING,
   computeComboMultiplier,
   computeResonanceMultiplier
-} from '../public/src/tuning.js';
-import { GemRules } from '../public/src/content/gems/GemRules.js';
+} from '../build/src/tuning.js';
+import { GemRules } from '../build/src/content/gems/GemRules.js';
 
 const rules = new GemRules('brick');
 
