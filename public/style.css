@@ -130,3 +130,27 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .hud.overture .hud-left { display: none; }
 .coachmark { position: absolute; left: 167px; width: 510px; top: 62px; text-align: center; font: 600 13px/1.2 var(--display); color: var(--text); pointer-events: none; transition: opacity 0.35s; }
 .coachmark span { color: var(--held); }
+
+/* ---------- Results ---------- */
+.results { position: absolute; inset: 0; }
+.results-left { position: absolute; left: 40px; top: 34px; width: 360px; }
+.results-kicker { font: 500 10px/1 var(--mono); letter-spacing: 0.22em; color: var(--secondary); }
+.results-score { margin-top: 12px; font: 700 44px/1 var(--display); color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.results-rank { margin-top: 20px; display: flex; align-items: center; gap: 10px; }
+.results-rank .badge { font-size: 8px; padding: 4px 6px; }
+.rank-bar { width: 150px; height: 4px; border-radius: 2px; background: rgba(244, 241, 234, 0.1); overflow: hidden; }
+.rank-bar span { display: block; height: 100%; background: var(--held); border-radius: 2px; }
+.rank-next { font: 500 9px/1 var(--mono); letter-spacing: 0.12em; color: var(--quiet); }
+.results-pb { margin-top: 14px; font: 500 11px/1 var(--mono); letter-spacing: 0.06em; color: var(--secondary); }
+.results-pb.new { color: var(--mint); letter-spacing: 0.14em; }
+.results-stats { display: flex; gap: 30px; margin-top: 30px; }
+.stat-value { font: 600 22px/1 var(--display); color: var(--text); font-variant-numeric: tabular-nums; }
+.stat-label { margin-top: 8px; font: 500 9px/1 var(--mono); letter-spacing: 0.16em; color: var(--quiet); }
+.results-home { position: absolute; left: 0; top: 284px; }
+.results-right { position: absolute; right: 32px; top: 22px; width: 347px; height: 350px; }
+.replay-label { font: 500 9px/1 var(--mono); letter-spacing: 0.16em; color: var(--quiet); }
+.practise-card { position: absolute; left: 0; right: 0; top: 248px; padding: 10px 12px; border-radius: 12px; background: rgba(124, 242, 196, 0.06); border: 1px solid rgba(124, 242, 196, 0.16); }
+.practise-label { font: 500 8px/1 var(--mono); letter-spacing: 0.2em; color: var(--mint); }
+.practise-text { margin-top: 6px; font: 500 11px/1.35 var(--body); color: var(--text); }
+.results-actions { position: absolute; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 8px; }
+.results-actions .btn:disabled { opacity: 0.4; cursor: default; }

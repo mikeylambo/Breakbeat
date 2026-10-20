@@ -2,6 +2,7 @@
 
 import { App, type RunConfig } from './ui/App.js';
 import { TitleScreen } from './ui/TitleScreen.js';
+import { ResultsScreen } from './ui/ResultsScreen.js';
 import { OvertureScreen } from './ui/overture/OvertureScreen.js';
 import { nextMovementIndex } from './meta/Save.js';
 import { readFlag, writeFlag } from './platform/Storage.js';
@@ -35,8 +36,17 @@ async function main(): Promise<void> {
       announce('Overture complete. Movement 01, Ignition.');
     }
   );
+  const results = new ResultsScreen(app, {
+    next: () => play({ mode: 'odyssey', movement: nextMovementIndex(app.save) }),
+    replay: () => {
+      const cfg = lastCfg;
+      if (cfg) void play(cfg);
+    },
+    title: () => showTitle()
+  });
+  let lastCfg: RunConfig | null = null;
   const coach = el('div', 'coachmark hidden', 'Catch it mid-fall · <span>×1.25</span>', { role: 'status' });
-  app.ui.append(title.root, overture.root, coach);
+  app.ui.append(title.root, overture.root, coach, results.root);
 
   function markOvertureDone(): void {
     if (!app.save.overtureDone) {
@@ -46,6 +56,7 @@ async function main(): Promise<void> {
   }
 
   function showTitle(): void {
+    results.hide();
     app.abandonRun();
     app.setWallVisible(false);
     app.backdrop.show(true);
@@ -55,6 +66,8 @@ async function main(): Promise<void> {
   }
 
   async function play(cfg: RunConfig): Promise<void> {
+    if (cfg.mode !== 'overture') lastCfg = cfg;
+    results.hide();
     title.show(false);
     coach.classList.add('hidden');
     app.backdrop.show(false);
@@ -113,12 +126,22 @@ async function main(): Promise<void> {
   };
   app.hooks.onFrame = () => {
     if (overture.active) overture.onFrame();
+    results.onFrame();
     if (coachUntil && performance.now() / 1000 > coachUntil) {
       coachUntil = 0;
       coach.classList.add('hidden');
     }
   };
-  app.hooks.onRunEnd = () => showTitle();
+  app.hooks.onRunEnd = r => {
+    if (r.run.mode === 'overture') {
+      showTitle();
+      return;
+    }
+    lastCfg = r.run.cfg;
+    app.abandonRun();
+    app.setWallVisible(false);
+    results.show(r);
+  };
   app.showTitle = showTitle;
   app.replayOverture = () => {
     app.closeSheets();

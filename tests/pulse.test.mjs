@@ -196,3 +196,19 @@ test('BeatClock: suspended audio time pauses the clock with no catch-up shift; q
   assert.ok(Math.abs(clock.stepToAudioSec(64) - t) < 1e-9);
   assert.ok(Math.abs(clock.stepToAudioSec(65) - t - 60 / 96 / 4) < 1e-9);
 });
+
+test('Coach: furthest-below-median metric, target ceil(median x 1.25) and at least current + 1', async () => {
+  const { pickAdvice, median } = await import('../build/src/meta/Coach.js');
+  const h = Array.from({ length: 10 }, () => ({ airPrimesLanded: 8, overchargesLanded: 2, groupsPerPassAvg: 2, longestCombo: 6 }));
+  const a = pickAdvice({ airPrimesLanded: 2, overchargesLanded: 2, groupsPerPassAvg: 2, longestCombo: 6 }, h);
+  assert.equal(a.metric, 'airPrimesLanded');
+  assert.equal(a.target, 10);
+  assert.match(a.text, /^Air-primes: 2 this run\. Aim for 10 — tap falling tiles before they land\.$/);
+  const b = pickAdvice({ airPrimesLanded: 9, overchargesLanded: 0, groupsPerPassAvg: 2, longestCombo: 6 }, h);
+  assert.equal(b.metric, 'overchargesLanded');
+  assert.equal(b.target, 3);
+  // fewer than 3 runs: practise the weaker Overture verb
+  const c = pickAdvice({ airPrimesLanded: 0, overchargesLanded: 0, groupsPerPassAvg: 2.4, longestCombo: 3 }, []);
+  assert.equal(c.metric, 'overchargesLanded');
+  assert.equal(median([3, 1, 2]), 2);
+});
