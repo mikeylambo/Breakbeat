@@ -1,40 +1,39 @@
-# BREAKBEAT — Stem Integration Contract (0.2.0)
+# BREAKBEAT — Stem delivery format (v0.6)
 
-Original musical masters have not yet been supplied. The game defaults to six tempo/key-aware **synthetic arrangements**, one per movement. This is a working integration path for original multi-stem tracks, not a claim that the original OST is bundled.
+Until real stems land, `src/audio/placeholder/Synth.ts` renders five stems for each of the six
+movements plus the Overture (96 BPM) once, into AudioBuffers via `OfflineAudioContext`. Everything
+below is what Michael delivers to replace them. No code changes are needed.
 
-## Drop-in workflow
+## Per movement
 
-1. Render 4–5 **phase-aligned stereo WAV or high-quality OGG** loops for a movement, at its declared BPM and key. All stems start at bar 1; export every stem to exactly the same duration and use gapless codec settings. Naming is your choice.
-2. Place files in `public/audio/<track-id>/`, e.g. `public/audio/ignition/drums.ogg` and `public/audio/ignition/lead.ogg`.
-3. Edit **`public/content/tracks.json`** (`content/tracks.json` in the source tree is the artist-facing reference). The runtime deliberately loads the published copy. Each `stems` entry is `{ "id": "...", "src": "./audio/ignition/drums.ogg", "rank": 0, "gain": 0.75 }`. Use ranks **0** (base) to **4** (highest rank). At least one rank-0 base stem is required; use one for every optional harmonic layer you want to enable.
-4. Preserve `bpm`, `key`, `offsetMs`, `loopStartBar`, `loopEndBar` in metadata. The first bar is `1`; an end bar of `16` means 16 full bars, not a marker at the start of bar 16. Each recorded loop should be at least as long as its declared end bar.
-5. Test looping in the browser, then run `npm run gates` and the device-latency matrix. Avoid tracks with inconsistent embedded leading silence. Do not commit private or unlicensed stems.
+| Field | Value |
+| --- | --- |
+| Format | OGG Vorbis (q6+) or WAV, **48 kHz**, stereo or mono |
+| Alignment | **Bar-aligned**: every file starts exactly on bar 1, beat 1, no leading silence |
+| Length | Exactly `loopBars` bars at the track BPM (see `content/tracks.json`); every stem the same sample length |
+| Looping | Seamless: the last sample must flow into the first (render tails back into bar 1) |
+| Stem names | `kick`, `bass`, `keys`, `lead`, `top`, exactly |
 
-Example (`public/content/tracks.json` excerpt):
+Stems enter with chain rank: rank 0 = kick + bass, 1 = + keys, 2 = + lead, 3 = + top, 4 = full mix level.
+Held (Overcharged) groups add the next layer for the pass they detonate on. In the Overture the stems
+enter one per lesson: kick, then bass, keys, lead.
 
-```json
-{
-  "id": "ignition",
-  "bpm": 116,
-  "key": "A minor",
-  "offsetMs": 0,
-  "stems": [
-    { "id": "base", "src": "./audio/ignition/base.ogg", "rank": 0, "gain": 0.75 },
-    { "id": "perc", "src": "./audio/ignition/perc.ogg", "rank": 1, "gain": 0.65 },
-    { "id": "bass", "src": "./audio/ignition/bass.ogg", "rank": 2, "gain": 0.65 },
-    { "id": "harmony", "src": "./audio/ignition/harmony.ogg", "rank": 3, "gain": 0.65 },
-    { "id": "lead", "src": "./audio/ignition/lead.ogg", "rank": 4, "gain": 0.6 }
-  ],
-  "loopStartBar": 1,
-  "loopEndBar": 16,
-  "skin": "ignition"
-}
-```
+## One-shots
 
-**Engine behavior:** Assets are requested and decoded *before* the AudioContext transport starts. Each stem uses a common Web Audio `origin`, synchronized buffer start, and loop markers. Chain rank ramps the corresponding gain smoothly. Overcharge temporarily adds one extra rank and releases it after the bar. Long-pressing a primed group also adds a held octave to its sustained chord. All keyed sound effects schedule on sixteenth boundaries; missed deadlines recover on the next boundary rather than firing off-grid.
+| Name | Use |
+| --- | --- |
+| `prime-0` … `prime-3` | Prime tone per colour (Amber, Magenta, Azure, Jade). Record in **C**; the game pitches them to the track key with `playbackRate`. |
+| `detonate` | A group goes off (on its 16th). |
+| `hold` | A group is held. |
+| `over` | An Overcharged detonation. |
+| `allclear` | All Clear sting (plays one beat after the drums duck). |
+| `slide` | Pressure row pushes up. |
 
-If any audio stem fails to decode or load, the whole movement falls back to its synthesized arrangement. A console warning identifies the failed asset. `fetch()` is not called once the conductor transport is running.
+## Drop-in
 
-## Latency/performance signoff still required
+1. Put files at `public/tracks/<id>/<name>.ogg` (paths in `content/tracks.json`).
+2. Set `"stemsReady": true` on that track in `content/tracks.json`.
+3. `npm run gates`, then play the movement. If any file fails to decode, that movement falls back to its
+   placeholder arrangement.
 
-The displayed sweep uses Web Audio time minus `AudioContext.outputLatency + baseLatency`. This compensates for reported output buffering; it does **not** measure physical device/acoustic latency. Verify perceived alignment on target iOS, Android, desktop and Bluetooth devices. The current 200-pass timing test validates schedule mathematics but is **not** an oscilloscope/audio-loopback timing measurement. The production 60/120 FPS and sound-output synchronization targets remain device QA tasks.
+Files are same-origin and decoded before the transport starts; there are no network calls at play time.

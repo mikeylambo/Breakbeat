@@ -307,19 +307,21 @@ console.log('=== BREAKBEAT GDD Gate Suite ===');
   const srcFiles = [
     ...fs.readdirSync(path.resolve(process.cwd(), 'src/pulse')).map(f => path.join('src/pulse', f)),
     ...fs.readdirSync(path.resolve(process.cwd(), 'src/content/gems')).map(f => path.join('src/content/gems', f)),
-    ...fs.readdirSync(path.resolve(process.cwd(), 'src/audio')).map(f => path.join('src/audio', f)),
-    ...fs.readdirSync(path.resolve(process.cwd(), 'src/render')).map(f => path.join('src/render', f)),
-    'src/main.ts'
   ];
-  for (const rel of srcFiles) {
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap(d =>
+    d.isDirectory() ? walk(path.join(dir, d.name)) : d.name.endsWith('.ts') ? [path.join(dir, d.name)] : []);
+  for (const rel of walk('src')) {
     const code = fs.readFileSync(path.resolve(process.cwd(), rel), 'utf8');
+    // Only same-origin relative fetches (bundled stems) are allowed; no absolute URLs, XHR or sockets.
     assert.equal(
-      /\bfetch\s*\(|\bXMLHttpRequest\b|\bWebSocket\b|https?:\/\//.test(code),
+      /\bfetch\s*\(\s*(?![`'"]\.\/)|\bXMLHttpRequest\b|\bWebSocket\b|https?:\/\/(?!www\.w3\.org)/.test(code),
       false,
       `NETWORK gate failed: external network call found in ${rel}`
     );
   }
-  console.log('PASS [NETWORK]: Zero runtime network calls across all source modules.');
+  const html = fs.readFileSync('public/index.html', 'utf8') + fs.readFileSync('public/fonts/fonts.css', 'utf8');
+  assert.equal(/(src|href)=["']https?:|url\(['"]?https?:/.test(html), false, 'NETWORK gate failed: external asset in index.html or fonts.css');
+  console.log('PASS [NETWORK]: Zero cross-origin requests in source, HTML and font CSS (fonts and audio bundled).');
 }
 
 // ---------- v0.6 engine gates ----------
@@ -459,4 +461,29 @@ const put = (eng, col, row, kind) => { eng.board[row][col] = { id: gid++, col, r
   console.log('PASS [ONE_COLOUR]: Fires once per wall state, re-arms on a new colour, never on an empty board.');
 }
 
-console.log('=== ALL 15 BREAKBEAT ENGINE GATES GREEN ===');
+// 16. AUDIO_SCHED — no requestAnimationFrame in src/audio/; oscillators/filters only in AudioEngine setup and placeholder/
+{
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap(d =>
+    d.isDirectory() ? walk(path.join(dir, d.name)) : d.name.endsWith('.ts') ? [path.join(dir, d.name)] : []);
+  const audioFiles = walk('src/audio');
+  assert.ok(audioFiles.length >= 5, 'AUDIO_SCHED: src/audio/ modules missing');
+  for (const rel of audioFiles) {
+    const code = fs.readFileSync(rel, 'utf8');
+    assert.equal(/requestAnimationFrame/.test(code), false, `AUDIO_SCHED: requestAnimationFrame referenced in ${rel}`);
+  }
+  for (const rel of walk('src')) {
+    const code = fs.readFileSync(rel, 'utf8');
+    if (!/createOscillator|createBiquadFilter/.test(code)) continue;
+    if (rel.includes(`audio${path.sep}placeholder${path.sep}`)) continue;
+    assert.equal(rel, path.join('src', 'audio', 'AudioEngine.ts'), `AUDIO_SCHED: oscillator/filter created in ${rel}`);
+    // In AudioEngine they may appear only inside the constructor (setup)
+    const ctorEnd = code.indexOf('\n  }\n', code.indexOf('constructor('));
+    const rest = code.slice(ctorEnd);
+    assert.equal(/createOscillator|createBiquadFilter/.test(rest), false, 'AUDIO_SCHED: AudioEngine creates nodes outside setup');
+  }
+  const sched = fs.readFileSync('src/audio/Scheduler.ts', 'utf8');
+  assert.ok(/setInterval\(/.test(sched) && /SCHED_INTERVAL_MS/.test(sched) && /SCHED_LOOKAHEAD_MS/.test(sched), 'AUDIO_SCHED: scheduler must use setInterval + lookahead');
+  console.log(`PASS [AUDIO_SCHED]: setInterval(${TUNING.SCHED_INTERVAL_MS}ms)+${TUNING.SCHED_LOOKAHEAD_MS}ms lookahead; no rAF in src/audio/; oscillators/filters only in setup + placeholder/.`);
+}
+
+console.log('=== ALL 16 BREAKBEAT GATES GREEN ===');

@@ -174,3 +174,25 @@ test('Skins, resonance and chain rank tables', () => {
   assert.equal(computeResonanceMultiplier(10), 5.0);
   assert.equal(computeChainRank(8), 4);
 });
+
+test('BeatClock: suspended audio time pauses the clock with no catch-up shift; query is a pure read', async () => {
+  const { BeatClock } = await import('../build/src/pulse/BeatClock.js');
+  const clock = new BeatClock(120, 0.02);
+  clock.start(1);
+  const a = clock.query(2);
+  const b = clock.query(2);
+  assert.deepEqual(a, b, 'query must not mutate clock state');
+  assert.ok(Math.abs(a.elapsedSec - 1) < 1e-9);
+  assert.ok(Math.abs(a.visualElapsedSec - 0.98) < 1e-9);
+  clock.pause(2);
+  assert.equal(clock.query(40).elapsedSec, 1, 'paused clock holds still');
+  clock.resume(40);
+  assert.ok(Math.abs(clock.query(40.5).elapsedSec - 1.5) < 1e-9, 'resume continues where it paused');
+  // A 30 s gap while running is real time (the context was not suspended), never clamped
+  assert.ok(Math.abs(clock.query(70.5).elapsedSec - 31.5) < 1e-9);
+  // Tempo morph keeps step numbering continuous
+  const t = clock.stepToAudioSec(64);
+  clock.setBpmAtStep(96, 64);
+  assert.ok(Math.abs(clock.stepToAudioSec(64) - t) < 1e-9);
+  assert.ok(Math.abs(clock.stepToAudioSec(65) - t - 60 / 96 / 4) < 1e-9);
+});

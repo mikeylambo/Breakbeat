@@ -113,6 +113,11 @@ export class PulseEngine {
     return 60 / this.config.bpm / 4;
   }
 
+  /** Combo passes as they will stand after the current pass is finalized on the next downbeat. */
+  get projectedComboPasses(): number {
+    return this.passDetonations > 0 ? this.comboPasses + 1 : 0;
+  }
+
   get chainRank(): number {
     return computeChainRank(this.comboPasses);
   }
