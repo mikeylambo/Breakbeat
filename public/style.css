@@ -21,7 +21,8 @@ html, body {
   font-family: var(--body); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
   user-select: none; -webkit-user-select: none; touch-action: none; overscroll-behavior: none;
 }
-.game-host { position: fixed; inset: 0; }
+.game-host { position: fixed; inset: 0; --pool: #1a2a4a; background: radial-gradient(ellipse 62vmax 40vmax at 50% 50%, color-mix(in srgb, var(--pool) 60%, transparent), transparent 70%), var(--bg); transition: --pool 0s; }
+.game-host.title-mode { background: var(--bg); }
 .game-host canvas { display: block; width: 100%; height: 100%; }
 .ui-stage { position: fixed; left: 0; top: 0; width: 844px; height: 390px; transform-origin: 0 0; pointer-events: none; }
 .ui-stage > * { pointer-events: auto; }
@@ -127,6 +128,8 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .overture-caption .cap-main { font: 600 15px/1.2 var(--display); color: var(--text); letter-spacing: 0.01em; }
 .overture-caption .cap-sub { margin: 8px auto 0; max-width: 380px; font: 400 11px/1.45 var(--body); color: var(--secondary); }
 .overture-caption.lesson-3 { top: 40px; }
+.overture-caption.lesson-3 .cap-main { font-size: 13px; }
+.overture-caption.lesson-3 .cap-sub { margin-top: 5px; max-width: 470px; font-size: 10px; line-height: 1.35; }
 .hud.overture .hud-left { display: none; }
 .coachmark { position: absolute; left: 167px; width: 510px; top: 62px; text-align: center; font: 600 13px/1.2 var(--display); color: var(--text); pointer-events: none; transition: opacity 0.35s; }
 .coachmark span { color: var(--held); }
@@ -147,9 +150,9 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .stat-value { font: 600 22px/1 var(--display); color: var(--text); font-variant-numeric: tabular-nums; }
 .stat-label { margin-top: 8px; font: 500 9px/1 var(--mono); letter-spacing: 0.16em; color: var(--quiet); }
 .results-home { position: absolute; left: 0; top: 284px; }
-.results-right { position: absolute; right: 32px; top: 22px; width: 347px; height: 350px; }
+.results-right { position: absolute; right: 32px; top: 22px; width: 330px; height: 350px; }
 .replay-label { font: 500 9px/1 var(--mono); letter-spacing: 0.16em; color: var(--quiet); }
-.practise-card { position: absolute; left: 0; right: 0; top: 248px; padding: 10px 12px; border-radius: 12px; background: rgba(124, 242, 196, 0.06); border: 1px solid rgba(124, 242, 196, 0.16); }
+.practise-card { position: absolute; left: 0; right: 0; top: 226px; padding: 10px 12px; border-radius: 12px; background: rgba(124, 242, 196, 0.06); border: 1px solid rgba(124, 242, 196, 0.16); }
 .practise-label { font: 500 8px/1 var(--mono); letter-spacing: 0.2em; color: var(--mint); }
 .practise-text { margin-top: 6px; font: 500 11px/1.35 var(--body); color: var(--text); }
 .results-actions { position: absolute; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 8px; }

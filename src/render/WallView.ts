@@ -58,7 +58,7 @@ export class WallView {
   private readonly backing = new Graphics();
   private readonly tileLayer = new Container();
   private readonly allClearGlow: Sprite;
-  private pool!: Sprite;
+  private tintCurrent = 0x1a2340;
   private tintFrom = 0x1a2340;
   private tintTo = 0x1a2340;
   private tintStart = 0;
@@ -118,10 +118,10 @@ export class WallView {
     this.allClearGlow = new Sprite(atlas.vignette);
     this.allClearGlow.anchor.set(0.5);
     this.allClearGlow.position.set(WX + WALL_W / 2, WY + WALL_H / 2);
-    this.allClearGlow.width = WALL_W * 1.5;
-    this.allClearGlow.height = WALL_H * 1.6;
-    this.allClearGlow.tint = 0xfff1d0;
-    this.allClearGlow.alpha = 0;
+    this.allClearGlow.width = WALL_W * 1.25;
+    this.allClearGlow.height = WALL_H * 1.3;
+    this.allClearGlow.tint = 0xffc461;
+    this.allClearGlow.visible = false;
     this.allClearGlow.blendMode = 'add';
     stage.glow.addChild(this.allClearGlow);
   }
@@ -136,15 +136,6 @@ export class WallView {
   private buildStatic(): void {
     const bg = this.stage.background;
     // Soft pool of light behind the wall
-    const pool = new Sprite(this.atlas.vignette);
-    this.pool = pool;
-    pool.anchor.set(0.5);
-    pool.position.set(WX + WALL_W / 2, WY + WALL_H / 2);
-    pool.width = 980;
-    pool.height = 560;
-    pool.tint = 0x1a2340;
-    pool.alpha = 0.55;
-    bg.addChild(pool);
 
     this.backing.roundRect(WX - 8, WY - 8, WALL_W + 16, WALL_H + 12, 10).fill({ color: UI.panel, alpha: 0.92 });
     this.backing.roundRect(WX - 8.5, WY - 8.5, WALL_W + 17, WALL_H + 13, 10.5).stroke({ width: 1, color: 0xffffff, alpha: 0.06 });
@@ -178,11 +169,18 @@ export class WallView {
 
   /** Movement background: crossfade the light pool behind the wall over `seconds`. */
   setPoolTint(tint: number, nowSec: number, seconds: number): void {
-    this.tintFrom = this.pool.tint as number;
+    this.tintFrom = this.tintCurrent;
     this.tintTo = tint;
     this.tintStart = nowSec;
     this.tintDur = Math.max(0.001, seconds);
-    if (seconds <= 0) this.pool.tint = tint;
+    if (seconds <= 0) this.applyPool(tint);
+  }
+
+  /** The light pool behind the wall is a CSS gradient under the transparent canvas (free to composite). */
+  private applyPool(tint: number): void {
+    this.tintCurrent = tint;
+    const host = document.getElementById('game');
+    host?.style.setProperty('--pool', `#${tint.toString(16).padStart(6, '0')}`);
   }
 
   private updatePool(nowSec: number): void {
@@ -191,7 +189,7 @@ export class WallView {
     const a = this.tintFrom;
     const b = this.tintTo;
     const mix = (sh: number): number => Math.round(((a >> sh) & 255) + (((b >> sh) & 255) - ((a >> sh) & 255)) * p) << sh;
-    this.pool.tint = mix(16) | mix(8) | mix(0);
+    this.applyPool(mix(16) | mix(8) | mix(0));
     if (p >= 1) this.tintDur = 0;
   }
 
@@ -479,10 +477,11 @@ export class WallView {
     }
 
     if (this.allClearFlash > 0) {
-      this.allClearGlow.alpha = Math.min(1, this.allClearFlash * 0.75 * flash);
+      this.allClearGlow.visible = true;
+      this.allClearGlow.alpha = Math.min(1, this.allClearFlash * this.allClearFlash * 0.42 * flash);
       this.allClearFlash = Math.max(0, this.allClearFlash - frameSec * 0.9);
     } else {
-      this.allClearGlow.alpha = 0;
+      this.allClearGlow.visible = false;
     }
   }
 

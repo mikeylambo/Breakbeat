@@ -33,9 +33,9 @@ export class ResultsScreen {
   private ensureReplay(): ReplayView {
     if (!this.replay) {
       this.replay = new ReplayView(this.app.atlas);
-      const scale = 0.68;
+      const scale = 0.62;
       this.replay.root.scale.set(scale);
-      this.replay.root.position.set(812 - this.replay.width * scale, 44);
+      this.replay.root.position.set(812 - this.replay.width * scale - 5, 42);
       this.app.stage.root.addChild(this.replay.root);
     }
     return this.replay;

@@ -3,16 +3,17 @@
   "version": "0.6.0",
   "private": true,
   "type": "module",
-  "description": "Breakbeat — you choose what breaks; the music chooses when.",
+  "description": "Breakbeat \u2014 you choose what breaks; the music chooses when.",
   "scripts": {
     "build": "tsc -p tsconfig.json && node tools/bundle.mjs",
     "check": "tsc -p tsconfig.json --noEmit",
     "dev": "npm run build && node tools/serve.mjs",
     "start": "node tools/serve.mjs",
     "test": "tsc -p tsconfig.json && node --test tests/*.test.mjs",
-    "gates": "npm run build && node --test tests/*.test.mjs && node tools/gates.mjs && node tools/check-balance.mjs && npm run verify:deploy",
+    "gates": "npm run build && node --test tests/*.test.mjs && node tools/gates.mjs && node tools/check-balance.mjs && npm run verify:deploy && node tools/browser-gates.mjs",
     "gates:browser": "node tools/browser-gates.mjs",
-    "verify:deploy": "node tools/verify-deploy.mjs"
+    "verify:deploy": "node tools/verify-deploy.mjs",
+    "gates:fast": "npm run build && node --test tests/*.test.mjs && node tools/gates.mjs && node tools/check-balance.mjs && npm run verify:deploy"
   },
   "engines": {
     "node": ">=20"

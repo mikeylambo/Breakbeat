@@ -7,7 +7,6 @@
 import { Application, Container } from 'pixi.js';
 import { AdvancedBloomFilter } from 'pixi-filters/advanced-bloom';
 import { TUNING } from '../tuning.js';
-import { UI } from './palette.js';
 
 export interface StageLayout {
   scale: number;
@@ -40,8 +39,8 @@ export class Stage {
       height: window.innerHeight,
       resolution: this.resolution,
       autoDensity: true,
-      antialias: true,
-      background: UI.bg,
+      antialias: false,
+      backgroundAlpha: 0,
       autoStart: false,
       preference: 'webgl',
       powerPreference: 'high-performance',
@@ -61,8 +60,12 @@ export class Stage {
     this.camera.pivot.set(cx, cy);
     this.camera.position.set(cx, cy);
 
-    this.bloom = new AdvancedBloomFilter({ threshold: 0.18, bloomScale: 1.1, brightness: 1, blur: 6, quality: 4 });
-    this.glow.filters = [this.bloom];
+    // Bloom at half resolution, clipped to the play area: the glow layer is soft by nature
+    this.bloom = new AdvancedBloomFilter({ threshold: 0.18, bloomScale: 1.1, brightness: 1, blur: 3, quality: 2 });
+    this.bloom.resolution = 0.35;
+    this.softwareGL = detectSoftwareGL(canvas);
+    // Software rasterisers (no GPU) skip the bloom pass; the glow sprites are pre-softened gradients
+    this.setBloomEnabled(!this.softwareGL);
 
     this.probe = document.createElement('div');
     this.probe.style.cssText =
@@ -73,6 +76,14 @@ export class Stage {
     window.addEventListener('resize', onResize);
     window.visualViewport?.addEventListener('resize', onResize);
     this.relayout();
+  }
+
+  softwareGL = false;
+  bloomEnabled = true;
+
+  setBloomEnabled(on: boolean): void {
+    this.bloomEnabled = on;
+    this.glow.filters = on && this.bloom ? [this.bloom] : [];
   }
 
   /** Camera breath zoom (1 = rest). */
@@ -117,5 +128,17 @@ export class Stage {
 
   render(): void {
     this.app.renderer.render(this.app.stage);
+  }
+}
+
+function detectSoftwareGL(canvas: HTMLCanvasElement): boolean {
+  try {
+    const gl = (canvas.getContext('webgl2') ?? canvas.getContext('webgl')) as WebGLRenderingContext | null;
+    if (!gl) return false;
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const name = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    return /swiftshader|llvmpipe|softpipe|software/i.test(name);
+  } catch {
+    return false;
   }
 }

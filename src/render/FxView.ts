@@ -164,7 +164,7 @@ export class FxView {
     this.floorFlash.width = G.WALL_W + 60;
     this.floorFlash.height = 26;
     this.floorFlash.tint = 0xffe7b5;
-    this.floorFlash.alpha = 0;
+    this.floorFlash.visible = false;
     this.floorFlash.blendMode = 'add';
     stage.glow.addChild(this.floorFlash);
 
@@ -323,6 +323,7 @@ export class FxView {
         this.showBig('ALL CLEAR', `+${ev.points.toLocaleString('en-US')}`, 0xfff6e4, 50);
         if (this.canFlash()) {
           wall.allClearFlash = 1;
+          this.floorFlash.visible = true;
           this.floorFlash.alpha = 1 * this.settings.flash;
         }
         if (!this.settings.reducedMotion) this.breath = 1;
@@ -452,7 +453,10 @@ export class FxView {
     // Camera breath decays (reduced motion never sets it)
     this.breath = Math.max(0, this.breath - dt * 2.2);
 
-    if (this.floorFlash.alpha > 0) this.floorFlash.alpha = Math.max(0, this.floorFlash.alpha - dt * 0.8);
+    if (this.floorFlash.visible) {
+      this.floorFlash.alpha = Math.max(0, this.floorFlash.alpha - dt * 0.8);
+      if (this.floorFlash.alpha <= 0) this.floorFlash.visible = false;
+    }
 
     if (this.bigLayer.visible) {
       if (nowSec > this.bigUntil + this.bigFadeSec) this.bigLayer.visible = false;

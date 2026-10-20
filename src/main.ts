@@ -121,11 +121,11 @@ async function main(): Promise<void> {
   }
 
   app.hooks.onEvent = ev => {
-    if (overture.active) overture.onEvent(ev);
+    if (overture.running) overture.onEvent(ev);
     else maybeTeachAir(ev);
   };
   app.hooks.onFrame = () => {
-    if (overture.active) overture.onFrame();
+    if (overture.running) overture.onFrame();
     results.onFrame();
     if (coachUntil && performance.now() / 1000 > coachUntil) {
       coachUntil = 0;
@@ -150,6 +150,7 @@ async function main(): Promise<void> {
   showTitle();
   document.getElementById('game')!.dataset.ready = '1';
   (window as unknown as { __bb: unknown }).__bb = app;
+  (app as unknown as { __overture: unknown }).__overture = overture;
 }
 
 void main();

@@ -2,77 +2,39 @@
 
 **You choose what breaks. The music chooses when.**
 
-BREAKBEAT is a standalone browser-first rhythm-demolition puzzle game built from the supplied SLU Web Game Shell 1.02 concepts. The source repository of the shell is not modified, nor is a live copy or NPM download required. The `src/shell` directory includes a small subset of the uploaded shell's deterministic RNG and audio lifecycle primitives. The playable **Pulse** engine is native TypeScript and renderer-neutral.
+A landscape rhythm-demolition puzzle for phones and desktop. Tap a same-colour group of 2+ to prime it; the
+blade crossing the wall on the music detonates it. Hold to overcharge. The audio clock is the only clock.
 
 ## Run
 
-Prerequisite: Node 20+. `npm ci` installs the pinned TypeScript compiler locally; no globally installed compiler is needed. There are no third-party runtime libraries.
+Node 20+.
 
 ```sh
 npm ci
-npm run build
-npm run start
-# visit http://localhost:4173
+npm run dev        # builds and serves http://localhost:4173
+npm run gates      # every gate: types, unit tests, engine gates, balance, deploy check, browser gates
 ```
 
-To develop: `npm run dev`; to verify: `npm run gates`. To generate repeatable 40-seed tuning measurements, run `npm run balance:report`.
+Browser gates (FRAME_HITCH, SCREENS, NETWORK) use Playwright + Chromium; install once with
+`npx playwright install chromium`. Screens land in `artifacts/screens/`.
 
-## Deploy to Vercel
+## Layout
 
-Import `mikeylambo/Breakbeat` as a new Vercel project (repository root `/`). The committed `vercel.json` configures the **Other** framework preset, **`npm ci`** install, **`npm run build && npm run verify:deploy`** build command, and **`public`** output directory. No environment variables, Node.js server, or Vercel Functions are needed: Vercel serves the compiled `public/index.html` and the referenced static assets.
+| Path | What |
+| --- | --- |
+| `src/pulse/` | Pulse engine: deterministic sweep/prime/hold sim, BeatClock (audio clock) |
+| `src/content/gems/` | Gem rules (primeable groups, collapse, Overcharge blast, scoring) |
+| `src/render/` | PixiJS 8 renderer: Stage, TileAtlas, WallView, BladeView, FxView, ReplayView |
+| `src/audio/` | AudioEngine, StemPlayer, SfxPlayer, Scheduler (setInterval lookahead), MusicDirector, placeholder synth |
+| `src/ui/` | DOM screens over the canvas: Title, Run HUD, Pause, Results, Settings, Rotate, Overture, input |
+| `src/meta/` | Save, Settings, Coach (practise next) |
+| `src/platform/` | Storage, haptics, lifecycle, share — same interfaces as Web-Game-Shell (see its README) |
+| `content/` | `tracks.json` (movements, stems, quotas), `overture.json` (lesson boards) |
+| `tools/` | `gates.mjs`, `browser-gates.mjs`, `check-balance.mjs`, `bundle.mjs`, `serve.mjs` |
 
-Vercel project settings should not override the root directory to a nested folder. To reproduce the production pipeline locally, run:
+Stem delivery format: `AUDIO_STEMS.md`. Release notes: `RELEASE.md`.
 
-```sh
-npm ci
-npm run build
-npm run verify:deploy
-npm run gates
-```
+## Deploy
 
-## How to play
-
-Tap a touching same-colour group of **2 or more** to prime it. The group locks, then detonates when the **next measure's sweepline** crosses it; taps are not timed. Multiple clears on a pass increase resonance. Long-press a primed group (300 ms) to **hold** it through one pass and overcharge its next blast. Cascading blocks create air-prime opportunities. A new pressure row pushes the wall upwards on every second downbeat cycle, then every cycle later in Endless/Odyssey. Exceed the danger line and the session ends.
-
-Keyboard: **Arrow keys** select a tile, **Enter** or **Space** prime, **H** hold, **A** manually prime the largest available group with assist, **P** / **Esc** pause. Touch and mouse are supported. Headphones recommended.
-
-## Included
-
-- Four playable modes: six-track **Odyssey**, **Endless**, pressure-free **Zen**, and a locally seeded **Daily** with per-device one-attempt lock (not network-ranked).
-- Deterministic `Pulse` game simulation and interchangeable `ContentRules`, with `GemRules` as the first content pack.
-- Web Audio transport with latency-compensated sweep, timed keyed FX and real multi-stem gain mixing (see `AUDIO_STEMS.md`). Six distinctive synthesized arrangements remain **placeholders until the original multistem OST is supplied.**
-- Pressure / priming / holds / eight-neighbor overcharge / audio-clock-staged gravity / inward column closure / real midfall contact priming / resonance / chain scoring / progression and locally saved scores.
-- Responsive 390 px portrait cabinet UI, six material shaders, distinct sweep personas, debris, group lighting, anticipation, impact hitstop, pitched chords, pause/results, colour-independent symbols, beat lights, mute, volume, reduced motion preference, flash limiter, strobe-free mode and haptics where supported.
-- `npm run gates` for isolation, determinism, pure modes, solubility and other automated checks.
-
-## Architecture
-
-`src/pulse/` owns clocks-independent deterministic rules, and imports a **ContentRules interface only**. It does not import gems content. `src/content/gems/` supplies the first ruleset; `src/content/skins.ts` supplies data-driven themes. `src/pulse/Conductor.ts` reads `AudioContext.currentTime` as the authoritative time. `src/main.ts` owns input / menus / rendering / audio hooks. `src/tuning.ts` owns game balance.
-
-## Balance and skill contracts (0.5.0)
-
-- Endless now has **four entirely optional skill contracts**: Resonance Relay (four clears in one pass), Overcharge Forge (three successful holds), Skyline Catch (three air-primes) and Pressure Gauntlet (survive twelve pressure rows). Choose STANDARD to play the unchanged mode. Contract successes and best scores are stored locally and never mixed with standard records.
-- A deterministic pressure forecast and **exact upcoming-row preview** make rising danger legible; rows guarantee one ordinary pair. Odyssey's two-to-one bar cadence increases in later movements; Daily's cadence remains fixed. Zen remains pressure-free.
-- Simultaneous Overcharges no longer double-award the same block. Resonance counts genuine, resolved detonations, rather than predicted held or skipped groups. The original score curves and cosmetic threshold structure remain.
-- `BALANCE.md` describes the rule changes and the 40-seed novice/intermediate/expert simulation in detail. These scripted policies are **not human playtests**.
-
-## Player experience and progression (0.4.0)
-
-- **Action-gated learning path:** priming → sweep clear → hold → Overcharge → real air-prime. Progress advances only on successful game events, persists locally, and can be replayed from the main menu.
-- **Assist and accessibility:** a manual group-suggestion assist button (or keyboard `A`), optional one group auto-primed per new bar, five BPM scaling choices, high-contrast tile outlines, visual danger escalation, persistent flash/reduced-motion/strobe settings, keyboard navigation, and spoken cell inspection via a live region. Daily plays at native speed with no assist.
-- **Score integrity:** BPM-adjusted results normalize the score to the original speed. Assisted and unassisted records are stored separately and labeled; the local Daily is unranked.
-- **Odyssey journey:** six movement milestones, local unlocks and completion tracking; personal bests with Bronze/Silver/Gold/Platinum/Resonant mastery ranks. Earn Echo (Silver) and Prism (Gold) cosmetic sweeps by achieving score thresholds. Coda's ear-only sweep remains invisible regardless of cosmetic.
-- **Results:** local record cards with best pass, chain, air-primes, Overcharges, survival time, and a 3-second looping **visual reconstruction** of the strongest pass (not an audio replay). Best pass is recorded per run; records and replay data persist locally.
-- **Saves:** schema v2 migrates existing v0.1/v0.2 localStorage unlocks and personal best scores without wiping older progress. Data is device/browser-local.
-
-For automation/testing: `npm run gates` runs compiler checks, unit and integration tests, deterministic seed sweeps, and the static deployment asset check. No original licensed music required.
-
-## Production blockers / honest release status
-
-This is a playable 0.5.0 browser milestone, not a certified commercial release. The provided archive contains no licensed original stems, so the soundtrack is procedurally synthesized. Original track stems, acoustic/hardware audio-output calibration, real-device 120 FPS performance certification, cross-platform latency calibration, a hosted authoritative Daily leaderboard/one-attempt validation, service-worker offline precaching and QA on the target mobile device matrix remain. Duet / Remix / Quest mixed reality are explicitly post-v1 and not included.
-
-No analytics or ads are present. Audio manifests and optional stems preload before a session, with no in-session network requests. The app does not register a service worker, so an online web hosting setup is needed for initial load.
-
-## Instrument milestone (0.2.0)
-
-The five systems from the first audit are implemented in this milestone: conductor math and output-latency compensation; real in-flight cascade input; stem transport with the current synth fallback; layered burst/held/anticipation effects; and six distinct visual themes with per-skin sweep and haptic identities. `AUDIO_STEMS.md` is the authoritative integration guide for final compositions. `npm run gates` validates 29+ unit/integration checks and structure, but an audio-loopback test and physical phone frame profiling remain required for shipping guarantees.
+Vercel, repository root, using the committed `vercel.json` (`npm ci`, `npm run build && npm run verify:deploy`,
+output `public/`). Static only: fonts and audio are bundled, there are no network calls at play time.

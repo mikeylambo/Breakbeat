@@ -8,6 +8,9 @@ const requiredFiles = [
   'public/manifest.webmanifest',
   'public/app.js',
   'public/fonts/fonts.css',
+  'public/fonts/unbounded-latin-700-normal.woff2',
+  'public/fonts/ibm-plex-mono-latin-500-normal.woff2',
+  'public/fonts/manrope-latin-600-normal.woff2',
 ];
 
 for (const rel of requiredFiles) {

@@ -1,10 +1,10 @@
 {
-  "name": "BREAKBEAT — Rhythm Demolition",
+  "name": "BREAKBEAT",
   "short_name": "BREAKBEAT",
-  "description": "You choose what breaks, the music chooses when. A rhythm-demolition puzzle instrument.",
+  "description": "You choose what breaks. The music chooses when.",
   "start_url": "/",
-  "display": "standalone",
-  "background_color": "#08070b",
-  "theme_color": "#08070b",
-  "orientation": "portrait"
+  "display": "fullscreen",
+  "background_color": "#05060A",
+  "theme_color": "#05060A",
+  "orientation": "landscape"
 }

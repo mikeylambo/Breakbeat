@@ -42,6 +42,11 @@ export class OvertureScreen {
     return !!this.lessons && !this.lessons.done;
   }
 
+  /** True from begin() until the Overture hands over (including the frame it completes on). */
+  get running(): boolean {
+    return !!this.lessons;
+  }
+
   /** Called right after the Overture run has started. */
   begin(): void {
     const engine = this.app.engine!;

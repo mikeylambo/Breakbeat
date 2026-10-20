@@ -117,6 +117,9 @@ export class App {
   private lastFrameSec = 0;
   private lastHapticStep = -1;
   private lastTickBeat = -1;
+  /** Adaptive quality: recent frame deltas (ms) while playing */
+  private readonly frameMs = new Float32Array(120);
+  private frameIdx = 0;
   private readonly cellPt = { x: 0, y: 0 };
   /** Opens the settings sheet. */
   openSettings: () => void;
@@ -235,6 +238,7 @@ export class App {
     this.fx.settings.flash = s.flash;
     this.fx.settings.strobeFree = s.strobeFree;
     this.stage.setBloomStrength(0.4 + 0.6 * s.flash);
+    // Flash intensity also scales the soft glow sprites when bloom is off
     haptics.setEnabled(s.haptics);
     this.hud.setHidden(s.hudHidden);
     this.clock.outputLatencySec = this.audio.outputLatencySec + s.offsetMs / 1000;
@@ -577,6 +581,7 @@ export class App {
     const beat = this.clock.query(this.audio.now, this.beat);
     const e = this.engine;
     const run = this.run;
+    if (run && !run.ended && !this.paused) this.watchFrameBudget(dt * 1000);
 
     if (e && run && !this.paused && !this.blocked && this.clock.isRunning) {
       this.applyMorph();
@@ -621,6 +626,23 @@ export class App {
     if (!this.fx.frozen) this.stage.render();
   };
 
+  /**
+   * Device-adaptive quality: if more than 10% of the last 120 frames in play missed 20 ms, drop the
+   * bloom pass (the glow sprites stay). Weak GPUs keep a locked frame rate instead of the extra pass.
+   */
+  private watchFrameBudget(ms: number): void {
+    if (!this.stage.bloomEnabled) return;
+    this.frameMs[this.frameIdx] = ms;
+    this.frameIdx = (this.frameIdx + 1) % this.frameMs.length;
+    if (this.frameIdx !== 0) return;
+    let slow = 0;
+    for (let i = 0; i < this.frameMs.length; i++) if (this.frameMs[i]! > 20) slow++;
+    if (slow > this.frameMs.length * 0.1) {
+      this.stage.setBloomEnabled(false);
+      console.info('[breakbeat] frame budget missed; bloom pass disabled for this device');
+    }
+  }
+
   /** Shows or hides the in-run Pixi layers (title/results draw their own). */
   setWallVisible(on: boolean): void {
     this.stage.wall.visible = on;
@@ -629,6 +651,7 @@ export class App {
     this.stage.fx.visible = on;
     this.stage.blade.visible = on;
     this.stage.background.visible = on;
+    document.getElementById('game')?.classList.toggle('title-mode', !on);
   }
 
   get cellPoint(): { x: number; y: number } {
