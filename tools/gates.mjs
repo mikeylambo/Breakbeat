@@ -486,4 +486,17 @@ const put = (eng, col, row, kind) => { eng.board[row][col] = { id: gid++, col, r
   console.log(`PASS [AUDIO_SCHED]: setInterval(${TUNING.SCHED_INTERVAL_MS}ms)+${TUNING.SCHED_LOOKAHEAD_MS}ms lookahead; no rAF in src/audio/; oscillators/filters only in setup + placeholder/.`);
 }
 
-console.log('=== ALL 16 BREAKBEAT GATES GREEN ===');
+// 17. NO_BLUR — no ctx.shadowBlur and no CSS filter: blur anywhere in src/ (or the shipped CSS)
+{
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap(d =>
+    d.isDirectory() ? walk(path.join(dir, d.name)) : [path.join(dir, d.name)]);
+  const files = [...walk('src'), 'public/style.css'];
+  for (const rel of files) {
+    const code = fs.readFileSync(rel, 'utf8');
+    assert.equal(/shadowBlur/.test(code), false, `NO_BLUR: shadowBlur in ${rel}`);
+    assert.equal(/filter\s*[:=]\s*['"`]?\s*blur\(|backdrop-filter\s*:\s*blur/.test(code), false, `NO_BLUR: CSS blur filter in ${rel}`);
+  }
+  console.log(`PASS [NO_BLUR]: 0 shadowBlur / CSS blur filters across ${files.length} files (bloom is a GPU filter on the glow layer only).`);
+}
+
+console.log('=== ALL 17 BREAKBEAT GATES GREEN ===');

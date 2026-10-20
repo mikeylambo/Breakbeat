@@ -1,7 +1,7 @@
 /**
  * TileAtlas — every tile texture is drawn once at boot (at device pixel ratio) into one canvas and
  * sliced into sub-textures, so the whole wall batches into a single draw. Rebuilt only when
- * colour-assist toggles. No shadowBlur: glows are gradients.
+ * colour-assist toggles. Glows are gradients, never canvas shadows.
  *
  * States: idle (per kind), primed and held (per kind x 16 corner masks: outer corners of a fused
  * slab round to 6 px, inner corners stay square), plus shared white sprites for tinting.
