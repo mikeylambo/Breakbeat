@@ -91,11 +91,11 @@ console.log('=== BREAKBEAT GDD Gate Suite ===');
     const rules = new GemRules('crystal');
     const eng = new PulseEngine({ seed, mode: 'daily', bpm: 114 }, rules);
     const tapLog = [
-      { step: 0, col: 2, row: 12 },
-      { step: 2, col: 5, row: 13 },
-      { step: 16, col: 4, row: 11 },
-      { step: 32, col: 1, row: 13 },
-      { step: 48, col: 7, row: 12 }
+      { step: 0, col: 2, row: 8 },
+      { step: 2, col: 9, row: 9 },
+      { step: 16, col: 4, row: 7 },
+      { step: 32, col: 12, row: 9 },
+      { step: 48, col: 7, row: 8 }
     ];
     for (let step = 0; step <= 64; step++) {
       eng.advanceToStep(step);
@@ -119,10 +119,10 @@ console.log('=== BREAKBEAT GDD Gate Suite ===');
     const rules = new GemRules('brick');
     const eng = new PulseEngine({ seed: 'timing-free-seed', mode: 'endless', bpm: 104 }, rules);
     eng.advanceToStep(0);
-    // Find a cluster in right half (cols 6..9) so substeps 0, 2, 5 are all ahead of sweep
+    // Find a cluster in the right half (cols 10..15) so substeps 0, 3, 6 are all ahead of the blade
     let target = null;
-    for (let r = TUNING.BOARD_ROWS - 1; r >= 8; r--) {
-      for (let c = 6; c < TUNING.BOARD_COLS; c++) {
+    for (let r = TUNING.BOARD_ROWS - 1; r >= 5; r--) {
+      for (let c = 10; c < TUNING.BOARD_COLS; c++) {
         if (rules.primeable(eng.board, c, r, eng.getLockedTileIds())) {
           target = { c, r };
           break;
@@ -130,7 +130,7 @@ console.log('=== BREAKBEAT GDD Gate Suite ===');
       }
       if (target) break;
     }
-    assert.ok(target, 'Expected primeable cluster in cols 6..9');
+    assert.ok(target, 'Expected primeable cluster in cols 10..15');
 
     for (let step = 0; step < 16; step++) {
       eng.advanceToStep(step);
@@ -157,7 +157,7 @@ console.log('=== BREAKBEAT GDD Gate Suite ===');
   eng.advanceToStep(0);
 
   let grp = null;
-  for (let r = TUNING.BOARD_ROWS - 1; r >= 8; r--) {
+  for (let r = TUNING.BOARD_ROWS - 1; r >= 5; r--) {
     for (let c = 4; c < TUNING.BOARD_COLS; c++) {
       grp = eng.primeAt(c, r);
       if (grp) {
@@ -281,14 +281,14 @@ console.log('=== BREAKBEAT GDD Gate Suite ===');
   let idCounter = 5000;
   for (let c = 0; c < 10; c++) {
     const kind = c % 4;
-    eng.board[12][c] = { id: idCounter++, col: c, row: 12, kind, special: 'none' };
-    eng.board[13][c] = { id: idCounter++, col: c, row: 13, kind, special: 'none' };
+    eng.board[8][c] = { id: idCounter++, col: c, row: 8, kind, special: 'none' };
+    eng.board[9][c] = { id: idCounter++, col: c, row: 9, kind, special: 'none' };
+  }
+  for (let c = 0; c < 10; c++) {
+    eng.primeAt(c, 8);
+    eng.holdAt(c, 8);
   }
   eng.advanceToStep(0);
-  for (let c = 0; c < 10; c++) {
-    eng.primeAt(c, 12);
-    eng.holdAt(c, 12);
-  }
   // Pass 1 skips all 10 held groups
   eng.advanceToStep(15);
 
@@ -322,4 +322,141 @@ console.log('=== BREAKBEAT GDD Gate Suite ===');
   console.log('PASS [NETWORK]: Zero runtime network calls across all source modules.');
 }
 
-console.log('=== ALL 10 BREAKBEAT GDD GATES GREEN ===');
+// ---------- v0.6 engine gates ----------
+const R = TUNING.BOARD_ROWS;
+const C = TUNING.BOARD_COLS;
+let gid = 900000;
+const blank = (eng) => { for (const row of eng.board) row.fill(null); };
+const put = (eng, col, row, kind) => { eng.board[row][col] = { id: gid++, col, row, kind, special: 'none' }; };
+
+// 11. SWEEP_GRID — over a 64-bar run the blade covers column c exactly at sixteenth c of every bar
+{
+  assert.equal(TUNING.BOARD_COLS, TUNING.SIXTEENTHS_PER_BAR, 'SWEEP_GRID: BOARD_COLS !== SIXTEENTHS_PER_BAR');
+  const bpm = 116;
+  const clock = new BeatClock(bpm, 0);
+  clock.start(0);
+  let checks = 0;
+  for (let step = 0; step < 64 * 16; step++) {
+    const sixteenth = step % 16;
+    // a hair inside the 16th, and a hair before its end
+    for (const frac of [0.001, 0.999]) {
+      const q = clock.query(clock.stepToAudioSec(step) + frac * clock.sixteenthDurationSec);
+      assert.equal(q.sixteenth, sixteenth, 'SWEEP_GRID: clock sixteenth mismatch');
+      assert.equal(Math.floor(q.sweepColFloat), sixteenth, `SWEEP_GRID: blade not over column ${sixteenth}`);
+      checks++;
+    }
+  }
+  // Engine side: a group whose leftmost tile is in column c detonates on sixteenth c
+  for (let c = 0; c < C - 1; c++) {
+    const eng = new PulseEngine({ seed: 'sweep-grid', mode: 'endless', bpm, riseBars: 99 }, new GemRules('brick'));
+    blank(eng);
+    put(eng, c, R - 1, 1); put(eng, c + 1, R - 1, 1); put(eng, (c + 8) % C, 0, 2);
+    eng.primeAt(c, R - 1);
+    eng.advanceToStep(15);
+    const ev = eng.drainEvents().find(e => e.type === 'detonate');
+    assert.ok(ev && ev.sixteenth === c, `SWEEP_GRID: column ${c} detonated off its sixteenth`);
+  }
+  console.log(`PASS [SWEEP_GRID]: 64 bars x 16 columns, blade over column c at sixteenth c (${checks} clock checks).`);
+}
+
+// 12. AHEAD_BEHIND — left of the group: this pass. Over/past it: next pass. Every column offset.
+{
+  let cases = 0;
+  for (let col = 0; col < C - 1; col++) {
+    for (let blade = 0; blade < C; blade++) {
+      const eng = new PulseEngine({ seed: 'ahead-behind', mode: 'endless', bpm: 120, riseBars: 99 }, new GemRules('brick'));
+      blank(eng);
+      put(eng, col, R - 1, 3); put(eng, col + 1, R - 1, 3); put(eng, col === 14 ? 0 : 15, R - 2, 0);
+      eng.advanceToStep(blade);
+      assert.ok(eng.primeAt(col, R - 1));
+      eng.drainEvents();
+      eng.advanceToStep(31);
+      const ev = eng.drainEvents().find(e => e.type === 'detonate');
+      assert.ok(ev, 'AHEAD_BEHIND: group never fired');
+      const expectBar = blade < col ? 1 : 2;
+      assert.equal(ev.bar, expectBar, `AHEAD_BEHIND: col ${col}, blade ${blade} fired on bar ${ev.bar}`);
+      assert.equal(ev.sixteenth, col);
+      cases++;
+    }
+  }
+  console.log(`PASS [AHEAD_BEHIND]: ${cases} blade/column offsets resolve to this pass or next pass correctly.`);
+}
+
+// 13. HOLD_BEHIND — held while queued behind the blade -> Overcharged exactly 2 passes after priming
+{
+  for (const blade of [3, 7, 15]) {
+    const eng = new PulseEngine({ seed: 'hold-behind', mode: 'endless', bpm: 120, riseBars: 99 }, new GemRules('brick'));
+    blank(eng);
+    put(eng, 2, R - 1, 1); put(eng, 3, R - 1, 1); put(eng, 12, R - 1, 0);
+    eng.advanceToStep(blade);
+    const g = eng.primeAt(2, R - 1);
+    assert.equal(g.state, 'queued');
+    assert.ok(eng.holdAt(2, R - 1));
+    eng.drainEvents();
+    for (let st = blade + 1; st < 16 * 3; st++) eng.advanceToStep(st);
+    const dets = eng.drainEvents().filter(e => e.type === 'detonate');
+    assert.equal(dets.length, 1, 'HOLD_BEHIND: expected exactly one detonation');
+    assert.equal(dets[0].overcharged, true, 'HOLD_BEHIND: detonation not Overcharged');
+    assert.equal(dets[0].bar, 3, `HOLD_BEHIND: fired on bar ${dets[0].bar}, expected bar 3`);
+  }
+  console.log('PASS [HOLD_BEHIND]: Held-behind-the-blade groups detonate Overcharged exactly 2 passes after priming.');
+}
+
+// 14. ALL_CLEAR — bonus x combo once, ALL_CLEAR_REFILL_ROWS rows on the next downbeat
+{
+  const eng = new PulseEngine({ seed: 'all-clear', mode: 'endless', bpm: 120, riseBars: 99 }, new GemRules('brick'));
+  blank(eng);
+  eng.comboPasses = 5; // combo x1.5
+  put(eng, 4, R - 1, 2); put(eng, 5, R - 1, 2); put(eng, 5, R - 2, 2);
+  eng.primeAt(4, R - 1);
+  eng.advanceToStep(15);
+  const acs = eng.drainEvents().filter(e => e.type === 'allclear');
+  assert.equal(acs.length, 1, 'ALL_CLEAR: expected exactly one All Clear');
+  assert.equal(acs[0].points, Math.round(TUNING.ALL_CLEAR_BONUS * 1.5), 'ALL_CLEAR: bonus not x combo');
+  assert.equal(eng.telemetry.allClears, 1);
+  assert.equal(eng.countBoardTiles(), 0);
+  eng.advanceToStep(16);
+  assert.equal(eng.countBoardTiles(), TUNING.ALL_CLEAR_REFILL_ROWS * C, 'ALL_CLEAR: refill rows not dealt on the downbeat');
+  eng.advanceToStep(40);
+  assert.equal(eng.drainEvents().filter(e => e.type === 'allclear').length, 0, 'ALL_CLEAR: awarded twice');
+  console.log(`PASS [ALL_CLEAR]: ${acs[0].points} pts (bonus x combo) once; ${TUNING.ALL_CLEAR_REFILL_ROWS} rows dealt on the next downbeat.`);
+}
+
+// 15. ONE_COLOUR — once per wall state, re-arms after a new colour arrives, never on an empty board
+{
+  const eng = new PulseEngine({ seed: 'one-colour', mode: 'endless', bpm: 120, riseBars: 99 }, new GemRules('brick'));
+  blank(eng);
+  put(eng, 1, R - 1, 0); put(eng, 2, R - 1, 0);
+  put(eng, 6, R - 1, 1); put(eng, 7, R - 1, 1); put(eng, 9, R - 1, 1);
+  eng.primeAt(1, R - 1);
+  eng.advanceToStep(15);
+  let oc = eng.drainEvents().filter(e => e.type === 'onecolour');
+  assert.equal(oc.length, 1, 'ONE_COLOUR: should fire once');
+  assert.equal(oc[0].kind, 1);
+  // Same wall state: another same-colour detonation must not fire again
+  eng.primeAt(6, R - 1);
+  eng.advanceToStep(31);
+  oc = eng.drainEvents().filter(e => e.type === 'onecolour');
+  assert.equal(oc.length, 0, 'ONE_COLOUR: fired twice in one wall state');
+  // A new colour arrives via pressure -> re-arms; clearing it back to one colour fires again
+  eng.setPressureEnabled(true);
+  eng.config.riseBars = 1;
+  eng.advanceToStep(32);
+  blank(eng);
+  put(eng, 3, R - 1, 2); put(eng, 4, R - 1, 2); put(eng, 10, R - 1, 3);
+  eng.config.riseBars = 99;
+  eng.primeAt(3, R - 1);
+  eng.advanceToStep(47);
+  oc = eng.drainEvents().filter(e => e.type === 'onecolour');
+  assert.equal(oc.length, 1, 'ONE_COLOUR: did not re-arm after a new colour arrived');
+  // Never on an empty board
+  const e2 = new PulseEngine({ seed: 'one-colour-empty', mode: 'endless', bpm: 120, riseBars: 99 }, new GemRules('brick'));
+  blank(e2);
+  put(e2, 0, R - 1, 1); put(e2, 1, R - 1, 1);
+  e2.primeAt(0, R - 1);
+  e2.advanceToStep(15);
+  assert.equal(e2.drainEvents().filter(e => e.type === 'onecolour').length, 0, 'ONE_COLOUR: fired on an empty board');
+  console.log('PASS [ONE_COLOUR]: Fires once per wall state, re-arms on a new colour, never on an empty board.');
+}
+
+console.log('=== ALL 15 BREAKBEAT ENGINE GATES GREEN ===');

@@ -172,6 +172,31 @@ export type PulseEvent =
       sixteenth: number;
     }
   | {
+      type: 'allclear';
+      points: number;
+      step: number;
+      bar: number;
+    }
+  | {
+      type: 'onecolour';
+      points: number;
+      kind: number;
+      step: number;
+      bar: number;
+    }
+  | {
+      type: 'danger';
+      level: number;
+      step: number;
+      bar: number;
+    }
+  | {
+      type: 'lesson';
+      lesson: number;
+      step: number;
+      bar: number;
+    }
+  | {
       type: 'gameover';
       reason: 'overflow' | 'detonator';
       step: number;
@@ -186,4 +211,11 @@ export interface PulseConfig {
   colorCount?: number;
   riseBars?: number;
   pressureFrom?: PressureDirection;
+  /**
+   * Fixed deal (Overture): rows x cols of tile kinds, -1 = empty. When present the
+   * initial wall comes from this layout instead of the RNG.
+   */
+  fixedDeal?: number[][];
+  /** Pressure rows rise only while enabled (Overture enables them at lesson 3). Default true. */
+  pressureEnabled?: boolean;
 }

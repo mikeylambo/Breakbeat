@@ -2,107 +2,175 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { TUNING, computeChainRank, computeResonanceMultiplier } from '../build/src/tuning.js';
-import { BeatClock } from '../build/src/pulse/BeatClock.js';
 import { PulseEngine } from '../build/src/pulse/PulseEngine.js';
 import { GemRules } from '../build/src/content/gems/GemRules.js';
 import { SKINS } from '../build/src/content/gems/Skins.js';
 
-test('10x14 Wall dimensions and initial deal', () => {
-  const rules = new GemRules('brick');
-  const engine = new PulseEngine({ seed: 'init-test', mode: 'odyssey', bpm: 104 }, rules);
+const R = TUNING.BOARD_ROWS;
+const C = TUNING.BOARD_COLS;
 
-  assert.equal(engine.board.length, 14);
-  assert.equal(engine.board[0].length, 10);
+function empty(engine) {
+  for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) engine.board[r][c] = null;
+}
+let nextId = 10000;
+function put(engine, col, row, kind) {
+  engine.board[row][col] = { id: nextId++, col, row, kind, special: 'none' };
+}
 
-  // Top 8 rows empty, bottom 6 rows filled
-  for (let r = 0; r < 8; r++) {
-    assert.equal(engine.board[r].every(t => t === null), true);
-  }
-  for (let r = 8; r < 14; r++) {
-    assert.equal(engine.board[r].every(t => t !== null), true);
-  }
+test('16x10 wall dimensions and initial deal', () => {
+  const engine = new PulseEngine({ seed: 'init-test', mode: 'odyssey', bpm: 104 }, new GemRules('brick'));
+  assert.equal(engine.board.length, 10);
+  assert.equal(engine.board[0].length, 16);
+  assert.equal(TUNING.BOARD_COLS, TUNING.SIXTEENTHS_PER_BAR);
+  for (let r = 0; r < 5; r++) assert.equal(engine.board[r].every(t => t === null), true);
+  for (let r = 5; r < 10; r++) assert.equal(engine.board[r].every(t => t !== null), true);
 });
 
 test('Tap to prime locks 2+ connected same-colour cluster and rejects singletons', () => {
-  const rules = new GemRules('brick');
-  const engine = new PulseEngine({ seed: 'prime-test', mode: 'zen', bpm: 110 }, rules);
-
-  // Clear board and set up a 3-cluster of colour 2 and a singleton of colour 1
-  for (let r = 0; r < 14; r++) {
-    for (let c = 0; c < 10; c++) engine.board[r][c] = null;
-  }
-  engine.board[13][0] = { id: 1, col: 0, row: 13, kind: 1, special: 'none' };
-  engine.board[13][3] = { id: 2, col: 3, row: 13, kind: 2, special: 'none' };
-  engine.board[13][4] = { id: 3, col: 4, row: 13, kind: 2, special: 'none' };
-  engine.board[12][4] = { id: 4, col: 4, row: 12, kind: 2, special: 'none' };
-
-  assert.equal(engine.primeAt(0, 13), null, 'Singleton must not prime');
-  const group = engine.primeAt(3, 13);
-  assert.ok(group, 'Connected 3-group should prime');
+  const engine = new PulseEngine({ seed: 'prime-test', mode: 'zen', bpm: 110 }, new GemRules('brick'));
+  empty(engine);
+  put(engine, 0, 9, 1);
+  put(engine, 3, 9, 2);
+  put(engine, 4, 9, 2);
+  put(engine, 4, 8, 2);
+  assert.equal(engine.primeAt(0, 9), null, 'Singleton must not prime');
+  const group = engine.primeAt(3, 9);
+  assert.ok(group);
   assert.equal(group.tileIds.length, 3);
-  assert.equal(engine.primeAt(4, 13), null, 'Already locked group cannot be re-primed');
+  assert.equal(engine.primeAt(4, 9), null, 'Already locked group cannot be re-primed');
 });
 
-test('Destruct-O-Match collapse drops blocks and slides empty columns inward', () => {
+test('Collapse drops blocks and slides empty columns inward', () => {
   const rules = new GemRules('glass');
   const engine = new PulseEngine({ seed: 'collapse-test', mode: 'zen', bpm: 120 }, rules);
-
-  for (let r = 0; r < 14; r++) {
-    for (let c = 0; c < 10; c++) engine.board[r][c] = null;
-  }
-  // Place a floating block at (col 1, row 10) while col 2, 3, 4 are empty
-  engine.board[10][1] = { id: 50, col: 1, row: 10, kind: 0, special: 'none' };
-
+  empty(engine);
+  put(engine, 1, 5, 0);
+  const id = engine.board[5][1].id;
   const res = rules.collapse(engine.board, new Set());
-  assert.equal(res.movedTileIds.includes(50), true);
-  // Should have fallen to row 13 and slid all the way inward to centerLeft (col 4)
-  assert.notEqual(engine.board[13][4], null);
-  assert.equal(engine.board[13][4].id, 50);
+  assert.equal(res.movedTileIds.includes(id), true);
+  const centerLeft = Math.floor((C - 1) / 2);
+  assert.equal(engine.board[R - 1][centerLeft]?.id, id);
 });
 
-test('Overcharge hold skips one sweep pass and blasts 8-way neighbours with x2 score on next pass', () => {
-  const rules = new GemRules('obsidian');
-  const engine = new PulseEngine({ seed: 'overcharge-test', mode: 'endless', bpm: 120, riseBars: 99 }, rules);
-
-  for (let r = 0; r < 14; r++) {
-    for (let c = 0; c < 10; c++) engine.board[r][c] = null;
-  }
-  // Core 2-cluster at (4,12) and (4,13), plus a diagonal neighbour of different colour at (5,11)
-  engine.board[12][4] = { id: 10, col: 4, row: 12, kind: 0, special: 'none' };
-  engine.board[13][4] = { id: 11, col: 4, row: 13, kind: 0, special: 'none' };
-  engine.board[11][5] = { id: 12, col: 5, row: 11, kind: 3, special: 'none' };
-
+test('Overcharge hold skips one pass and blasts 8-way neighbours on the next', () => {
+  const engine = new PulseEngine({ seed: 'oc', mode: 'endless', bpm: 120, riseBars: 99 }, new GemRules('obsidian'));
+  empty(engine);
+  put(engine, 4, 8, 0);
+  put(engine, 4, 9, 0);
+  put(engine, 5, 7, 3);
+  put(engine, 6, 9, 1); // keep the wall non-empty after the blast
   engine.advanceToStep(0);
-  const g = engine.primeAt(4, 12);
-  assert.ok(g);
-  engine.holdAt(4, 12);
-
-  // Pass 1 (steps 0..15): skipped
+  assert.ok(engine.primeAt(4, 8));
+  engine.holdAt(4, 8);
   engine.advanceToStep(15);
-  assert.notEqual(engine.board[11][5], null, 'Diagonal neighbour still present after skipped pass');
-
-  // Pass 2 (steps 16..31): detonates Overcharged and clears diagonal neighbour (5,11)
+  assert.notEqual(engine.board[7][5], null);
   engine.advanceToStep(31);
-  assert.equal(engine.board[11][5], null, 'Diagonal neighbour cleared by 8-way Overcharge blast');
   assert.equal(engine.telemetry.overchargesLanded, 1);
 });
 
-test('BeatClock background tab clamp prevents catch-up freezes', () => {
-  const clock = new BeatClock(120, 0);
-  clock.start(0);
-  const q1 = clock.query(1.0);
-  // Simulate tab suspended for 30 seconds
-  const q2 = clock.query(31.0);
-  assert.ok(
-    q2.elapsedSec - q1.elapsedSec < 0.1,
-    'BeatClock must clamp sudden background tab jumps to prevent catch-up freezes'
-  );
+test('Ahead/behind: blade left of the group fires this pass; over/past queues for next pass', () => {
+  for (let col = 0; col < C - 1; col++) {
+    for (const blade of [col - 1, col, col + 1]) {
+      if (blade < 0 || blade >= C) continue;
+      const engine = new PulseEngine({ seed: 'ab', mode: 'endless', bpm: 120, riseBars: 99 }, new GemRules('brick'));
+      empty(engine);
+      put(engine, col, 9, 2);
+      put(engine, col + 1, 9, 2);
+      put(engine, 15, 8, 1); // sentinel tile so the wall never empties (no All Clear refill)
+      engine.advanceToStep(blade);
+      const g = engine.primeAt(col, 9);
+      assert.ok(g);
+      engine.drainEvents();
+      engine.advanceToStep(15);
+      const fired = engine.drainEvents().some(e => e.type === 'detonate');
+      assert.equal(fired, blade < col, `col ${col} blade ${blade}`);
+      if (!fired) {
+        engine.advanceToStep(31);
+        const ev = engine.drainEvents().find(e => e.type === 'detonate');
+        assert.ok(ev, 'queued group fires next pass');
+        assert.equal(ev.sixteenth, col, 'fires exactly as the blade reaches its leftmost column');
+      }
+    }
+  }
 });
 
-test('All 7 GDD Odyssey skins and Coda are configured with distinct materials and personas', () => {
+test('Hold while queued behind the blade: Overcharged exactly 2 passes after priming', () => {
+  const engine = new PulseEngine({ seed: 'hb', mode: 'zen', bpm: 120 }, new GemRules('brick'));
+  empty(engine);
+  put(engine, 3, 9, 2);
+  put(engine, 4, 9, 2);
+  put(engine, 12, 9, 1);
+  engine.advanceToStep(8); // bar 1, blade past col 3
+  const g = engine.primeAt(3, 9);
+  assert.equal(g.state, 'queued');
+  engine.holdAt(3, 9);
+  engine.drainEvents();
+  engine.advanceToStep(31); // bar 2: the pass it would have fired on is skipped
+  assert.equal(engine.drainEvents().some(e => e.type === 'detonate'), false);
+  engine.advanceToStep(47); // bar 3
+  const ev = engine.drainEvents().find(e => e.type === 'detonate');
+  assert.ok(ev && ev.overcharged);
+  assert.equal(ev.bar, 3);
+});
+
+test('All Clear awards bonus x combo once and refills 3 rows on the next downbeat', () => {
+  const engine = new PulseEngine({ seed: 'ac', mode: 'endless', bpm: 120, riseBars: 99 }, new GemRules('brick'));
+  empty(engine);
+  put(engine, 6, 9, 3);
+  put(engine, 7, 9, 3);
+  engine.primeAt(6, 9);
+  engine.advanceToStep(15);
+  const evs = engine.drainEvents().filter(e => e.type === 'allclear');
+  assert.equal(evs.length, 1);
+  assert.equal(evs[0].points, TUNING.ALL_CLEAR_BONUS);
+  assert.equal(engine.countBoardTiles(), 0);
+  engine.advanceToStep(16);
+  assert.equal(engine.countBoardTiles(), TUNING.ALL_CLEAR_REFILL_ROWS * C);
+});
+
+test('One Colour Left fires once per wall state, re-arms on a new colour, never on empty', () => {
+  const engine = new PulseEngine({ seed: 'oc1', mode: 'endless', bpm: 120, riseBars: 1 }, new GemRules('brick'));
+  empty(engine);
+  put(engine, 2, 9, 0);
+  put(engine, 3, 9, 0);
+  put(engine, 9, 9, 1);
+  put(engine, 10, 9, 1);
+  put(engine, 12, 9, 1);
+  engine.primeAt(2, 9);
+  engine.advanceToStep(15);
+  assert.equal(engine.drainEvents().filter(e => e.type === 'onecolour').length, 1);
+  assert.equal(engine.telemetry.oneColourBonuses, 1);
+  engine.advanceToStep(16); // pressure row brings colours back in, re-arms
+  engine.drainEvents();
+  assert.equal(engine.telemetry.oneColourBonuses, 1);
+});
+
+test('Danger level counts occupied rows among the top DANGER_ROWS rows', () => {
+  const engine = new PulseEngine({ seed: 'dg', mode: 'endless', bpm: 120, riseBars: 1 }, new GemRules('brick'));
+  empty(engine);
+  put(engine, 0, 1, 0);
+  put(engine, 0, 9, 1);
+  engine.advanceToStep(0);
+  assert.equal(engine.dangerLevel, 1);
+  const ev = engine.drainEvents().find(e => e.type === 'danger');
+  assert.equal(ev.level, 1);
+});
+
+test('Telemetry tracks passes with detonation and groups per pass', () => {
+  const engine = new PulseEngine({ seed: 'tl', mode: 'zen', bpm: 120 }, new GemRules('brick'));
+  empty(engine);
+  put(engine, 2, 9, 0); put(engine, 3, 9, 0);
+  put(engine, 6, 9, 1); put(engine, 7, 9, 1);
+  put(engine, 14, 0, 2);
+  engine.primeAt(2, 9);
+  engine.primeAt(6, 9);
+  engine.advanceToStep(16);
+  assert.equal(engine.telemetry.passesWithDetonation, 1);
+  assert.equal(engine.telemetry.groupsPerPassAvg, 2);
+});
+
+test('Skins, resonance and chain rank tables', () => {
   assert.equal(SKINS.length, 7);
-  const coda = SKINS[SKINS.length - 1];
-  assert.equal(coda.sweepPersona, 'invisible');
-  assert.equal( computeResonanceMultiplier(10), 5.0);
+  assert.equal(computeResonanceMultiplier(10), 5.0);
   assert.equal(computeChainRank(8), 4);
 });

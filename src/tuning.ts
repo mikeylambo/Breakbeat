@@ -3,14 +3,14 @@
  * Every gameplay constant lives in this file (GDD Page 8).
  */
 
-export type GameMode = 'odyssey' | 'endless' | 'zen' | 'daily' | 'remix';
+export type GameMode = 'odyssey' | 'endless' | 'zen' | 'daily' | 'remix' | 'overture';
 export type PressureDirection = 'bottom' | 'top';
 
 export const TUNING = {
-  /** 10 columns x 14 rows in portrait (~36 px blocks at 390 wide) */
-  BOARD_COLS: 10,
-  BOARD_ROWS: 14,
-  INITIAL_ROWS: 6,
+  /** 16 columns x 10 rows in landscape: one column per 16th note */
+  BOARD_COLS: 16,
+  BOARD_ROWS: 10,
+  INITIAL_ROWS: 5,
 
   /** Sweepline crosses the wall once per measure (4 beats = 16 sixteenths) */
   SWEEP_BARS: 1,
@@ -61,8 +61,42 @@ export const TUNING = {
   ANTICIPATION_SQUASH_COLS: 0.65,
   HITSTOP_CHAIN_THRESHOLD: 4,
   HITSTOP_MS: 60,
-  CAMERA_BREATH_MAX: 0.02
+  CAMERA_BREATH_MAX: 0.02,
+
+  /** v0.6 wall-state bonuses (x current combo multiplier) */
+  ALL_CLEAR_BONUS: 10000,
+  ALL_CLEAR_REFILL_ROWS: 3,
+  ONE_COLOUR_BONUS: 3000,
+
+  /** Danger = occupied rows among the top DANGER_ROWS rows; music bus low-pass per level */
+  DANGER_ROWS: 2,
+  DANGER_LPF_HZ: 2400,
+  DANGER_LPF_HZ_2: 900,
+
+  /** Input */
+  TAP_SLOP_PX: 12,
+
+  /** Pools and audio scheduling */
+  FX_SHARD_POOL: 400,
+  SFX_VOICE_CAP: 24,
+  SCHED_INTERVAL_MS: 25,
+  SCHED_LOOKAHEAD_MS: 120,
+
+  OVERTURE_BPM: 96,
+
+  /** Logical landscape stage and wall geometry */
+  STAGE_W: 844,
+  STAGE_H: 390,
+  TILE_PX: 30,
+  TILE_GAP_PX: 2,
+  WALL_X: 167,
+  WALL_Y: 34,
+  PREVIEW_Y: 358
 } as const;
+
+if (TUNING.BOARD_COLS !== TUNING.SIXTEENTHS_PER_BAR) {
+  throw new Error('BOARD_COLS must equal SIXTEENTHS_PER_BAR: the blade crosses one column per 16th.');
+}
 
 /** Stepped Resonance multiplier for `groupsThisPass` groups detonated in a single pass. */
 export function computeResonanceMultiplier(groupsThisPass: number): number {

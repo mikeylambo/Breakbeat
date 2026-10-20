@@ -33,10 +33,14 @@ export interface RunTelemetry {
   airPrimesLanded: number;
   barsSurvived: number;
   pressurePushes: number;
+  passesWithDetonation: number;
+  groupsPerPassAvg: number;
+  allClears: number;
+  oneColourBonuses: number;
 }
 
 export class PulseEngine {
-  readonly config: Required<PulseConfig>;
+  readonly config: Required<Omit<PulseConfig, 'fixedDeal'>> & Pick<PulseConfig, 'fixedDeal'>;
   readonly rules: ContentRules;
   readonly board: (PulseTile | null)[][];
   readonly groups = new Map<number, PrimedGroup>();
@@ -53,7 +57,11 @@ export class PulseEngine {
     overchargesLanded: 0,
     airPrimesLanded: 0,
     barsSurvived: 0,
-    pressurePushes: 0
+    pressurePushes: 0,
+    passesWithDetonation: 0,
+    groupsPerPassAvg: 0,
+    allClears: 0,
+    oneColourBonuses: 0
   };
 
   currentStep = -1;
@@ -62,6 +70,10 @@ export class PulseEngine {
   gameOver = false;
   gameOverReason: 'overflow' | 'detonator' | null = null;
   bestPassSnapshot: BestPassSnapshot | null = null;
+  /** Occupied rows among the top DANGER_ROWS rows (0 = safe). */
+  dangerLevel = 0;
+  /** Pressure rise is live (Overture keeps it off until lesson 3). */
+  pressureEnabled: boolean;
 
   private rng: SeededRng;
   private nextTileId = 1;
@@ -71,6 +83,8 @@ export class PulseEngine {
   private passDetonations = 0;
   private passOvercharges = 0;
   private currentPassCells: BestPassSnapshotCell[] = [];
+  private refillRowsPending = 0;
+  private oneColourArmed = true;
 
   constructor(config: PulseConfig, rules: ContentRules) {
     this.rules = rules;
@@ -80,8 +94,11 @@ export class PulseEngine {
       bpm: config.bpm,
       colorCount: config.colorCount ?? TUNING.GEM_COLORS_START,
       riseBars: config.riseBars ?? TUNING.RISE_BARS,
-      pressureFrom: config.pressureFrom ?? TUNING.PRESSURE_FROM
+      pressureFrom: config.pressureFrom ?? TUNING.PRESSURE_FROM,
+      pressureEnabled: config.pressureEnabled ?? true,
+      fixedDeal: config.fixedDeal
     };
+    this.pressureEnabled = this.config.pressureEnabled;
 
     this.rng = new SeededRng(this.config.seed);
     this.board = Array.from({ length: rules.rows }, () =>
@@ -117,7 +134,7 @@ export class PulseEngine {
 
   /** Bars remaining until the next pressure row pushes in on a downbeat. */
   get barsUntilNextPush(): number | null {
-    if (this.config.mode === 'zen') return null;
+    if (this.config.mode === 'zen' || !this.pressureEnabled) return null;
     const cadence = this.effectiveRiseBars;
     if (cadence <= 1) return 1;
     for (let nextBar = Math.max(2, this.currentBar + 1); nextBar <= this.currentBar + 6; nextBar++) {
@@ -138,6 +155,10 @@ export class PulseEngine {
   };
 
   private dealInitialWall(): void {
+    if (this.config.fixedDeal) {
+      this.dealFixed(this.config.fixedDeal);
+      return;
+    }
     const { rows, cols, initialRows } = this.rules;
     const startRow = this.config.pressureFrom === 'bottom' ? rows - initialRows : 0;
     const endRow = this.config.pressureFrom === 'bottom' ? rows : initialRows;
@@ -159,6 +180,38 @@ export class PulseEngine {
         this.board[r]![c] = tile;
       }
     }
+  }
+
+  /**
+   * Replaces the wall with a fixed layout (rows x cols kinds, -1 = empty). Used by the
+   * Overture: lesson boards are authored deals, never RNG. Clears primed groups and falls.
+   */
+  dealFixed(layout: readonly (readonly number[])[]): void {
+    const { rows, cols } = this.rules;
+    this.groups.clear();
+    this.falling.clear();
+    const offset = rows - layout.length;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const kind = r >= offset ? layout[r - offset]?.[c] ?? -1 : -1;
+        this.board[r]![c] = kind < 0 ? null : { id: this.allocTileId(), col: c, row: r, kind, special: 'none' };
+      }
+    }
+    this.oneColourArmed = true;
+    this.updateDanger(Math.max(0, this.currentStep));
+  }
+
+  /**
+   * Overture hook: the lesson logic (src/ui/overture/) decides when a lesson is complete;
+   * the engine records it as a deterministic event. Completing lesson 3 starts pressure.
+   */
+  completeLesson(lesson: number): void {
+    if (lesson >= 3) this.pressureEnabled = true;
+    this.events.push({ type: 'lesson', lesson, step: Math.max(0, this.currentStep), bar: Math.max(1, this.currentBar) });
+  }
+
+  setPressureEnabled(on: boolean): void {
+    this.pressureEnabled = on;
   }
 
   private queueUpcomingRow(): void {
@@ -242,11 +295,13 @@ export class PulseEngine {
     }
   }
 
-  /** Current sweep column boundary `[0..BOARD_COLS]` based on quantized step. */
+  /**
+   * Columns the blade has covered this pass. One column per 16th (BOARD_COLS === SIXTEENTHS_PER_BAR),
+   * so after sixteenth s has been processed, columns 0..s are covered.
+   */
   private currentSweepCoveredCols(): number {
     if (this.currentStep < 0 || this.currentBar <= 0) return 0;
-    const sixteenth = this.currentStep % TUNING.SIXTEENTHS_PER_BAR;
-    return ((sixteenth + 1) * this.rules.cols) / TUNING.SIXTEENTHS_PER_BAR;
+    return (this.currentStep % TUNING.SIXTEENTHS_PER_BAR) + 1;
   }
 
   /**
@@ -273,6 +328,10 @@ export class PulseEngine {
       this.falling.delete(id);
     }
 
+    // Ahead/behind rule (matches Lumines for squares the line is already crossing):
+    // - primed while the blade is LEFT of the group's leftmost tile -> goes off this pass;
+    // - primed while the blade is OVER or PAST any of its tiles -> queues for the next pass.
+    // The blade is over column s during sixteenth s, so "ahead" means anchorCol > s.
     const activeBar = Math.max(1, this.currentBar);
     const sweepCovered = this.currentStep < 0 ? 0 : this.currentSweepCoveredCols();
     const aheadOfSweep = this.currentStep < 0 || anchorCol >= sweepCovered;
@@ -311,9 +370,10 @@ export class PulseEngine {
 
   /**
    * Hold (GDD Page 2-3):
-   * Long-press a primed group (HOLD_MS 300) to hold it: the next pass crosses it without
-   * detonating, and the pass after that detonates it Overcharged (8-way blast, x2 score).
-   * A group can be held once.
+   * Long-press a primed group (HOLD_MS 300) to hold it. A held group skips exactly one pass
+   * that would have detonated it, then detonates Overcharged (8-way blast, x2) on the following
+   * pass. That includes a group held while queued behind the blade: it skips its queued pass and
+   * goes off the pass after, i.e. two passes after it was primed. A group can be held once.
    */
   holdAt(col: number, row: number): PrimedGroup | null {
     if (this.gameOver) return null;
@@ -324,6 +384,7 @@ export class PulseEngine {
 
     group.held = true;
     group.state = 'held';
+    // targetBar is untouched: a queued group still waits for its pass before that pass is skipped.
 
     const activeBar = Math.max(1, this.currentBar);
     const sixteenth = Math.max(0, this.currentStep) % TUNING.SIXTEENTHS_PER_BAR;
@@ -381,20 +442,30 @@ export class PulseEngine {
       }
     }
 
-    // Check if a pressure row is due on this downbeat
-    const cadence = this.effectiveRiseBars;
-    const shouldPush =
-      this.config.mode !== 'zen' &&
-      cadence > 0 &&
-      this.currentBar > 1 &&
-      (this.currentBar - 1) % cadence === 0;
-
-    if (shouldPush) {
-      this.pushPressureRow(step);
+    if (this.refillRowsPending > 0) {
+      // All Clear refill: deal rows from the upcoming-row queue, whatever the rise cadence.
+      const n = this.refillRowsPending;
+      this.refillRowsPending = 0;
+      for (let i = 0; i < n && !this.gameOver; i++) this.pushPressureRow(step);
       if (this.gameOver) return;
-    } else if (this.config.mode === 'zen' && this.currentBar > 1 && this.countBoardTiles() < 30) {
-      this.pushPressureRow(step);
+    } else {
+      // Check if a pressure row is due on this downbeat
+      const cadence = this.effectiveRiseBars;
+      const shouldPush =
+        this.pressureEnabled &&
+        this.config.mode !== 'zen' &&
+        cadence > 0 &&
+        this.currentBar > 1 &&
+        (this.currentBar - 1) % cadence === 0;
+
+      if (shouldPush) {
+        this.pushPressureRow(step);
+        if (this.gameOver) return;
+      } else if (this.config.mode === 'zen' && this.currentBar > 1 && this.countBoardTiles() < 30) {
+        this.pushPressureRow(step);
+      }
     }
+    this.updateDanger(step);
 
     // Capture board state at start of pass for Best-Pass Replay snapshot
     this.capturePassStartSnapshot();
@@ -437,6 +508,10 @@ export class PulseEngine {
     }
 
     if (this.passDetonations > 0) {
+      this.telemetry.passesWithDetonation++;
+      this.telemetry.groupsPerPassAvg = Number(
+        (this.telemetry.groupsCleared / this.telemetry.passesWithDetonation).toFixed(3)
+      );
       this.comboPasses++;
       if (this.comboPasses > this.telemetry.longestCombo) {
         this.telemetry.longestCombo = this.comboPasses;
@@ -523,6 +598,8 @@ export class PulseEngine {
     }
 
     this.telemetry.pressurePushes++;
+    // A new row can bring a new colour in: re-arm One Colour Left.
+    if (!this.oneColourArmed && this.distinctKinds() > 1) this.oneColourArmed = true;
     this.events.push({
       type: 'pressure',
       rowKinds: this.upcomingRow.map(t => t.kind),
@@ -534,12 +611,13 @@ export class PulseEngine {
   }
 
   private onSixteenthSweep(step: number, sixteenth: number): void {
-    const coveredCols = ((sixteenth + 1) * this.rules.cols) / TUNING.SIXTEENTHS_PER_BAR;
+    // Sweep grid: the blade is over column `sixteenth`, so columns 0..sixteenth are covered.
+    const coveredCols = sixteenth + 1;
     const readyToDetonate: PrimedGroup[] = [];
 
     for (const g of this.groups.values()) {
-      if (g.state === 'queued' && g.targetBar > this.currentBar) continue;
-      if (g.state === 'overcharged' && g.targetBar > this.currentBar) continue;
+      // Not due yet (queued behind the blade, or overcharging for its next pass)
+      if (g.targetBar > this.currentBar) continue;
 
       const liveTiles = g.tileIds
         .map(id => this.findTileById(id))
@@ -564,7 +642,10 @@ export class PulseEngine {
       readyToDetonate.push(g);
     }
 
-    if (readyToDetonate.length === 0) return;
+    if (readyToDetonate.length === 0) {
+      this.updateDanger(step);
+      return;
+    }
 
     // Sort left-to-right, top-to-bottom for deterministic order
     readyToDetonate.sort((a, b) => a.anchorCol - b.anchorCol || a.id - b.id);
@@ -691,6 +772,83 @@ export class PulseEngine {
         bar: this.currentBar,
         sixteenth
       });
+    }
+
+    this.checkWallStateBonuses(step);
+    this.updateDanger(step);
+  }
+
+  /** All Clear / One Colour Left, evaluated after a 16th's detonations and collapse. */
+  private checkWallStateBonuses(step: number): void {
+    const combo = computeComboMultiplier(this.comboPasses);
+    let count = 0;
+    let kind = -1;
+    let mixed = false;
+    for (let r = 0; r < this.rules.rows; r++) {
+      for (let c = 0; c < this.rules.cols; c++) {
+        const t = this.board[r]![c];
+        if (!t) continue;
+        count++;
+        if (kind === -1) kind = t.kind;
+        else if (t.kind !== kind) mixed = true;
+      }
+    }
+
+    if (count === 0) {
+      const points = Math.round(TUNING.ALL_CLEAR_BONUS * combo);
+      this.telemetry.score += points;
+      this.passPoints += points;
+      this.telemetry.allClears++;
+      this.refillRowsPending = TUNING.ALL_CLEAR_REFILL_ROWS;
+      this.oneColourArmed = true;
+      this.events.push({ type: 'allclear', points, step, bar: this.currentBar });
+      return;
+    }
+
+    if (!mixed && this.oneColourArmed) {
+      this.oneColourArmed = false;
+      const points = Math.round(TUNING.ONE_COLOUR_BONUS * combo);
+      this.telemetry.score += points;
+      this.passPoints += points;
+      this.telemetry.oneColourBonuses++;
+      this.events.push({ type: 'onecolour', points, kind, step, bar: this.currentBar });
+    }
+  }
+
+  private distinctKinds(): number {
+    let first = -1;
+    for (let r = 0; r < this.rules.rows; r++) {
+      for (let c = 0; c < this.rules.cols; c++) {
+        const t = this.board[r]![c];
+        if (!t) continue;
+        if (first === -1) first = t.kind;
+        else if (t.kind !== first) return 2;
+      }
+    }
+    return first === -1 ? 0 : 1;
+  }
+
+  private computeDangerLevel(): number {
+    const pressureBottom = this.config.pressureFrom === 'bottom';
+    let level = 0;
+    for (let i = 0; i < TUNING.DANGER_ROWS; i++) {
+      const r = pressureBottom ? i : this.rules.rows - 1 - i;
+      const row = this.board[r]!;
+      for (let c = 0; c < this.rules.cols; c++) {
+        if (row[c]) {
+          level++;
+          break;
+        }
+      }
+    }
+    return level;
+  }
+
+  private updateDanger(step: number): void {
+    const level = this.computeDangerLevel();
+    if (level !== this.dangerLevel) {
+      this.dangerLevel = level;
+      this.events.push({ type: 'danger', level, step, bar: Math.max(1, this.currentBar) });
     }
   }
 
