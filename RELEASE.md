@@ -1,5 +1,46 @@
 # BREAKBEAT release history
 
+## 0.6.0: Presentation, Onboarding & Polish
+
+**Preview:** https://breakbeat-kubbblqkd-mikeylambos-projects.vercel.app (branch `claude/v06-presentation`)
+
+- **Landscape 16 × 10 wall**, one column per 16th. The stage is 844 × 390, letterboxed and safe-area aware. In portrait, a rotate card blocks play and pauses the game.
+- **Engine**:
+  - `coveredCols = sixteenth + 1`, with a boot assert.
+  - Ahead/behind rule documented and tested.
+  - Fixed: a group held while queued behind the blade now goes off Overcharged exactly 2 passes after it was primed.
+  - New: All Clear (10,000 × combo, plus a 3-row refill), One Colour Left (3,000 × combo), danger levels, Overture mode, new telemetry.
+- **PixiJS 8 renderer**:
+  - Atlas-baked tile states (idle, lit, primed, held) and fused primed slabs with one perimeter outline.
+  - Bloom on the glow layer only. It is device-adaptive: off on software GL, or after sustained frame misses.
+  - Blade driven by the audio clock, with a wake.
+  - Pooled shards and score pops, anticipation squash, hitstop, camera breath.
+  - Held reticle with a HOLD ×2 chip, queued pip, hold ring.
+  - All Clear and One Colour moments, a danger pulse, and a beat-line metronome.
+- **Audio**:
+  - The AudioContext is the only clock. It suspends when the tab is hidden; there is no catch-up shift.
+  - Five-stem player: chain rank drives the layers, with one-beat ramps that land on the downbeat.
+  - Predictive setInterval scheduler puts detonations exactly on their 16th.
+  - Danger low-pass, All Clear duck plus sting, and held-group layer boosts.
+  - Placeholder synth stems for six movements plus the Overture. Delivery format is in `AUDIO_STEMS.md`.
+- **Screens**:
+  - Title with the Odyssey tracklist and mastery badges.
+  - Run HUD, pause sheet, settings, and results: best-pass replay loop, personal best, Coach "Practise next", and share pass (MP4/WebM with music, PNG fallback).
+  - Movements morph on a downbeat when their quota is reached.
+- **Overture**: three fixed-deal lessons, one stem per lesson, Skip always visible. It morphs straight into Movement 01. The air-prime lesson is shown once, in-run.
+- **Accessibility**: flash intensity, strobe-free mode, reduced motion, colour assist, haptics plus haptic metronome, 85% tempo (score-normalised), audio offset, hide HUD (V), live-region announcements.
+- **Gates (23, all green)**:
+  - The original 10.
+  - New: SWEEP_GRID, AHEAD_BEHIND, HOLD_BEHIND, ALL_CLEAR, ONE_COLOUR, AUDIO_SCHED, NO_BLUR, OVERTURE_FLOW.
+  - Balance and deploy checks.
+  - Browser: FRAME_HITCH (p99 16.8 ms), SCREENS (artifacts/screens/), NETWORK (all requests same-origin).
+
+**Known limits**:
+- `docs/look-target/` was not in the repo, so the polish pass matched the brief's written spec.
+- FRAME_HITCH runs on CPU-rasterised Chromium at DPR 1, because this CI has no GPU.
+- Mastery floors were rescaled for the bigger wall.
+- Pressure starts when lesson 3 is dealt ("the wall keeps rising while you wait").
+
 ## 0.5.0 — Balance and Game Depth
 
 - Pressure phase tuning: predictable two-to-one bar escalation (movement-aware in Odyssey), wall-pressure gauge, downbeat countdown and non-consuming deterministic preview of the incoming row. Every new row contains at least one ordinary legal pair.
