@@ -26,3 +26,55 @@ html, body {
 .ui-stage { position: fixed; left: 0; top: 0; width: 844px; height: 390px; transform-origin: 0 0; pointer-events: none; }
 .ui-stage > * { pointer-events: auto; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.hidden { display: none !important; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
+
+/* ---------- Run HUD ---------- */
+.hud { position: absolute; inset: 0; pointer-events: none; }
+.hud > * { pointer-events: none; }
+.hud .icon-btn { pointer-events: auto; }
+.hud.pure > :not(.hud-pause) { opacity: 0; }
+.hud-left { position: absolute; left: 22px; top: 30px; width: 128px; }
+.hud-label { font: 500 9px/1 var(--mono); letter-spacing: 0.18em; color: var(--quiet); }
+.hud-score { font: 600 20px/1.1 var(--display); color: var(--text); margin-top: 6px; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+.hud-chain { margin-top: 14px; display: flex; align-items: baseline; gap: 6px; }
+.hud-chain-word { font: 600 10px/1 var(--display); letter-spacing: 0.12em; color: var(--secondary); transition: color 0.3s; }
+.hud-chain-word[data-rank='1'] { color: var(--azure); }
+.hud-chain-word[data-rank='2'] { color: var(--jade); }
+.hud-chain-word[data-rank='3'] { color: var(--amber); }
+.hud-chain-word[data-rank='4'] { color: var(--held); }
+.hud-chain-mult { font: 500 11px/1 var(--mono); color: var(--text); }
+.hud-stems { display: flex; gap: 4px; margin-top: 10px; }
+.hud-pip { width: 14px; height: 4px; border-radius: 2px; background: rgba(244, 241, 234, 0.12); transition: background 0.25s; }
+.hud-pip.on { background: var(--text); }
+.hud-pip.on:nth-child(5) { background: var(--held); }
+.hud-bottom-left { position: absolute; left: 22px; bottom: 26px; }
+.hud-movement { font: 600 10px/1.2 var(--display); letter-spacing: 0.1em; color: var(--text); }
+.hud-tempo { font: 400 9px/1.2 var(--mono); letter-spacing: 0.12em; color: var(--quiet); margin-top: 5px; font-variant-numeric: tabular-nums; }
+.hud-next { position: absolute; right: 22px; bottom: 26px; text-align: right; }
+.hud-next-label { font: 500 9px/1 var(--mono); letter-spacing: 0.18em; color: var(--quiet); }
+.hud-next-value { font: 500 10px/1 var(--mono); letter-spacing: 0.1em; color: var(--secondary); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.icon-btn { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: var(--secondary); background: rgba(244, 241, 234, 0.04); border: 1px solid var(--hair); transition: color 0.15s, background 0.15s; }
+.icon-btn:hover, .icon-btn:active { color: var(--text); background: rgba(244, 241, 234, 0.08); }
+.hud-pause { position: absolute; right: 18px; top: 16px; }
+
+/* ---------- Sheets ---------- */
+.sheet-scrim { position: absolute; inset: 0; background: rgba(5, 6, 10, 0.72); display: grid; place-items: center; z-index: 20; }
+.sheet { width: 300px; padding: 22px 22px 18px; border-radius: 18px; background: #0d1019; border: 1px solid var(--hair); display: flex; flex-direction: column; gap: 8px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6); }
+.sheet-title { font: 600 12px/1 var(--display); letter-spacing: 0.24em; color: var(--secondary); text-align: center; margin-bottom: 10px; }
+.btn { height: 44px; border-radius: 12px; background: rgba(244, 241, 234, 0.06); border: 1px solid var(--hair); font: 600 13px/1 var(--body); letter-spacing: 0.02em; color: var(--text); transition: background 0.15s, transform 0.1s; }
+.btn:hover { background: rgba(244, 241, 234, 0.1); }
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--amber); color: #1a0f02; border-color: transparent; }
+.btn-primary:hover { background: #ffb84f; }
+.btn-quiet { background: transparent; color: var(--secondary); }
+
+/* ---------- Rotate ---------- */
+.rotate-card { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: var(--text); text-align: center; padding: 24px; }
+.rotate-icon { color: var(--held); animation: rotate-hint 2.4s ease-in-out infinite; transform-origin: 50% 50%; }
+.rotate-title { font: 600 18px/1.2 var(--display); letter-spacing: 0.02em; }
+.rotate-sub { font: 400 12px/1.4 var(--body); color: var(--secondary); }
+@keyframes rotate-hint { 0%, 30% { transform: rotate(0deg); } 60%, 100% { transform: rotate(-90deg); } }
+.reduced-motion .rotate-icon { animation: none; }

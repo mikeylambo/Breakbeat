@@ -58,6 +58,11 @@ export class WallView {
   private readonly backing = new Graphics();
   private readonly tileLayer = new Container();
   private readonly allClearGlow: Sprite;
+  private pool!: Sprite;
+  private tintFrom = 0x1a2340;
+  private tintTo = 0x1a2340;
+  private tintStart = 0;
+  private tintDur = 0;
 
   /** cell -> group slot (-1 none) */
   readonly memberSlot = new Int16Array(CELLS).fill(-1);
@@ -132,6 +137,7 @@ export class WallView {
     const bg = this.stage.background;
     // Soft pool of light behind the wall
     const pool = new Sprite(this.atlas.vignette);
+    this.pool = pool;
     pool.anchor.set(0.5);
     pool.position.set(WX + WALL_W / 2, WY + WALL_H / 2);
     pool.width = 980;
@@ -168,6 +174,25 @@ export class WallView {
       this.preview.push(p);
       bg.addChild(p);
     }
+  }
+
+  /** Movement background: crossfade the light pool behind the wall over `seconds`. */
+  setPoolTint(tint: number, nowSec: number, seconds: number): void {
+    this.tintFrom = this.pool.tint as number;
+    this.tintTo = tint;
+    this.tintStart = nowSec;
+    this.tintDur = Math.max(0.001, seconds);
+    if (seconds <= 0) this.pool.tint = tint;
+  }
+
+  private updatePool(nowSec: number): void {
+    if (this.tintDur <= 0) return;
+    const p = Math.min(1, Math.max(0, (nowSec - this.tintStart) / this.tintDur));
+    const a = this.tintFrom;
+    const b = this.tintTo;
+    const mix = (sh: number): number => Math.round(((a >> sh) & 255) + (((b >> sh) & 255) - ((a >> sh) & 255)) * p) << sh;
+    this.pool.tint = mix(16) | mix(8) | mix(0);
+    if (p >= 1) this.tintDur = 0;
   }
 
   markDirty(): void {
@@ -337,6 +362,7 @@ export class WallView {
   /** Per-frame update: positions, textures, falls, anticipation, beat pulse, danger pulse. */
   update(engine: PulseEngine, beat: BeatQuery, frameSec: number): void {
     if (this.dirty) this.rebuild(engine);
+    this.updatePool(performance.now() / 1000);
     const stepSec = 60 / engine.config.bpm / 4;
     const visualSec = beat.visualElapsedSec;
     const bar = Math.floor(beat.visualStep / TUNING.SIXTEENTHS_PER_BAR) + 1;

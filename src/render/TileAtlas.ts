@@ -294,7 +294,7 @@ function drawPrimed(ctx: CanvasRenderingContext2D, x: number, y: number, c: Tile
   roundedPath(ctx, x, y, T, T, radii);
   ctx.fillStyle = g;
   ctx.fill();
-  bevel(ctx, x, y, radii, 0.5, 0.18);
+  // No per-tile bevel: fused slabs must read as one piece
   // Inverted glyph: light on the bright slab, with a soft deep under-shadow for legibility
   ctx.save();
   ctx.translate(0, 0.8);
@@ -312,7 +312,6 @@ function drawHeld(ctx: CanvasRenderingContext2D, x: number, y: number, c: TileCo
   roundedPath(ctx, x, y, T, T, radii);
   ctx.fillStyle = g;
   ctx.fill();
-  bevel(ctx, x, y, radii, 0.6, 0.12);
   // Colour identity stays through the glyph
   drawGlyph(ctx, c, x, y, rgba(c.deep, assist ? 0.9 : 0.62), false);
 }

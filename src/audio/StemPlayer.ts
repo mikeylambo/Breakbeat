@@ -33,6 +33,8 @@ export class StemPlayer {
   private layers = 2;
   private duckUntil = 0;
   track: TrackDef | null = null;
+  /** Playback rate (BPM scaling accessibility option). */
+  rate = 1;
 
   constructor(private readonly audio: AudioEngine) {}
 
@@ -83,10 +85,12 @@ export class StemPlayer {
       const src = ctx.createBufferSource();
       src.buffer = set[name];
       src.loop = true;
+      src.playbackRate.value = this.rate;
       src.loopStart = 0;
       src.loopEnd = set[name].duration;
       src.connect(this.audio.stemGains[deck]![i]!);
       src.start(Math.max(ctx.currentTime, atSec), (track.offsetMs / 1000) % set[name].duration);
+      src.onended = null;
       this.sources[deck]![i] = src;
     });
   }
