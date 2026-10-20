@@ -115,3 +115,18 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .badge-gold { color: var(--held); }
 .badge-obsidian { color: #a9a3c9; background: rgba(169, 163, 201, 0.12); }
 .badge-resonant { color: var(--mint); background: rgba(124, 242, 196, 0.12); }
+
+/* ---------- Overture ---------- */
+.overture { position: absolute; inset: 0; pointer-events: none; }
+.overture .btn-skip { pointer-events: auto; position: absolute; right: 72px; top: 16px; height: 44px; padding: 0 18px; border-radius: 12px; font: 600 12px/1 var(--body); letter-spacing: 0.04em; color: var(--secondary); border: 1px solid var(--hair); background: rgba(244, 241, 234, 0.04); }
+.overture .btn-skip:hover { color: var(--text); }
+.stem-chips { position: absolute; left: 22px; top: 34px; display: flex; flex-direction: column; gap: 8px; }
+.stem-chip { width: 62px; height: 24px; border-radius: 6px; display: grid; place-items: center; font: 500 9px/1 var(--mono); letter-spacing: 0.16em; color: var(--quiet); border: 1px solid rgba(244, 241, 234, 0.16); transition: all 0.4s; }
+.stem-chip.on { color: #05060a; background: var(--text); border-color: transparent; }
+.overture-caption { position: absolute; left: 167px; width: 510px; top: 58px; text-align: center; transition: opacity 0.4s; }
+.overture-caption .cap-main { font: 600 15px/1.2 var(--display); color: var(--text); letter-spacing: 0.01em; }
+.overture-caption .cap-sub { margin: 8px auto 0; max-width: 380px; font: 400 11px/1.45 var(--body); color: var(--secondary); }
+.overture-caption.lesson-3 { top: 40px; }
+.hud.overture .hud-left { display: none; }
+.coachmark { position: absolute; left: 167px; width: 510px; top: 62px; text-align: center; font: 600 13px/1.2 var(--display); color: var(--text); pointer-events: none; transition: opacity 0.35s; }
+.coachmark span { color: var(--held); }

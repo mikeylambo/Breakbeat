@@ -499,4 +499,50 @@ const put = (eng, col, row, kind) => { eng.board[row][col] = { id: gid++, col, r
   console.log(`PASS [NO_BLUR]: 0 shadowBlur / CSS blur filters across ${files.length} files (bloom is a GPU filter on the glow layer only).`);
 }
 
-console.log('=== ALL 17 BREAKBEAT GATES GREEN ===');
+// 18. OVERTURE_FLOW — scripted input completes lessons 1 -> 2 -> 3 with deterministic events; Skip -> Movement 01
+{
+  const { OvertureLessons } = await import('../build/src/ui/overture/OvertureLessons.js');
+  const data = JSON.parse(fs.readFileSync('content/overture.json', 'utf8'));
+  const runOverture = () => {
+    const eng = new PulseEngine({ seed: 'overture', mode: 'overture', bpm: data.bpm, pressureEnabled: false }, new GemRules('brick'));
+    const L = new OvertureLessons(data);
+    L.begin(eng);
+    const types = [];
+    let pressureBeforeL3 = 0;
+    for (let step = 0; step < 16 * 24 && !L.done; step++) {
+      eng.advanceToStep(step);
+      for (const ev of eng.drainEvents()) {
+        L.onEvent(ev, eng);
+        if (ev.type !== 'danger') types.push(`${ev.type}@${ev.step}`);
+        if (ev.type === 'pressure' && L.lesson < 3) pressureBeforeL3++;
+      }
+      L.onStep(eng);
+      // Scripted player: on sixteenth 1 of each bar, prime every target group (lesson 3: prime + hold)
+      if (step % 16 === 1 && L.targetIds.length) {
+        for (const g of L.targetCells(eng)) {
+          const cell = g[0];
+          const col = cell % TUNING.BOARD_COLS;
+          const row = Math.floor(cell / TUNING.BOARD_COLS);
+          if (eng.primeAt(col, row) && L.lesson === 3) eng.holdAt(col, row);
+        }
+        for (const ev of eng.drainEvents()) L.onEvent(ev, eng);
+      }
+    }
+    return { L, types, pressureBeforeL3, score: eng.telemetry.score, wall: eng.serializeWall() };
+  };
+  const a = runOverture();
+  const b = runOverture();
+  assert.ok(a.L.done && !a.L.skipped, 'OVERTURE_FLOW: lessons did not complete');
+  const completes = a.L.log.filter(x => x.startsWith('complete'));
+  assert.deepEqual(completes.map(x => x.split('@')[0]), ['complete:1:bass', 'complete:2:keys', 'complete:3:lead'], 'OVERTURE_FLOW: lesson order');
+  assert.equal(a.L.layers, 4, 'OVERTURE_FLOW: one stem per lesson (kick + bass + keys + lead)');
+  assert.equal(a.pressureBeforeL3, 0, 'OVERTURE_FLOW: pressure rose before lesson 3');
+  assert.deepEqual(a.L.log, b.L.log, 'OVERTURE_FLOW: lesson log not deterministic');
+  assert.deepEqual(a.types, b.types, 'OVERTURE_FLOW: event stream not deterministic');
+  assert.equal(a.wall, b.wall);
+  const s = new OvertureLessons(data).skip();
+  assert.deepEqual(s, { mode: 'odyssey', movement: 0 }, 'OVERTURE_FLOW: Skip must lead straight to Movement 01');
+  console.log(`PASS [OVERTURE_FLOW]: ${a.L.log.join(' ')} | deterministic x2; Skip -> Movement 01.`);
+}
+
+console.log('=== ALL 18 BREAKBEAT GATES GREEN ===');

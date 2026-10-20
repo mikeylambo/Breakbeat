@@ -120,6 +120,12 @@ export class App {
   openSettings: () => void = () => {};
   /** Returns to the title (set by TitleScreen). */
   showTitle: () => void = () => {};
+  /** Starts the Overture again (Settings). */
+  replayOverture: () => void = () => {};
+  /** Closes any open sheet (settings/pause). */
+  closeSheets: () => void = () => {
+    this.pause.show(false);
+  };
 
   constructor() {
     this.hud = new RunHud(() => this.setPaused(true));

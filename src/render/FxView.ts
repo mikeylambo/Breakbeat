@@ -64,6 +64,12 @@ export class FxView {
   private teachCy = 0;
   private teachR = 0;
   private teachUntil = 0;
+  private readonly thumbX = new Float32Array(4);
+  private readonly thumbY = new Float32Array(4);
+  private thumbCount = 0;
+  private readonly preview = new Graphics();
+  private readonly previewChip = new Container();
+  private previewOn = false;
 
   private readonly floorFlash: Sprite;
   private readonly bigText: Text;
@@ -142,7 +148,15 @@ export class FxView {
       this.layer.addChild(c);
     }
 
-    this.layer.addChild(this.holdRing, this.teachRing);
+    this.layer.addChild(this.holdRing, this.teachRing, this.preview);
+    const pc = new Graphics().roundRect(0, 0, 66, 13, 3).stroke({ width: 1, color: UI.held, alpha: 0.9 });
+    const pt = new Text({ text: '×2 · 8-WAY', style: new TextStyle({ fontFamily: 'IBM Plex Mono', fontWeight: '500', fontSize: 8, fill: UI.held, letterSpacing: 0.8 }) });
+    pt.anchor.set(0.5);
+    pt.position.set(33, 6.8);
+    this.chipText.push(pt);
+    this.previewChip.addChild(pc, pt);
+    this.previewChip.visible = false;
+    this.layer.addChild(this.previewChip);
 
     this.floorFlash = new Sprite(atlas.softDot);
     this.floorFlash.anchor.set(0.5);
@@ -361,6 +375,38 @@ export class FxView {
     this.teachUntil = this.now + seconds;
   }
 
+  /** Overture: pulsing thumb rings on target groups (logical centres), or none. */
+  setThumbRings(points: { x: number; y: number }[]): void {
+    this.thumbCount = Math.min(4, points.length);
+    for (let i = 0; i < this.thumbCount; i++) {
+      this.thumbX[i] = points[i]!.x;
+      this.thumbY[i] = points[i]!.y;
+    }
+  }
+
+  /** Overture lesson 3: preview the 8-way blast zone of a group (cell bounds), or hide. */
+  setBlastPreview(c0: number, r0: number, c1: number, r1: number, on: boolean): void {
+    this.previewOn = on;
+    this.preview.clear();
+    this.previewChip.visible = on;
+    if (!on) return;
+    const x0 = G.WX + Math.max(0, c0 - 1) * G.PITCH - 3;
+    const y0 = G.WY + Math.max(0, r0 - 1) * G.PITCH - 3;
+    const x1 = G.WX + Math.min(G.COLS - 1, c1 + 1) * G.PITCH + G.TILE + 3;
+    const y1 = G.WY + Math.min(G.ROWS - 1, r1 + 1) * G.PITCH + G.TILE + 3;
+    const g = this.preview;
+    for (let x = x0; x < x1; x += 7) {
+      g.moveTo(x, y0).lineTo(Math.min(x + 4, x1), y0);
+      g.moveTo(x, y1).lineTo(Math.min(x + 4, x1), y1);
+    }
+    for (let y = y0; y < y1; y += 7) {
+      g.moveTo(x0, y).lineTo(x0, Math.min(y + 4, y1));
+      g.moveTo(x1, y).lineTo(x1, Math.min(y + 4, y1));
+    }
+    g.stroke({ width: 1, color: UI.held, alpha: 0.55 });
+    this.previewChip.position.set(x1 - 66, y0 - 17);
+  }
+
   update(nowSec: number, dt: number, wall: WallView, barSec: number, beatProgress: number): void {
     this.now = nowSec;
     this.barSec = barSec;
@@ -440,6 +486,13 @@ export class FxView {
       const pulse = 1 + 0.08 * Math.sin(nowSec * 10);
       tr.circle(this.teachCx, this.teachCy, this.teachR * pulse).stroke({ width: 2, color: 0xffffff, alpha: 0.85 });
     }
+    for (let i = 0; i < this.thumbCount; i++) {
+      // Two rings breathing on the beat: a solid inner ring and an expanding echo
+      const p = beatProgress;
+      tr.circle(this.thumbX[i]!, this.thumbY[i]!, 12 + 2 * (1 - p)).stroke({ width: 2, color: 0xffffff, alpha: 0.9 });
+      tr.circle(this.thumbX[i]!, this.thumbY[i]!, 14 + 16 * p).stroke({ width: 1.5, color: 0xffffff, alpha: 0.55 * (1 - p) * this.settings.flash });
+    }
+    if (this.previewOn) this.preview.alpha = 0.6 + 0.4 * (1 - beatProgress);
   }
 
   private updateMarkers(wall: WallView, beatProgress: number): void {

@@ -50,6 +50,11 @@ export class RunHud {
     this.root.append(left, bottomLeft, this.next, pause);
   }
 
+  /** Overture hides score/chain; the stem chips take the left column. */
+  setOverture(on: boolean): void {
+    this.root.classList.toggle('overture', on);
+  }
+
   show(on: boolean): void {
     this.root.classList.toggle('hidden', !on);
   }
