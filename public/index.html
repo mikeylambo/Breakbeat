@@ -3,185 +3,21 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#08070b" />
-    <title>BREAKBEAT — Rhythm Demolition</title>
+    <meta name="theme-color" content="#05060A" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>BREAKBEAT</title>
     <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="preload" href="/fonts/unbounded-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/ibm-plex-mono-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/fonts/fonts.css" />
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <main class="stage-shell" aria-label="Breakbeat Arcade Cabinet">
-      <!-- Centered Portrait Cabinet Bezel (390px baseline + 16px gutters per GDD Page 6) -->
-      <section class="cabinet-bezel" id="cabinetBezel">
-        <!-- Top Hardware HUD: Score, Combo/Chain Rank, and Danger Line ONLY during play -->
-        <header class="hud-strip" id="hudStrip" aria-live="polite">
-          <div class="hud-metric">
-            <span class="hud-label">SCORE</span>
-            <span class="hud-value" id="hudScore">0</span>
-          </div>
-
-          <div class="hud-center">
-            <div class="chain-row">
-              <span class="hud-combo" id="hudCombo">1.0×</span>
-              <span class="hud-rank" id="hudRank">RANK 0</span>
-            </div>
-            <!-- 5-stem equalizer indicator showing active musical stem layers -->
-            <div class="stem-meters" id="stemMeters" title="Active Track Stems (Chain Rank + Held Drop)">
-              <span class="stem-pip active"></span>
-              <span class="stem-pip"></span>
-              <span class="stem-pip"></span>
-              <span class="stem-pip"></span>
-              <span class="stem-pip"></span>
-            </div>
-          </div>
-
-          <div class="hud-right">
-            <div class="danger-pill" id="dangerPill">RISE IN 2</div>
-            <div class="micro-controls">
-              <button type="button" class="icon-btn" id="btnPureView" title="Toggle Pure Frame (Hide HUD - Key V)" aria-label="Toggle HUD Visibility">◉</button>
-              <button type="button" class="icon-btn" id="btnStudio" title="Open Studio &amp; Skins (Tab / Esc)" aria-label="Open Studio Menu">≡</button>
-            </div>
-          </div>
-        </header>
-
-        <!-- Floating pure-frame restore pill (only visible when HUD is hidden) -->
-        <button type="button" class="pure-restore-pill hidden" id="btnRestoreHud" aria-label="Restore HUD">
-          SHOW HUD (V)
-        </button>
-
-        <!-- The Wall: 10 columns x 14 rows -->
-        <div class="wall-viewport">
-          <canvas id="wallCanvas" width="780" height="1140" aria-label="Breakbeat 10 by 14 Demolition Wall"></canvas>
-        </div>
-
-        <!-- Action-Gated Onboarding Lesson Banner (retires automatically on completion per GDD Page 6) -->
-        <footer class="lesson-footer" id="lessonFooter">
-          <span class="lesson-step" id="lessonStepBadge">LESSON 1/4</span>
-          <span class="lesson-copy" id="lessonCopy">Tap any connected 2+ colour cluster to prime it.</span>
-        </footer>
-
-        <!-- Studio & Skin Selection Drawer (Hidden during active play so nothing clutters the wall) -->
-        <aside class="studio-drawer hidden" id="studioDrawer" role="dialog" aria-modal="true" aria-label="Breakbeat Studio">
-          <div class="drawer-header">
-            <div>
-              <p class="drawer-kicker">PULSE ENGINE · BUILD 01</p>
-              <h1 class="drawer-title">BREAKBEAT</h1>
-            </div>
-            <button type="button" class="drawer-close" id="btnCloseStudio" aria-label="Resume Play">RESUME ✕</button>
-          </div>
-
-          <p class="drawer-tagline">“You don’t clear the wall. You conduct it.”</p>
-
-          <!-- Mode Selector -->
-          <div class="drawer-section">
-            <span class="section-title">MODE</span>
-            <div class="mode-pills" id="modePills" role="radiogroup" aria-label="Game Mode">
-              <button type="button" class="mode-pill active" data-mode="odyssey">Odyssey</button>
-              <button type="button" class="mode-pill" data-mode="endless">Endless</button>
-              <button type="button" class="mode-pill" data-mode="zen">Zen Flow</button>
-              <button type="button" class="mode-pill" data-mode="daily">Daily Descent</button>
-              <button type="button" class="mode-pill" data-mode="remix">Remix Mutators</button>
-            </div>
-          </div>
-
-          <!-- Skins & Acts -->
-          <div class="drawer-section">
-            <span class="section-title">SKINS &amp; TRACK STEMS</span>
-            <div class="skin-list" id="skinList"></div>
-          </div>
-
-          <!-- Accessibility & Motor Tuning -->
-          <div class="drawer-section">
-            <span class="section-title">ACCESSIBILITY &amp; FEEL</span>
-            <div class="a11y-grid">
-              <label class="a11y-row">
-                <span>Flash Intensity</span>
-                <input type="range" id="sliderFlash" min="20" max="100" value="100" />
-              </label>
-              <label class="a11y-row">
-                <span>BPM Tempo Scale</span>
-                <select id="selectBpmScale">
-                  <option value="0.8">80% (Relaxed)</option>
-                  <option value="0.9">90%</option>
-                  <option value="1" selected>100% (Original)</option>
-                  <option value="1.1">110%</option>
-                  <option value="1.2">120% (Rush)</option>
-                </select>
-              </label>
-              <label class="a11y-row">
-                <span>Strobe-Free Mode</span>
-                <input type="checkbox" id="checkStrobeFree" />
-              </label>
-              <label class="a11y-row">
-                <span>Auto-Prime Assist</span>
-                <input type="checkbox" id="checkAutoAssist" />
-              </label>
-              <label class="a11y-row">
-                <span>Mute Synth Audio</span>
-                <input type="checkbox" id="checkMute" />
-              </label>
-            </div>
-          </div>
-
-          <div class="drawer-actions">
-            <button type="button" class="primary-action" id="btnNewRun">RESTART WALL (R)</button>
-          </div>
-        </aside>
-
-        <!-- Gentle Failure / Act Complete Results Card with 3-Second Best-Pass Replay Loop (GDD Page 4 & 6) -->
-        <section class="results-modal hidden" id="resultsModal" role="dialog" aria-modal="true" aria-label="Run Results Card">
-          <div class="results-card">
-            <div class="results-top">
-              <div>
-                <p class="results-kicker" id="resultsKicker">WALL OVERFLOW · RESOLVED TO TONIC</p>
-                <h2 class="results-headline" id="resultsScore">0</h2>
-              </div>
-              <span class="mastery-badge" id="resultsMastery">BRONZE</span>
-            </div>
-
-            <!-- 3-Second Loop Replay of the Run's Best Pass -->
-            <div class="replay-box">
-              <div class="replay-header">
-                <span>BEST PASS REPLAY (3S LOOP)</span>
-                <span id="replayPassMeta">0 PTS</span>
-              </div>
-              <canvas id="replayCanvas" width="300" height="220" aria-label="3-second replay of best pass"></canvas>
-            </div>
-
-            <div class="results-stats">
-              <div class="stat-cell">
-                <span class="stat-label">BEST PASS</span>
-                <span class="stat-val" id="statBestPass">0</span>
-              </div>
-              <div class="stat-cell">
-                <span class="stat-label">LONGEST COMBO</span>
-                <span class="stat-val" id="statLongestCombo">0</span>
-              </div>
-              <div class="stat-cell">
-                <span class="stat-label">OVERCHARGES</span>
-                <span class="stat-val" id="statOvercharges">0</span>
-              </div>
-              <div class="stat-cell">
-                <span class="stat-label">AIR-PRIMES</span>
-                <span class="stat-val" id="statAirPrimes">0</span>
-              </div>
-              <div class="stat-cell">
-                <span class="stat-label">BARS SURVIVED</span>
-                <span class="stat-val" id="statBars">0</span>
-              </div>
-              <div class="stat-cell">
-                <span class="stat-label">BLOCKS CLEARED</span>
-                <span class="stat-val" id="statBlocks">0</span>
-              </div>
-            </div>
-
-            <div class="results-actions">
-              <button type="button" class="primary-action" id="btnPlayAgain">CONDUCT AGAIN</button>
-              <button type="button" class="secondary-action" id="btnResultsSkins">CHANGE SKIN</button>
-            </div>
-          </div>
-        </section>
-      </section>
-    </main>
+    <div id="game" class="game-host"></div>
+    <div id="ui" class="ui-stage"></div>
+    <div id="announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
     <script type="module" src="/app.js"></script>
   </body>
 </html>
