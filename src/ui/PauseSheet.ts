@@ -30,6 +30,6 @@ export class PauseSheet {
   show(on: boolean): void {
     this.open = on;
     this.root.classList.toggle('hidden', !on);
-    if (on) this.resumeBtn.focus({ preventScroll: true });
+    if (on && document.activeElement && document.activeElement !== document.body) this.resumeBtn.focus({ preventScroll: true });
   }
 }

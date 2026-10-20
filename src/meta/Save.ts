@@ -2,7 +2,7 @@
 
 import { readJson, writeJson } from '../platform/Storage.js';
 import { MOVEMENTS } from '../audio/tracks.js';
-import { computeMasteryRank, type MasteryRank } from '../tuning.js';
+import { MASTERY_FLOORS, computeMasteryRank, type MasteryRank } from '../tuning.js';
 
 export interface SaveData {
   v: 1;
@@ -44,7 +44,7 @@ export function isUnlocked(s: SaveData, index: number): boolean {
 }
 
 export const RANKS: readonly MasteryRank[] = ['BRONZE', 'SILVER', 'GOLD', 'OBSIDIAN', 'RESONANT'];
-export const RANK_FLOOR: Record<MasteryRank, number> = { BRONZE: 0, SILVER: 4000, GOLD: 9000, OBSIDIAN: 16000, RESONANT: 28000 };
+export const RANK_FLOOR: Record<MasteryRank, number> = MASTERY_FLOORS;
 
 export function mastery(score: number): { rank: MasteryRank; next: MasteryRank | null; progress: number; toNext: number } {
   const rank = computeMasteryRank(score);

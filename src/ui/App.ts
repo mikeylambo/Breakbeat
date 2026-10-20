@@ -13,6 +13,7 @@ import { TileAtlas } from '../render/TileAtlas.js';
 import { WallView } from '../render/WallView.js';
 import { BladeView } from '../render/BladeView.js';
 import { FxView } from '../render/FxView.js';
+import { TitleBackdrop } from '../render/TitleBackdrop.js';
 import { AudioEngine } from '../audio/AudioEngine.js';
 import { StemPlayer } from '../audio/StemPlayer.js';
 import { SfxPlayer } from '../audio/SfxPlayer.js';
@@ -90,6 +91,7 @@ export class App {
   wall!: WallView;
   blade!: BladeView;
   fx!: FxView;
+  backdrop!: TitleBackdrop;
   readonly audio = new AudioEngine();
   readonly stems = new StemPlayer(this.audio);
   readonly sfx = new SfxPlayer(this.audio);
@@ -148,6 +150,7 @@ export class App {
     this.wall = new WallView(this.stage, this.atlas);
     this.blade = new BladeView(this.stage, this.atlas);
     this.fx = new FxView(this.stage, this.atlas);
+    this.backdrop = new TitleBackdrop(this.stage, this.atlas);
     this.applySettings();
 
     this.hud.show(false);
@@ -207,6 +210,7 @@ export class App {
     this.atlas.setAssist(s.colourAssist);
     this.wall.setAtlas(this.atlas);
     this.fx.setAtlas(this.atlas);
+    this.backdrop?.setAtlas(this.atlas);
     this.wall.reducedMotion = s.reducedMotion;
     this.wall.flashScale = s.flash;
     this.fx.settings.reducedMotion = s.reducedMotion;
@@ -235,7 +239,9 @@ export class App {
     await this.audio.unlock();
     const overture = cfg.mode === 'overture';
     const index = overture ? 0 : Math.max(0, Math.min(MOVEMENTS.length - 1, cfg.movement));
-    const track = overture ? OVERTURE : cfg.mode === 'zen' ? MOVEMENTS[5]! : MOVEMENTS[index]!;
+    const dayIndex = Math.floor(Date.parse(todayUtc()) / 86400000) % MOVEMENTS.length;
+    const trackIndex = cfg.mode === 'zen' ? 5 : cfg.mode === 'daily' ? dayIndex : index;
+    const track = overture ? OVERTURE : MOVEMENTS[trackIndex]!;
     const bpmScale = cfg.mode === 'daily' || overture ? 1 : this.settings.bpmScale;
     const bpm = track.bpm * bpmScale;
     const seed = cfg.seed ?? (cfg.mode === 'daily' ? `daily-${todayUtc()}` : `${cfg.mode}-${Date.now().toString(36)}`);
@@ -257,7 +263,7 @@ export class App {
       cfg,
       mode: cfg.mode,
       startMovement: index,
-      movement: index,
+      movement: overture ? 0 : trackIndex,
       track,
       movementStartScore: 0,
       seed,
@@ -411,21 +417,28 @@ export class App {
   private checkQuota(): void {
     const run = this.run;
     const e = this.engine;
-    if (!run || !e || run.ended || run.morph || run.mode !== 'odyssey') return;
+    if (!run || !e || run.ended || run.morph) return;
+    if (run.mode !== 'odyssey' && run.mode !== 'endless' && run.mode !== 'daily') return;
     const earned = e.telemetry.score - run.movementStartScore;
     if (earned < run.track.quota) return;
-    const id = run.track.id;
-    if (!this.save.cleared.includes(id)) {
-      this.save.cleared.push(id);
-      this.persistSave();
+    if (run.mode === 'odyssey') {
+      const id = run.track.id;
+      if (!this.save.cleared.includes(id)) {
+        this.save.cleared.push(id);
+        this.persistSave();
+      }
+      run.movementsCleared++;
+      // The last movement plays on until the wall wins
+      if (run.movement >= MOVEMENTS.length - 1) {
+        run.movementStartScore = Number.POSITIVE_INFINITY;
+        return;
+      }
     }
-    run.movementsCleared++;
-    if (run.movement >= MOVEMENTS.length - 1) return;
     // Next downbeat at least half a bar away so the stems can be scheduled sample-accurately
     const bar = Math.max(1, e.currentBar);
     const sixteenth = Math.max(0, e.currentStep) % TUNING.SIXTEENTHS_PER_BAR;
     const step = (bar + (sixteenth >= 8 ? 1 : 0)) * TUNING.SIXTEENTHS_PER_BAR;
-    const next = run.movement + 1;
+    const next = (run.movement + 1) % MOVEMENTS.length;
     const atSec = this.clock.stepToAudioSec(step);
     run.morph = { step, index: next, atSec };
     const track = MOVEMENTS[next]!;
@@ -565,6 +578,7 @@ export class App {
     }
 
     this.hooks.onFrame?.();
+    this.backdrop.update(wallSec);
 
     if (e && !this.fx.frozen) {
       this.wall.update(e, beat, dt);

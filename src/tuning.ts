@@ -126,10 +126,13 @@ export function computeChainRank(comboPasses: number): number {
 /** Per-skin mastery rank based on score. */
 export type MasteryRank = 'BRONZE' | 'SILVER' | 'GOLD' | 'OBSIDIAN' | 'RESONANT';
 
+/** v0.6: rescaled for the 16x10 wall (bot median ~600-1400 pts/bar). */
+export const MASTERY_FLOORS = { BRONZE: 0, SILVER: 20000, GOLD: 50000, OBSIDIAN: 100000, RESONANT: 160000 } as const;
+
 export function computeMasteryRank(score: number): MasteryRank {
-  if (score >= 28000) return 'RESONANT';
-  if (score >= 16000) return 'OBSIDIAN';
-  if (score >= 9000) return 'GOLD';
-  if (score >= 4000) return 'SILVER';
+  if (score >= MASTERY_FLOORS.RESONANT) return 'RESONANT';
+  if (score >= MASTERY_FLOORS.OBSIDIAN) return 'OBSIDIAN';
+  if (score >= MASTERY_FLOORS.GOLD) return 'GOLD';
+  if (score >= MASTERY_FLOORS.SILVER) return 'SILVER';
   return 'BRONZE';
 }
