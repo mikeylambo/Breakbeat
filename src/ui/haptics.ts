@@ -7,5 +7,6 @@ export const haptics = new BrowserHaptics({
   detonate: { mobile: 20 },
   overcharge: { mobile: [30, 30, 45] },
   allclear: { mobile: [20, 40, 20, 40, 60] },
-  tick: { mobile: 8 }
+  tick: { mobile: 8 },
+  rank: { mobile: [15, 30, 25] }
 });

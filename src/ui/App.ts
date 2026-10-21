@@ -321,6 +321,9 @@ export class App {
     this.wall.dangerLevel = 0;
     this.wall.setPoolTint(trackTint(track), performance.now() / 1000, 0);
     this.applyWorld(track, !overture);
+    this.wall.dealIn(performance.now() / 1000);
+    this.blade.fadeIn();
+    this.lastRank = 0;
     this.fx.markGroupsDirty();
     this.lastHapticStep = -1;
     this.hud.show(true);
@@ -427,6 +430,8 @@ export class App {
     this.input.cancelAll();
     const now = this.audio.now;
     this.stems.stopAll(now + this.clock.barDurationSec);
+    this.wall.collapse(performance.now() / 1000);
+    this.blade.fadeOut();
     this.scheduler.queue('over', now + 0.02, 0.9);
     const score = Math.round(engine.telemetry.score * run.bpmScale);
     const key = run.mode === 'odyssey' ? MOVEMENTS[run.startMovement]!.id : run.mode;
@@ -443,7 +448,7 @@ export class App {
     setTimeout(() => {
       this.hud.show(false);
       this.hooks.onRunEnd?.({ run, engine, score, previousBest, key });
-    }, 1400);
+    }, 1700);
   }
 
   /** Movement world (motif, blade, shards) and its title card, held for one bar. */
@@ -587,6 +592,7 @@ export class App {
     }
   }
 
+  private lastRank = 0;
   private countingIn = false;
   private readonly countEl = document.createElement('div');
 
@@ -673,6 +679,12 @@ export class App {
       }
       this.input.update(performance.now());
       this.advanceSection();
+      if (e.chainRank > this.lastRank) {
+        this.hud.flareChain();
+        this.wall.rankPulse(this.blade.accent);
+        haptics.pulse('rank');
+      }
+      this.lastRank = e.chainRank;
       this.director.update();
       // Haptic metronome: one tick per beat
       if (this.settings.hapticMetronome) {

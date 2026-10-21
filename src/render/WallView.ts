@@ -197,6 +197,58 @@ export class WallView {
     this.dirty = true;
   }
 
+  private collapseStart = -1;
+  private dealStart = -1;
+
+  private rankPulseLeft = 0;
+  private rankTint = 0xffffff;
+
+  /** Chain rank up: a quick accent glow across the wall. */
+  rankPulse(tint: number): void {
+    this.rankTint = tint;
+    this.rankPulseLeft = 1;
+  }
+
+  /** Game over: the wall falls away row by row (bottom first), tumbling, over ~1.3 s. */
+  collapse(nowSec: number): void {
+    this.collapseStart = nowSec;
+  }
+
+  /** Run start: tiles drop in row by row from above over ~0.6 s. */
+  dealIn(nowSec: number): void {
+    this.collapseStart = -1;
+    this.dealStart = this.reducedMotion ? -1 : nowSec;
+  }
+
+  /** Per-tile transition offset (collapse or deal-in); writes into `tx` (dy, rotation, alpha). */
+  private readonly tx = { dy: 0, rot: 0, a: 1 };
+  private transition(r: number, c: number, id: number, now: number): void {
+    const t = this.tx;
+    t.dy = 0;
+    t.rot = 0;
+    t.a = 1;
+    if (this.collapseStart >= 0) {
+      const delay = (ROWS - 1 - r) * 0.07 + ((id * 37) % 7) * 0.012;
+      const e = now - this.collapseStart - delay;
+      if (e > 0) {
+        if (this.reducedMotion) {
+          t.a = Math.max(0, 1 - e / 0.4);
+        } else {
+          t.dy = 520 * e * e;
+          t.rot = (((id * 7919) % 200) / 100 - 1) * e * 3;
+          t.a = Math.max(0, 1 - e / 0.9);
+        }
+      }
+    } else if (this.dealStart >= 0) {
+      const delay = (ROWS - 1 - r) * 0.045 + c * 0.008;
+      const p = Math.min(1, Math.max(0, (now - this.dealStart - delay) / 0.28));
+      if (p >= 1 && now - this.dealStart > 1.2) this.dealStart = -1;
+      const e = 1 - (1 - p) * (1 - p) * (1 - p);
+      t.dy = -(1 - e) * 120;
+      t.a = p;
+    }
+  }
+
   /** Pressure push: the whole wall slides up one row over 160 ms. */
   startPush(visualSec: number): void {
     if (!this.reducedMotion) this.pushStartSec = visualSec;
@@ -360,7 +412,9 @@ export class WallView {
   /** Per-frame update: positions, textures, falls, anticipation, beat pulse, danger pulse. */
   update(engine: PulseEngine, beat: BeatQuery, frameSec: number): void {
     if (this.dirty) this.rebuild(engine);
-    this.updatePool(performance.now() / 1000);
+    const nowWall = performance.now() / 1000;
+    this.updatePool(nowWall);
+    const hideSlabs = this.collapseStart >= 0 || this.dealStart >= 0;
     const stepSec = 60 / engine.config.bpm / 4;
     const visualSec = beat.visualElapsedSec;
     const bar = Math.floor(beat.visualStep / TUNING.SIXTEENTHS_PER_BAR) + 1;
@@ -407,8 +461,11 @@ export class WallView {
         }
         const sprite = this.tiles[used++]!;
         sprite.visible = true;
+        this.transition(r, c, t.id, nowWall);
+        y += this.tx.dy;
         sprite.position.set(x, y);
-        sprite.alpha = this.focus && !this.focus[cell] ? 0.34 : 1;
+        sprite.rotation = this.tx.rot;
+        sprite.alpha = (this.focus && !this.focus[cell] ? 0.34 : 1) * this.tx.a;
         const slot = this.memberSlot[cell]!;
         if (slot >= 0) {
           const info = this.groups[slot]!;
@@ -421,7 +478,7 @@ export class WallView {
           glow.position.set(x, y);
           glow.tint = heldish ? UI.held : TILE_COLOURS[info.kind % TILE_COLOURS.length]!.base;
           const boost = sq < 1 ? 1.5 : 1;
-          glow.alpha = Math.min(1, (heldish ? 0.85 : 0.5) * boost * flash);
+          glow.alpha = Math.min(1, (heldish ? 0.85 : 0.5) * boost * flash) * this.tx.a;
           glow.scale.set(heldish ? 1.05 : 0.85);
         } else {
           sprite.texture = this.atlas.idle(t.kind);
@@ -454,6 +511,8 @@ export class WallView {
     }
     this.slabFill.y = push;
     this.outline.y = push;
+    this.slabFill.visible = !hideSlabs;
+    this.outline.visible = !hideSlabs;
 
     // Next-row preview
     const upcoming = engine.previewUpcomingRow();
@@ -476,7 +535,17 @@ export class WallView {
       this.dangerLine.alpha = 0.32;
     }
 
-    if (this.allClearFlash > 0) {
+    if (this.rankPulseLeft > 0 && this.allClearFlash <= 0) {
+      this.allClearGlow.visible = true;
+      this.allClearGlow.tint = this.rankTint;
+      this.allClearGlow.alpha = this.rankPulseLeft * 0.28 * flash;
+      this.rankPulseLeft = Math.max(0, this.rankPulseLeft - frameSec * 2.2);
+      if (this.rankPulseLeft <= 0) {
+        this.allClearGlow.visible = false;
+        this.allClearGlow.tint = 0xffc461;
+      }
+    } else if (this.allClearFlash > 0) {
+      this.allClearGlow.tint = 0xffc461;
       this.allClearGlow.visible = true;
       this.allClearGlow.alpha = Math.min(1, this.allClearFlash * this.allClearFlash * 0.42 * flash);
       this.allClearFlash = Math.max(0, this.allClearFlash - frameSec * 0.9);

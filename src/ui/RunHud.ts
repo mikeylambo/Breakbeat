@@ -63,6 +63,13 @@ export class RunHud {
     this.root.classList.toggle('overture', on);
   }
 
+  /** Chain rank up flare on the rank word. */
+  flareChain(): void {
+    this.chainWord.classList.remove('flare');
+    void this.chainWord.offsetWidth;
+    this.chainWord.classList.add('flare');
+  }
+
   /** Draws the eye to the Charge meter (first-time lesson). */
   flashCharge(): void {
     this.chargeBox.classList.remove('teach');

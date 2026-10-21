@@ -67,9 +67,22 @@ export class BladeView {
   }
 
   private wakeLen = 100;
+  accent = 0x9edcff;
+  private fadeDir = 0;
+  private fadeAlpha = 1;
+
+  fadeOut(): void {
+    this.fadeDir = -1;
+  }
+
+  fadeIn(): void {
+    this.fadeDir = 0;
+    this.fadeAlpha = 1;
+  }
 
   /** Per-movement blade look. Position and timing never change, only the drawing. */
   setStyle(style: BladeStyle, accent: number): void {
+    this.accent = accent;
     const glowTint = mix(accent, 0xffffff, 0.55);
     this.line.alpha = 1;
     this.head.visible = true;
@@ -130,9 +143,11 @@ export class BladeView {
 
   update(beat: BeatQuery): void {
     const x = BladeView.xFor(beat.sweepColFloat);
-    this.root.visible = this.visible;
-    this.glow.visible = this.visible;
-    this.headGlow.visible = this.visible;
+    if (this.fadeDir < 0) this.fadeAlpha = Math.max(0, this.fadeAlpha - 0.04);
+    this.root.alpha = this.fadeAlpha;
+    this.root.visible = this.visible && this.fadeAlpha > 0;
+    this.glow.visible = this.visible && this.fadeAlpha > 0.5;
+    this.headGlow.visible = this.glow.visible;
     this.line.x = x - 1;
     this.head.x = x;
     this.glow.x = x;
