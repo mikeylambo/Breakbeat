@@ -308,7 +308,26 @@ await gate('FRAME_HITCH', async () => {
   return `${frames.length} frames over 30 s with primes every 250 ms: p99 ${p99.toFixed(1)} ms, max ${max.toFixed(1)} ms.`;
 });
 
+// ---------------------------------------------------------------- NO_STALL
+await gate('NO_STALL', async () => {
+  const { page, errors } = await newPage(VETERAN, { width: 844, height: 390 }, 1);
+  await page.click('.btn-continue');
+  await page.waitForFunction(() => window.__bb.engine?.currentBar >= 1);
+  await page.waitForFunction(() => window.__bb.engine.currentStep % 16 === 0);
+  // Force a hitstop pass: prime every group on the wall ahead of the blade
+  await page.evaluate(() => { const e = window.__bb.engine; for (let r = 9; r >= 4; r--) for (let c = 2; c < 16; c++) e.primeAt(c, r); });
+  await page.waitForTimeout(3000);
+  const xs = [];
+  for (let i = 0; i < 6; i++) {
+    xs.push(await page.evaluate(() => window.__bb.blade.root.children[1].x));
+    await page.waitForTimeout(170);
+  }
+  assert.ok(new Set(xs.map(x => Math.round(x))).size >= 4, `blade stalled after a hitstop pass: ${xs.join(', ')}`);
+  assert.equal(errors.length, 0, errors.join(' | '));
+  return 'blade and wall keep animating after a 4+ group hitstop pass.';
+});
+
 await browser.close();
 server.kill();
 if (failed) process.exit(1);
-console.log('=== BROWSER GATES GREEN (FRAME_HITCH, SCREENS, NETWORK) ===');
+console.log('=== BROWSER GATES GREEN (FRAME_HITCH, SCREENS, NETWORK, NO_STALL) ===');
