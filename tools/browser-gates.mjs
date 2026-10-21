@@ -40,6 +40,7 @@ async function newPage(save, viewport = { width: 844, height: 390 }, dpr = 2) {
         localStorage.clear();
         localStorage.setItem('breakbeat-save-v1', s);
         localStorage.setItem('breakbeat-taught-air', '1');
+        localStorage.setItem('breakbeat-taught-charge', '1');
         sessionStorage.setItem('bb-seeded', '1');
       }
     } catch {}

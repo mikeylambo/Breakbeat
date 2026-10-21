@@ -32,6 +32,7 @@ import { PauseSheet } from './PauseSheet.js';
 import { RotateCard } from './RotateCard.js';
 import { announce } from './dom.js';
 import { SettingsSheet } from './SettingsSheet.js';
+import { CalibrationSheet } from './CalibrationSheet.js';
 
 
 export interface RunConfig {
@@ -101,6 +102,7 @@ export class App {
   readonly pause: PauseSheet;
   readonly rotate = new RotateCard();
   readonly settingsSheet: SettingsSheet;
+  readonly calibration: CalibrationSheet;
   input!: InputController;
 
   settings: Settings = loadSettings();
@@ -136,9 +138,11 @@ export class App {
       hapticsSupported: typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function',
       apply: () => this.persistSettings(),
       replayOverture: () => this.replayOverture(),
+      calibrate: () => this.calibration.show(true),
       onClose: () => undefined
     });
     this.openSettings = () => this.settingsSheet.show(true);
+    this.calibration = new CalibrationSheet(this);
     this.hud = new RunHud(() => this.setPaused(true));
     this.pause = new PauseSheet({
       resume: () => this.setPaused(false),
@@ -175,7 +179,7 @@ export class App {
     this.applySettings();
 
     this.hud.show(false);
-    this.ui.append(this.card, this.hud.root, this.pause.root, this.settingsSheet.root);
+    this.ui.append(this.card, this.hud.root, this.pause.root, this.settingsSheet.root, this.calibration.root);
     this.stage.onLayout(l => {
       this.ui.style.transform = `translate(${l.x}px, ${l.y}px) scale(${l.scale})`;
       this.fx.setTextResolution(this.stage.resolution * Math.max(1, l.scale));
@@ -566,22 +570,55 @@ export class App {
       this.paused = false;
       return;
     }
+    if (this.countingIn) return;
     if (on === this.paused) {
       this.pause.show(on);
       return;
     }
-    this.paused = on;
-    this.pause.show(on);
     if (on) {
+      this.paused = true;
+      this.pause.show(true);
       this.input.cancelAll();
       this.clock.pause(this.audio.now);
       void this.audio.suspend();
     } else if (!this.blocked) {
+      this.pause.show(false);
+      this.countIn();
+    }
+  }
+
+  private countingIn = false;
+  private readonly countEl = document.createElement('div');
+
+  /** One bar of beat pips before play resumes, so nobody loses a life to an instant restart. */
+  private countIn(): void {
+    this.countingIn = true;
+    const beatMs = Math.min(650, Math.max(380, (60 / this.clock.bpm) * 1000));
+    const el = this.countEl;
+    el.className = 'count-in';
+    el.setAttribute('aria-live', 'assertive');
+    if (!el.parentElement) this.ui.appendChild(el);
+    el.innerHTML = '<span></span><span></span><span></span><span></span>';
+    el.classList.remove('hidden');
+    const pips = el.querySelectorAll('span');
+    let i = 0;
+    const tick = (): void => {
+      if (i < 4) {
+        pips[i]!.classList.add('on');
+        if (i === 0) announce('Resuming in four beats');
+        i++;
+        setTimeout(tick, beatMs);
+        return;
+      }
+      el.classList.add('hidden');
+      this.countingIn = false;
+      this.paused = false;
       void this.audio.resume().then(() => {
         this.clock.resume(this.audio.now);
         this.scheduler.resetHorizon();
       });
-    }
+    };
+    tick();
   }
 
   private onHidden(): void {

@@ -63,6 +63,13 @@ export class RunHud {
     this.root.classList.toggle('overture', on);
   }
 
+  /** Draws the eye to the Charge meter (first-time lesson). */
+  flashCharge(): void {
+    this.chargeBox.classList.remove('teach');
+    void this.chargeBox.offsetWidth;
+    this.chargeBox.classList.add('teach');
+  }
+
   show(on: boolean): void {
     this.root.classList.toggle('hidden', !on);
   }

@@ -11,6 +11,7 @@ export interface SettingsHost {
   hapticsSupported: boolean;
   apply(): void;
   replayOverture(): void;
+  calibrate(): void;
   onClose(): void;
 }
 
@@ -116,6 +117,12 @@ export class SettingsSheet {
     }
     bpm.append(el('span', 'set-label', 'Tempo<small>Scores are scaled to match</small>'), seg);
     col1.appendChild(bpm);
+    col1.appendChild(
+      button('btn set-overture', 'Sync timing (tap test)', 'Calibrate audio timing', () => {
+        this.show(false);
+        this.host.calibrate();
+      })
+    );
     col1.appendChild(
       button('btn set-overture', 'Replay Overture', 'Replay the Overture', () => {
         this.show(false);

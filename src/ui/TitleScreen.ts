@@ -15,6 +15,9 @@ export interface TitleActions {
   daily(): void;
   zen(): void;
   settings(): void;
+  calibrate(): void;
+  /** True once timing has been synced or the chip dismissed */
+  calibrated(): boolean;
 }
 
 const BADGE_LABEL: Record<string, string> = { BRONZE: 'BRZ', SILVER: 'SLV', GOLD: 'GLD', OBSIDIAN: 'OBS', RESONANT: 'RES' };
@@ -59,6 +62,7 @@ export class TitleScreen {
     );
     left.appendChild(modes);
     left.appendChild(button('icon-btn title-settings', ICONS.gear, 'Settings', a.settings));
+    if (save.overtureDone && !a.calibrated()) left.appendChild(button('sync-chip', 'SYNC TIMING · 10 SEC', 'Sync audio timing', a.calibrate));
 
     const right = el('section', 'tracklist', '', { 'aria-label': 'The Odyssey' });
     const head = el('div', 'tracklist-head', '', { role: 'tablist', 'aria-label': 'Acts' });

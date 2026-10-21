@@ -18,6 +18,8 @@ export interface Settings {
   /** Audio offset nudge in ms (+ = visuals later) */
   offsetMs: number;
   hudHidden: boolean;
+  /** Tap-to-sync done (or dismissed) */
+  calibrated: boolean;
 }
 
 const KEY = 'breakbeat-settings-v1';
@@ -34,7 +36,8 @@ export const DEFAULT_SETTINGS: Settings = {
   colourAssist: false,
   bpmScale: 1,
   offsetMs: 0,
-  hudHidden: false
+  hudHidden: false,
+  calibrated: false
 };
 
 export function loadSettings(): Settings {

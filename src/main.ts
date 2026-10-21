@@ -13,6 +13,7 @@ import type { PulseEvent } from './pulse/types.js';
 import { TUNING } from './tuning.js';
 
 const TAUGHT_AIR = 'breakbeat-taught-air';
+const TAUGHT_CHARGE = 'breakbeat-taught-charge';
 const app = new App();
 
 async function main(): Promise<void> {
@@ -23,8 +24,14 @@ async function main(): Promise<void> {
     endless: () => play({ mode: 'endless', movement: 0 }),
     daily: () => play({ mode: 'daily', movement: 0 }),
     zen: () => play({ mode: 'zen', movement: ZEN_INDEX }),
-    settings: () => app.openSettings()
+    settings: () => app.openSettings(),
+    calibrate: () => app.calibration.show(true),
+    calibrated: () => app.settings.calibrated
   });
+  app.calibration.onDone = () => {
+    if (title.root.classList.contains('hidden')) return;
+    title.render(app.save);
+  };
   const overture = new OvertureScreen(
     app,
     () => {
@@ -46,7 +53,13 @@ async function main(): Promise<void> {
     title: () => showTitle()
   });
   let lastCfg: RunConfig | null = null;
-  const coach = el('div', 'coachmark hidden', 'Catch it mid-fall · <span>×1.25</span>', { role: 'status' });
+  let coachUntil = 0;
+  const coach = el('div', 'coachmark hidden', '', { role: 'status' });
+  const showCoach = (html: string, seconds: number): void => {
+    coach.innerHTML = html;
+    coach.classList.remove('hidden');
+    coachUntil = performance.now() / 1000 + seconds;
+  };
   app.ui.append(title.root, overture.root, coach, results.root);
 
   function markOvertureDone(): void {
@@ -83,7 +96,6 @@ async function main(): Promise<void> {
   }
 
   // In-run air-prime lesson: once ever, Movement 01 or later, time never slows
-  let coachUntil = 0;
   const centre = { x: 0, y: 0 };
   function maybeTeachAir(ev: PulseEvent): void {
     const run = app.run;
@@ -113,8 +125,7 @@ async function main(): Promise<void> {
       }
       const twoBars = app.clock.barDurationSec * 2;
       app.fx.teach(x, y, far + 24, twoBars);
-      coach.classList.remove('hidden');
-      coachUntil = performance.now() / 1000 + twoBars;
+      showCoach('Catch it mid-fall · <span>×1.25</span>', twoBars);
       writeFlag(TAUGHT_AIR, true);
       announce('Catch it mid-fall for times one point two five.');
       return;
@@ -127,6 +138,14 @@ async function main(): Promise<void> {
   };
   app.hooks.onFrame = () => {
     if (overture.running) overture.onFrame();
+    // Charge lesson: the first time the meter fills in a real run, once ever
+    const run = app.run;
+    if (run && !run.ended && run.mode !== 'overture' && app.engine?.canHold && !readFlag(TAUGHT_CHARGE)) {
+      writeFlag(TAUGHT_CHARGE, true);
+      showCoach('<span>HOLD READY</span> · long-press a primed group to Overcharge it', app.clock.barDurationSec * 2);
+      app.hud.flashCharge();
+      announce('Charge full. Long-press a primed group to overcharge it.');
+    }
     results.onFrame();
     if (coachUntil && performance.now() / 1000 > coachUntil) {
       coachUntil = 0;

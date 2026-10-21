@@ -212,3 +212,23 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .mc-num { font: 500 9px/1 var(--mono); letter-spacing: 0.32em; color: var(--accent); }
 .mc-name { margin-top: 8px; font: 700 34px/1 var(--display); color: var(--text); letter-spacing: -0.01em; text-shadow: 0 0 30px color-mix(in srgb, var(--accent) 45%, transparent); }
 .reduced-motion .movement-card { transform: none; }
+
+/* ---------- Resume count-in ---------- */
+.count-in { position: absolute; left: 167px; width: 510px; top: 170px; display: flex; justify-content: center; gap: 14px; pointer-events: none; z-index: 15; }
+.count-in span { width: 14px; height: 14px; border-radius: 7px; border: 2px solid rgba(244, 241, 234, 0.35); transition: all 0.12s; }
+.count-in span.on { background: var(--held); border-color: var(--held); box-shadow: 0 0 16px rgba(255, 196, 97, 0.7); transform: scale(1.15); }
+
+/* ---------- Calibration ---------- */
+.calib-sheet { width: 340px; align-items: center; text-align: center; gap: 10px; }
+.calib-copy { font: 400 11px/1.4 var(--body); color: var(--secondary); }
+.calib-ring { width: 74px; height: 74px; border-radius: 50%; border: 3px solid var(--held); margin: 10px 0 4px; box-shadow: 0 0 24px rgba(255, 196, 97, 0.35); }
+.calib-ring.hit { animation: calib-hit 0.25s ease-out; }
+@keyframes calib-hit { from { background: rgba(255, 196, 97, 0.5); } to { background: transparent; } }
+.calib-dots { display: flex; gap: 6px; }
+.calib-dots span { width: 8px; height: 8px; border-radius: 4px; background: rgba(244, 241, 234, 0.15); }
+.calib-dots span.on { background: var(--text); }
+.calib-status { font: 500 10px/1 var(--mono); letter-spacing: 0.1em; color: var(--secondary); min-height: 12px; }
+.calib-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+.sync-chip { position: absolute; left: 56px; top: 296px; font: 500 9px/1 var(--mono); letter-spacing: 0.16em; color: var(--held); padding: 7px 10px; border-radius: 8px; border: 1px solid rgba(255, 196, 97, 0.35); background: rgba(255, 196, 97, 0.06); }
+.hud-charge.teach { animation: charge-teach 0.9s ease-in-out 4; border-radius: 8px; }
+@keyframes charge-teach { 50% { box-shadow: 0 0 0 6px rgba(255, 196, 97, 0.25); background: rgba(255, 196, 97, 0.08); } }
