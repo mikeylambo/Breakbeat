@@ -71,6 +71,16 @@ export class WallView {
   readonly groups: WallGroupInfo[] = [];
   groupCount = 0;
   private readonly idToCell = new Map<number, number>();
+  /** Desktop hover preview: cells of the group under the mouse (null = none) */
+  private readonly hover = new Uint8Array(CELLS);
+  private hoverOn = false;
+
+  setHover(cells: number[] | null): void {
+    this.hover.fill(0);
+    this.hoverOn = !!cells;
+    if (cells) for (const c of cells) this.hover[c] = 1;
+  }
+
   /** Cells outside the Overture focus are dimmed to 34% (null = no focus). */
   focus: Uint8Array | null = null;
 
@@ -483,13 +493,13 @@ export class WallView {
         } else {
           sprite.texture = this.atlas.idle(t.kind);
           sprite.scale.set(1);
-          const lk = this.litKind[cell]!;
+          const lk = this.hoverOn && this.hover[cell] ? 6 : this.litKind[cell]!;
           if (lk >= 0) {
             const l = this.lit[litUsed++]!;
             l.visible = true;
             l.position.set(x, y);
-            l.tint = lk === 5 ? UI.held : TILE_COLOURS[lk % TILE_COLOURS.length]!.core;
-            l.alpha = (lk === 5 ? 0.85 : 0.6) * sprite.alpha;
+            l.tint = lk === 6 ? 0xffffff : lk === 5 ? UI.held : TILE_COLOURS[lk % TILE_COLOURS.length]!.core;
+            l.alpha = (lk === 6 ? 0.5 : lk === 5 ? 0.85 : 0.6) * sprite.alpha;
           }
         }
       }

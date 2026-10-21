@@ -291,3 +291,21 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .boot-continue { opacity: 0.55; animation: boot-pulse 1.03s ease-in-out infinite; }
 @keyframes boot-pulse { 50% { opacity: 0.85; } }
 #boot, .title-screen.no-anim { animation: none !important; }
+
+/* ---------- Desktop panels (letterbox bars) ---------- */
+.desk { position: fixed; display: flex; align-items: center; justify-content: space-between; gap: calc(20px * var(--k, 1)); padding: 0 calc(22px * var(--k, 1)); pointer-events: none; z-index: 2; font-size: calc(10px * var(--k, 1)); }
+.desk-top { top: 0; }
+.desk-bottom { bottom: 0; }
+.desk-label { font: 600 1em/1 var(--display); letter-spacing: 0.1em; color: var(--text); white-space: nowrap; }
+.desk-track { flex: 1; display: flex; gap: calc(6px * var(--k, 1)); max-width: 52%; }
+.dt-seg { flex: 1; height: calc(4px * var(--k, 1)); border-radius: 2px; background: rgba(244, 241, 234, 0.1); overflow: hidden; }
+.dt-seg i { display: block; height: 100%; background: var(--held); transform-origin: 0 50%; transform: scaleX(0); transition: transform 0.4s ease-out; }
+.dt-seg.done i { transform: scaleX(1); background: var(--secondary); }
+.desk-best { font: 500 0.9em/1 var(--mono); letter-spacing: 0.16em; color: var(--secondary); white-space: nowrap; }
+.desk-stats { display: flex; gap: calc(26px * var(--k, 1)); }
+.ds { display: flex; flex-direction: column; gap: calc(5px * var(--k, 1)); }
+.ds-v { font: 600 1.3em/1 var(--display); color: var(--text); font-variant-numeric: tabular-nums; }
+.ds-l { font: 500 0.72em/1 var(--mono); letter-spacing: 0.16em; color: var(--quiet); }
+.desk-keys { font: 400 0.85em/1.4 var(--body); color: var(--quiet); text-align: right; }
+.desk-keys b { font-weight: 600; color: var(--secondary); }
+@media (hover: hover) and (pointer: fine) { .game-host.can-prime { cursor: pointer; } }

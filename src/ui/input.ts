@@ -24,6 +24,8 @@ export interface InputTarget {
   toLogical(clientX: number, clientY: number, out: { x: number; y: number }): void;
   /** Hold-ring feedback: p in [0,1], or -1 to hide. */
   holdRing(x: number, y: number, p: number): void;
+  /** Mouse hover over a cell (-1 = off the wall); desktop preview only. */
+  hover?(cell: number): void;
   /** Pointer went down while not in play (menus handle their own input). */
   enabled(): boolean;
 }
@@ -85,6 +87,12 @@ export class InputController {
   };
 
   private readonly onMove = (e: PointerEvent): void => {
+    if (e.pointerType === 'mouse' && this.target.hover) {
+      if (this.target.enabled()) {
+        this.target.toLogical(e.clientX, e.clientY, this.pt);
+        this.target.hover(this.target.cellAt(this.pt.x, this.pt.y));
+      } else this.target.hover(-1);
+    }
     const p = this.slot(e.pointerId);
     if (!p || !p.holdPending) return;
     const dx = e.clientX - p.startX;

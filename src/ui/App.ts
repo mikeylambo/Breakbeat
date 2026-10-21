@@ -36,6 +36,7 @@ import { RotateCard } from './RotateCard.js';
 import { announce } from './dom.js';
 import { SettingsSheet } from './SettingsSheet.js';
 import { CalibrationSheet } from './CalibrationSheet.js';
+import { DeskPanels } from './DeskPanels.js';
 
 
 export interface RunConfig {
@@ -96,6 +97,10 @@ export class App {
   fx!: FxView;
   backdrop!: TitleBackdrop;
   world!: WorldView;
+  desk!: DeskPanels;
+  private deskTick = 0;
+  private hoverCell = -1;
+  private hoverStep = -2;
   private readonly card = document.createElement('div');
   private cardTimer: ReturnType<typeof setTimeout> | null = null;
   readonly audio = new AudioEngine();
@@ -193,8 +198,10 @@ export class App {
 
     this.hud.show(false);
     this.ui.append(this.card, this.hud.root, this.pause.root, this.settingsSheet.root, this.calibration.root);
+    this.desk = new DeskPanels(document.body);
     this.stage.onLayout(l => {
       applyUiTransform(this.ui, l);
+      this.desk.layout(l);
       this.fx.setTextResolution(this.stage.resolution * Math.max(1, l.scale));
     });
 
@@ -210,6 +217,7 @@ export class App {
         return !!g && !g.held && !!this.engine?.canHold;
       },
       prime: cell => this.prime(cell),
+      hover: cell => this.hoverAt(cell),
       hold: cell => this.hold(cell)
     });
 
@@ -229,6 +237,9 @@ export class App {
         this.settings.hudHidden = !this.settings.hudHidden;
         saveSettings(this.settings);
         this.hud.setHidden(this.settings.hudHidden);
+      } else if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey) {
+        if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+        else void document.documentElement.requestFullscreen?.().catch(() => undefined);
       } else if (e.key === 'Escape' && this.run && !this.run.ended && !this.settingsSheet.open) {
         this.setPaused(!this.paused);
       }
@@ -343,6 +354,7 @@ export class App {
     this.fx.markGroupsDirty();
     this.lastHapticStep = -1;
     this.hud.show(true);
+    this.desk.setRun(true);
     this.save.runs++;
     this.persistSave();
     if (cfg.etude) announce(`Etude: ${cfg.etude.name}.`);
@@ -359,6 +371,8 @@ export class App {
     this.engine = null;
     this.director.engine = null;
     this.hud.show(false);
+    this.desk.setRun(false);
+    this.setHover(-1);
   }
 
   private groupAt(cell: number): number {
@@ -408,6 +422,8 @@ export class App {
   }
 
   private onEvent(ev: PulseEvent): void {
+    // The board changed: refresh the hover preview once
+    if (this.hoverCell >= 0 && ev.type !== 'danger') this.hoverStep = -2;
     this.director.onEvent(ev);
     this.fx.onEvent(ev, this.wall);
     switch (ev.type) {
@@ -445,6 +461,8 @@ export class App {
     if (!run || !engine || run.ended) return;
     run.ended = true;
     this.input.cancelAll();
+    this.hoverAt(-1);
+    this.setHover(-1);
     const now = this.audio.now;
     this.stems.stopAll(now + this.clock.barDurationSec);
     this.wall.collapse(performance.now() / 1000);
@@ -710,6 +728,14 @@ export class App {
         this.checkQuota();
       }
       this.input.update(performance.now());
+      this.updateDesk();
+      if (this.hoverCell >= 0 && this.hoverStep === -2) {
+        this.hoverStep = -1;
+        this.setHover(this.hoverCell);
+      } else if (this.hoverCell < 0 && this.hoverStep !== -3) {
+        this.hoverStep = -3;
+        this.setHover(-1);
+      }
       this.advanceSection();
       if (e.chainRank > this.lastRank) {
         this.hud.flareChain();
@@ -758,6 +784,57 @@ export class App {
     }
     this.stage.render();
   };
+
+  /** Desktop: live stats in the letterbox bars, a few times per second. */
+  private updateDesk(): void {
+    const run = this.run;
+    const e = this.engine;
+    if (!run || !e || ++this.deskTick % 12 !== 0) return;
+    const t = e.telemetry;
+    const key = run.mode === 'odyssey' ? MOVEMENTS[run.startMovement]!.id : run.mode;
+    const quota = run.track.quota || 1;
+    const label =
+      run.mode === 'etude'
+        ? `ETUDE · ${run.cfg.etude?.name.toUpperCase() ?? ''}`
+        : run.mode === 'overture'
+          ? 'OVERTURE'
+          : `ACT ${run.track.act} · ${run.track.number} ${run.track.name.toUpperCase()}`;
+    this.desk.update({
+      act: run.track.act,
+      movementIndex: run.movement,
+      label,
+      progress: Number.isFinite(run.movementStartScore) ? (t.score - run.movementStartScore) / quota : 1,
+      best: this.save.best[key] ?? 0,
+      groups: t.groupsCleared,
+      bestPass: t.bestPassScore,
+      allClears: t.allClears,
+      overcharges: t.overchargesLanded,
+      airPrimes: t.airPrimesLanded
+    });
+  }
+
+  /** Desktop hover: the group under the mouse previews before you click. */
+  hoverAt(cell: number): void {
+    if (cell === this.hoverCell) return;
+    this.hoverCell = cell;
+    this.hoverStep = -2;
+  }
+
+  private setHover(cell: number): void {
+    const e = this.engine;
+    const g = document.getElementById('game');
+    if (!e || cell < 0 || !this.canTouch(cell)) {
+      this.wall.setHover(null);
+      g?.classList.remove('can-prime');
+      return;
+    }
+    const col = cell % TUNING.BOARD_COLS;
+    const row = (cell / TUNING.BOARD_COLS) | 0;
+    const cluster = e.rules.primeable(e.board, col, row, e.getLockedTileIds());
+    const cells = cluster && cluster.length >= TUNING.MIN_GROUP ? cluster.map(t => t.row * TUNING.BOARD_COLS + t.col) : null;
+    this.wall.setHover(cells);
+    g?.classList.toggle('can-prime', !!cells);
+  }
 
   /**
    * Device-adaptive quality: if more than 10% of the last 120 frames in play missed 20 ms, drop the
