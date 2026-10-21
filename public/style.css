@@ -205,3 +205,10 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .track-name small { display: block; margin-top: 3px; font: 500 7.5px/1 var(--mono); letter-spacing: 0.16em; color: var(--quiet); }
 .tracklist-title { white-space: nowrap; }
 .act-tab { padding: 6px 6px; }
+
+/* ---------- Movement title card ---------- */
+.movement-card { position: absolute; left: 167px; width: 510px; top: 120px; text-align: center; pointer-events: none; opacity: 0; transform: translateY(6px); transition: opacity 0.45s ease, transform 0.6s cubic-bezier(.2,.8,.2,1); --accent: #9edcff; }
+.movement-card.show { opacity: 1; transform: none; }
+.mc-num { font: 500 9px/1 var(--mono); letter-spacing: 0.32em; color: var(--accent); }
+.mc-name { margin-top: 8px; font: 700 34px/1 var(--display); color: var(--text); letter-spacing: -0.01em; text-shadow: 0 0 30px color-mix(in srgb, var(--accent) 45%, transparent); }
+.reduced-motion .movement-card { transform: none; }

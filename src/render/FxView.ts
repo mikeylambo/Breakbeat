@@ -8,6 +8,7 @@ import { BitmapFont, BitmapText, Container, Graphics, Sprite, Text, TextStyle } 
 import { TUNING, computeResonanceMultiplier } from '../tuning.js';
 import type { PulseEvent } from '../pulse/types.js';
 import type { TileAtlas } from './TileAtlas.js';
+import type { ShardMaterial } from './worlds.js';
 import { TILE_COLOURS, UI } from './palette.js';
 import type { Stage } from './Stage.js';
 import { G_HELD, G_OVER, G_QUEUED, WALL_GEOMETRY as G, type WallView } from './WallView.js';
@@ -37,6 +38,8 @@ export class FxView {
   private readonly smax = new Float32Array(N);
   private readonly svr = new Float32Array(N);
   private shardCursor = 0;
+  private material: ShardMaterial = 'shard';
+  private gravity = 420;
   private seed = 0x9e3779b9;
 
   private readonly flashes: Sprite[] = [];
@@ -181,7 +184,7 @@ export class FxView {
 
   setAtlas(atlas: TileAtlas): void {
     this.atlas = atlas;
-    for (const s of this.shards) s.texture = atlas.shard;
+    this.setShardMaterial(this.material);
     for (const f of this.flashes) f.texture = atlas.glow;
     for (const p of this.pips) p.texture = atlas.ring;
   }
@@ -238,6 +241,14 @@ export class FxView {
     f.alpha = alpha * this.settings.flash;
   }
 
+  /** Per-movement debris: texture and physics change, the count and timing do not. */
+  setShardMaterial(m: ShardMaterial): void {
+    this.material = m;
+    const tex = m === 'pixel' ? this.atlas.white : m === 'ember' ? this.atlas.softDot : m === 'glass' ? this.atlas.diamond : this.atlas.shard;
+    for (const s of this.shards) s.texture = tex;
+    this.gravity = m === 'ember' ? -140 : m === 'petal' ? 90 : m === 'glass' ? 520 : 420;
+  }
+
   private spawnShards(x: number, y: number, tint: number, count: number): void {
     for (let i = 0; i < count; i++) {
       const k = this.shardCursor;
@@ -262,8 +273,17 @@ export class FxView {
       const life = 0.45 + this.rand() * 0.35;
       this.slife[k] = life;
       this.smax[k] = life;
-      s.scale.set(0.7 + this.rand() * 0.9);
-      s.rotation = a;
+      const m = this.material;
+      s.scale.set(m === 'pixel' ? 0.9 + this.rand() * 0.6 : m === 'ember' ? 0.35 + this.rand() * 0.3 : m === 'glass' ? 0.5 + this.rand() * 0.6 : 0.7 + this.rand() * 0.9);
+      s.rotation = m === 'pixel' ? 0 : a;
+      if (m === 'pixel') this.svr[k] = 0;
+      if (m === 'petal') this.svr[k] = this.svr[k]! * 0.5;
+      if (m === 'ember' || m === 'petal') {
+        this.slife[k] = life * 1.6;
+        this.smax[k] = life * 1.6;
+        this.svx[k] = this.svx[k]! * 0.5;
+        this.svy[k] = this.svy[k]! * 0.5;
+      }
       s.position.set(this.sx[k]!, this.sy[k]!);
     }
   }
@@ -415,7 +435,7 @@ export class FxView {
   update(nowSec: number, dt: number, wall: WallView, barSec: number, beatProgress: number): void {
     this.now = nowSec;
     this.barSec = barSec;
-    const g = 420;
+    const g = this.gravity;
     for (let k = 0; k < N; k++) {
       if (this.slife[k]! <= 0) continue;
       const s = this.shards[k]!;

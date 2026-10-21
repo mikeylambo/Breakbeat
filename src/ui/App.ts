@@ -14,6 +14,8 @@ import { WallView } from '../render/WallView.js';
 import { BladeView } from '../render/BladeView.js';
 import { FxView } from '../render/FxView.js';
 import { TitleBackdrop } from '../render/TitleBackdrop.js';
+import { WorldView } from '../render/WorldView.js';
+import { worldFor } from '../render/worlds.js';
 import { AudioEngine } from '../audio/AudioEngine.js';
 import { StemPlayer } from '../audio/StemPlayer.js';
 import { SfxPlayer } from '../audio/SfxPlayer.js';
@@ -84,6 +86,9 @@ export class App {
   blade!: BladeView;
   fx!: FxView;
   backdrop!: TitleBackdrop;
+  world!: WorldView;
+  private readonly card = document.createElement('div');
+  private cardTimer: ReturnType<typeof setTimeout> | null = null;
   readonly audio = new AudioEngine();
   readonly stems = new StemPlayer(this.audio);
   readonly sfx = new SfxPlayer(this.audio);
@@ -163,10 +168,14 @@ export class App {
     this.blade = new BladeView(this.stage, this.atlas);
     this.fx = new FxView(this.stage, this.atlas);
     this.backdrop = new TitleBackdrop(this.stage, this.atlas);
+    this.world = new WorldView(this.atlas);
+    this.stage.background.addChildAt(this.world.root, 0);
+    this.card.className = 'movement-card';
+    this.card.setAttribute('aria-hidden', 'true');
     this.applySettings();
 
     this.hud.show(false);
-    this.ui.append(this.hud.root, this.pause.root, this.settingsSheet.root);
+    this.ui.append(this.card, this.hud.root, this.pause.root, this.settingsSheet.root);
     this.stage.onLayout(l => {
       this.ui.style.transform = `translate(${l.x}px, ${l.y}px) scale(${l.scale})`;
       this.fx.setTextResolution(this.stage.resolution * Math.max(1, l.scale));
@@ -224,6 +233,10 @@ export class App {
     this.fx.setAtlas(this.atlas);
     this.backdrop?.setAtlas(this.atlas);
     this.wall.reducedMotion = s.reducedMotion;
+    if (this.world) {
+      this.world.reducedMotion = s.reducedMotion;
+      this.world.intensity = 0.4 + 0.6 * s.flash;
+    }
     this.wall.flashScale = s.flash;
     this.fx.settings.reducedMotion = s.reducedMotion;
     this.fx.settings.flash = s.flash;
@@ -303,6 +316,7 @@ export class App {
     this.wall.markDirty();
     this.wall.dangerLevel = 0;
     this.wall.setPoolTint(trackTint(track), performance.now() / 1000, 0);
+    this.applyWorld(track, !overture);
     this.fx.markGroupsDirty();
     this.lastHapticStep = -1;
     this.hud.show(true);
@@ -428,6 +442,26 @@ export class App {
     }, 1400);
   }
 
+  /** Movement world (motif, blade, shards) and its title card, held for one bar. */
+  applyWorld(track: TrackDef, card: boolean): void {
+    const w = worldFor(track.style);
+    const c = this.cosmetics?.(w) ?? w;
+    this.world.setWorld(c);
+    this.blade.setStyle(c.blade, c.accent);
+    this.fx.setShardMaterial(c.shard);
+    if (!card) return;
+    this.card.innerHTML = `<div class="mc-num">${track.number} · ${track.style.toUpperCase()}</div><div class="mc-name">${track.name}</div>`;
+    this.card.style.setProperty('--accent', `#${c.accent.toString(16).padStart(6, '0')}`);
+    this.card.classList.remove('show');
+    void this.card.offsetWidth;
+    this.card.classList.add('show');
+    if (this.cardTimer) clearTimeout(this.cardTimer);
+    this.cardTimer = setTimeout(() => this.card.classList.remove('show'), Math.max(1400, this.clock.barDurationSec * 1000 + 400));
+  }
+
+  /** Cosmetic overrides (equipped unlockables); set by the Customise screen. */
+  cosmetics: ((w: ReturnType<typeof worldFor>) => ReturnType<typeof worldFor>) | null = null;
+
   /** Music builds A -> B -> C through each movement: by quota progress, or every 16 bars in Zen. */
   private advanceSection(): void {
     const run = this.run;
@@ -499,6 +533,7 @@ export class App {
     this.sfx.setTrack(track);
     this.scheduler.resetHorizon();
     this.wall.setPoolTint(trackTint(track), performance.now() / 1000, this.clock.barDurationSec);
+    this.applyWorld(track, true);
     announce(`Movement ${track.number}, ${track.name}.`);
   }
 
@@ -624,6 +659,7 @@ export class App {
         this.fx.tickClock(wallSec);
       }
       this.blade.update(beat);
+      this.world.update(wallSec, dt, beat.beatProgress);
       this.stage.setZoom(this.fx.zoom);
     }
     if (e && run && !run.ended) {

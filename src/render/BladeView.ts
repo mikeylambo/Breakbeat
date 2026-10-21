@@ -6,6 +6,7 @@
 import { Container, Sprite, Texture } from 'pixi.js';
 import type { BeatQuery } from '../pulse/BeatClock.js';
 import type { TileAtlas } from './TileAtlas.js';
+import type { BladeStyle } from './worlds.js';
 import { UI } from './palette.js';
 import type { Stage } from './Stage.js';
 import { WALL_GEOMETRY as G } from './WallView.js';
@@ -65,6 +66,63 @@ export class BladeView {
     stage.glow.addChild(this.glow, this.headGlow);
   }
 
+  private wakeLen = 100;
+
+  /** Per-movement blade look. Position and timing never change, only the drawing. */
+  setStyle(style: BladeStyle, accent: number): void {
+    const glowTint = mix(accent, 0xffffff, 0.55);
+    this.line.alpha = 1;
+    this.head.visible = true;
+    this.head.tint = UI.blade;
+    this.glow.tint = glowTint;
+    this.headGlow.tint = glowTint;
+    this.wake.tint = accent;
+    switch (style) {
+      case 'laser':
+        this.line.width = 1;
+        this.line.tint = mix(accent, 0xffffff, 0.7);
+        this.glow.width = 12;
+        this.glow.alpha = 0.8;
+        this.wakeLen = 40;
+        this.wake.alpha = 0.22;
+        break;
+      case 'scan':
+        this.line.width = 3;
+        this.line.tint = 0xffffff;
+        this.line.alpha = 0.85;
+        this.glow.width = 34;
+        this.glow.alpha = 0.45;
+        this.wakeLen = 170;
+        this.wake.alpha = 0.16;
+        break;
+      case 'brush':
+        this.line.width = 2;
+        this.line.tint = mix(accent, 0xffffff, 0.8);
+        this.glow.width = 20;
+        this.glow.alpha = 0.4;
+        this.wakeLen = 120;
+        this.wake.alpha = 0.2;
+        break;
+      case 'ghost':
+        this.line.width = 2;
+        this.line.tint = 0xffffff;
+        this.line.alpha = 0.18;
+        this.glow.width = 26;
+        this.glow.alpha = 0.25;
+        this.wakeLen = 140;
+        this.wake.alpha = 0.18;
+        break;
+      default:
+        this.line.width = 2;
+        this.line.tint = UI.blade;
+        this.glow.width = 22;
+        this.glow.alpha = 0.55;
+        this.wakeLen = 100;
+        this.wake.alpha = 0.13;
+        this.wake.tint = UI.wake;
+    }
+  }
+
   /** Blade x for a fractional column (column c is crossed during sixteenth c). */
   static xFor(col: number): number {
     return G.WX + col * G.PITCH - 1;
@@ -80,7 +138,7 @@ export class BladeView {
     this.glow.x = x;
     this.headGlow.x = x;
     // The wake never reaches back past the wall's left edge
-    const w = Math.max(0, Math.min(100, x - G.WX));
+    const w = Math.max(0, Math.min(this.wakeLen, x - G.WX));
     this.wake.x = x - w;
     this.wake.width = w;
   }
@@ -97,4 +155,9 @@ function makeWakeTexture(): Texture {
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 128, 4);
   return Texture.from(c);
+}
+
+function mix(a: number, b: number, t: number): number {
+  const ch = (sh: number): number => Math.round(((a >> sh) & 255) * (1 - t) + ((b >> sh) & 255) * t) << sh;
+  return ch(16) | ch(8) | ch(0);
 }
