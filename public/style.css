@@ -265,3 +265,26 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .title-profile { position: absolute; left: 52px; top: 284px; }
 .results-stars { margin-top: 12px; font: 500 10px/1.6 var(--mono); letter-spacing: 0.08em; color: var(--held); }
 .track-stars { color: var(--held); letter-spacing: 0.1em; }
+
+/* ---------- Etudes ---------- */
+.mode-tiles { gap: 8px; }
+.mode-tile { width: 84px; }
+.etude-sheet { width: 600px; padding: 16px 20px 18px; gap: 0; }
+.etude-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+.etude-item { height: 82px; border-radius: 12px; border: 1px solid var(--hair); background: rgba(244, 241, 234, 0.04); text-align: left; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.etude-item:hover { background: rgba(244, 241, 234, 0.08); }
+.et-num { font: 500 9px/1 var(--mono); letter-spacing: 0.14em; color: var(--quiet); }
+.etude-item.done .et-num { color: var(--mint); }
+.et-name { font: 600 13px/1.1 var(--body); color: var(--text); }
+.etude-item small { font: 500 7.5px/1.3 var(--mono); letter-spacing: 0.1em; color: var(--quiet); }
+.etude-item.locked { opacity: 0.4; cursor: default; }
+.etude-caption { position: absolute; left: 167px; width: 510px; top: 44px; text-align: center; pointer-events: none; }
+.et-cap-main { font: 600 13px/1.2 var(--display); color: var(--text); }
+.et-cap-main span { color: var(--held); }
+.et-cap-sub { margin-top: 6px; font: 500 9px/1.4 var(--mono); letter-spacing: 0.08em; color: var(--secondary); }
+.etude-banner { position: absolute; left: 252px; width: 340px; top: 120px; padding: 20px; border-radius: 18px; background: #0d1019; border: 1px solid var(--hair); text-align: center; z-index: 18; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6); animation: screen-in 0.35s cubic-bezier(.2,.8,.2,1); }
+.eb-title { font: 700 22px/1 var(--display); color: var(--held); letter-spacing: 0.04em; }
+.eb-actions { display: grid; grid-auto-flow: column; gap: 8px; margin-top: 16px; }
+.mode-tiles { gap: 6px; }
+.mode-tile { width: 86px; padding: 12px 10px 11px; }
+.mode-status { white-space: nowrap; letter-spacing: 0.06em; }

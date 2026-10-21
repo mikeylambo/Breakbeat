@@ -15,6 +15,7 @@ export interface TitleActions {
   endless(): void;
   daily(): void;
   zen(): void;
+  etudes(): void;
   settings(): void;
   calibrate(): void;
   profile(): void;
@@ -58,9 +59,10 @@ export class TitleScreen {
     const tile = (name: string, status: string, fn: () => void): HTMLButtonElement =>
       button('mode-tile', `<span class="mode-name">${name}</span><span class="mode-status">${status}</span>`, `${name}. ${status}`, fn);
     modes.append(
-      tile('Endless', save.best.endless ? `BEST ${fmt(save.best.endless)}` : 'NO BEST YET', a.endless),
+      tile('Endless', save.best.endless ? `BEST ${fmt(save.best.endless)}` : 'NO BEST', a.endless),
       tile('Daily', daily, a.daily),
-      tile('Zen', save.best.zen ? `BEST ${fmt(save.best.zen)}` : 'NO PRESSURE', a.zen)
+      tile('Zen', save.best.zen ? `BEST ${fmt(save.best.zen)}` : 'NO PRESSURE', a.zen),
+      tile('Etudes', `${save.etudes.length}/8 SOLVED`, a.etudes)
     );
     left.appendChild(modes);
     left.appendChild(button('icon-btn title-settings', ICONS.gear, 'Settings', a.settings));

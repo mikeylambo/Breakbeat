@@ -18,6 +18,8 @@ export interface SaveData {
   stats: LifetimeStats;
   /** Equipped cosmetics ('auto' = the movement's own world) */
   equipped: { blade: string; shard: string };
+  /** Solved etude ids */
+  etudes: string[];
 }
 
 export interface LifetimeStats {
@@ -48,7 +50,8 @@ export function loadSave(): SaveData {
     runs: d.runs ?? 0,
     stars: d.stars && typeof d.stars === 'object' ? d.stars : {},
     stats: { ...EMPTY_STATS, ...(d.stats ?? {}) },
-    equipped: { blade: d.equipped?.blade ?? 'auto', shard: d.equipped?.shard ?? 'auto' }
+    equipped: { blade: d.equipped?.blade ?? 'auto', shard: d.equipped?.shard ?? 'auto' },
+    etudes: Array.isArray(d.etudes) ? d.etudes : []
   };
 }
 

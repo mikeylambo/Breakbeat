@@ -568,4 +568,41 @@ const put = (eng, col, row, kind) => { eng.board[row][col] = { id: gid++, col, r
   console.log(`PASS [CHARGE]: holds refused on an empty meter; one 8-group pass fills it; a hold spends it.`);
 }
 
-console.log('=== ALL 19 BREAKBEAT GATES GREEN ===');
+// 20. ETUDES — every authored puzzle is solvable: its stored solution wins within its pass limit
+{
+  const { EtudeRun } = await import('../build/src/meta/Etude.js');
+  const { etudes } = JSON.parse(fs.readFileSync('content/etudes.json', 'utf8'));
+  assert.ok(etudes.length >= 8, 'ETUDES: expected at least 8 etudes');
+  for (const et of etudes) {
+    const e = new PulseEngine({ seed: 'etude', mode: 'etude', bpm: 120, pressureEnabled: false, fixedDeal: et.board }, new GemRules('brick'));
+    e.charge = et.charge ?? 0;
+    const run = new EtudeRun(et);
+    const act = p => {
+      for (const a of et.solution.filter(x => x.pass === p)) {
+        e.primeAt(a.col, a.row);
+        if (a.hold) e.holdAt(a.col, a.row);
+      }
+    };
+    act(1);
+    for (let step = 0; step < (et.passes + 1) * 16 && run.state === 'playing'; step++) {
+      e.advanceToStep(step);
+      for (const ev of e.drainEvents()) run.onEvent(ev);
+      run.check(e);
+      if (step % 16 === 15) act(Math.floor(step / 16) + 2);
+      for (const a of et.solution.filter(x => x.step === step)) e.primeAt(a.col, a.row);
+    }
+    assert.equal(run.state, 'won', `ETUDES: "${et.name}" solution does not win within ${et.passes} passes`);
+    // and doing nothing never wins
+    const idle = new PulseEngine({ seed: 'etude', mode: 'etude', bpm: 120, pressureEnabled: false, fixedDeal: et.board }, new GemRules('brick'));
+    const ir = new EtudeRun(et);
+    for (let step = 0; step < (et.passes + 1) * 16; step++) {
+      idle.advanceToStep(step);
+      for (const ev of idle.drainEvents()) ir.onEvent(ev);
+      ir.check(idle);
+    }
+    assert.equal(ir.state, 'lost', `ETUDES: "${et.name}" is won without input`);
+  }
+  console.log(`PASS [ETUDES]: ${etudes.length} puzzles solved by their stored solutions; none win without input.`);
+}
+
+console.log('=== ALL 20 BREAKBEAT GATES GREEN ===');

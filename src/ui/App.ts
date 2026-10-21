@@ -25,6 +25,7 @@ import { MOVEMENTS, OVERTURE, ZEN_INDEX, trackTint, type TrackDef } from '../aud
 import { installBrowserLifecycle } from '../platform/Lifecycle.js';
 import { loadSave, todayUtc, writeSave, type SaveData } from '../meta/Save.js';
 import { awardChallenges, recordStats } from '../meta/Progress.js';
+import type { EtudeDef } from '../meta/Etude.js';
 import { loadSettings, saveSettings, type Settings } from '../meta/Settings.js';
 import { InputController } from './input.js';
 import { haptics } from './haptics.js';
@@ -41,6 +42,8 @@ export interface RunConfig {
   /** Movement index into MOVEMENTS (ignored for the Overture) */
   movement: number;
   seed?: string;
+  /** Etude puzzle (fixed board, no pressure) */
+  etude?: EtudeDef;
 }
 
 export interface InputLogEntry {
@@ -276,7 +279,7 @@ export class App {
     const overture = cfg.mode === 'overture';
     const index = overture ? 0 : Math.max(0, Math.min(MOVEMENTS.length - 1, cfg.movement));
     const dayIndex = Math.floor(Date.parse(todayUtc()) / 86400000) % MOVEMENTS.length;
-    const trackIndex = cfg.mode === 'zen' ? ZEN_INDEX : cfg.mode === 'daily' ? dayIndex : index;
+    const trackIndex = cfg.mode === 'etude' ? cfg.movement % 6 : cfg.mode === 'zen' ? ZEN_INDEX : cfg.mode === 'daily' ? dayIndex : index;
     const track = overture ? OVERTURE : MOVEMENTS[trackIndex]!;
     const bpmScale = cfg.mode === 'daily' || overture ? 1 : this.settings.bpmScale;
     const bpm = track.bpm * bpmScale;
@@ -290,11 +293,13 @@ export class App {
         bpm,
         colorCount: track.colors,
         riseBars: track.riseBars,
-        pressureEnabled: !overture
+        pressureEnabled: !overture && !cfg.etude,
+        fixedDeal: cfg.etude?.board
       },
       new GemRules('brick')
     );
     this.engine = engine;
+    if (cfg.etude) engine.charge = cfg.etude.charge ?? 0;
     this.run = {
       cfg,
       mode: cfg.mode,
@@ -325,7 +330,7 @@ export class App {
     this.wall.markDirty();
     this.wall.dangerLevel = 0;
     this.wall.setPoolTint(trackTint(track), performance.now() / 1000, 0);
-    this.applyWorld(track, !overture);
+    this.applyWorld(track, !overture && !cfg.etude);
     this.wall.dealIn(performance.now() / 1000);
     this.blade.fadeIn();
     this.lastRank = 0;
@@ -334,7 +339,8 @@ export class App {
     this.hud.show(true);
     this.save.runs++;
     this.persistSave();
-    if (!overture) announce(`Movement ${track.number}, ${track.name}. ${Math.round(bpm)} BPM.`);
+    if (cfg.etude) announce(`Etude: ${cfg.etude.name}.`);
+    else if (!overture) announce(`Movement ${track.number}, ${track.name}. ${Math.round(bpm)} BPM.`);
   }
 
   /** Ends the current run silently (quit / restart). */
@@ -737,7 +743,7 @@ export class App {
         chainRank: e.chainRank,
         combo: computeComboMultiplier(e.comboPasses),
         layers: this.stems.activeLayers,
-        movement: run.mode === 'overture' ? 'OVERTURE' : run.mode === 'odyssey' ? `${run.track.number} · ${run.track.name.toUpperCase()}` : `${run.mode.toUpperCase()} · ${run.track.name.toUpperCase()}`,
+        movement: run.mode === 'etude' ? `ETUDE · ${run.cfg.etude?.name.toUpperCase() ?? ''}` : run.mode === 'overture' ? 'OVERTURE' : run.mode === 'odyssey' ? `${run.track.number} · ${run.track.name.toUpperCase()}` : `${run.mode.toUpperCase()} · ${run.track.name.toUpperCase()}`,
         bpm: this.clock.bpm,
         bar: e.currentBar,
         risesIn: e.barsUntilNextPush,

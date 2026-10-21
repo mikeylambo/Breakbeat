@@ -4,6 +4,7 @@ import { App, type RunConfig } from './ui/App.js';
 import { TitleScreen } from './ui/TitleScreen.js';
 import { ResultsScreen } from './ui/ResultsScreen.js';
 import { ProfileSheet } from './ui/ProfileSheet.js';
+import { EtudeScreen } from './ui/EtudeScreen.js';
 import { OvertureScreen } from './ui/overture/OvertureScreen.js';
 import { nextMovementIndex } from './meta/Save.js';
 import { ZEN_INDEX } from './audio/tracks.js';
@@ -19,6 +20,17 @@ const app = new App();
 
 async function main(): Promise<void> {
   await app.init();
+  const etudes = new EtudeScreen(
+    app,
+    () => {
+      results.hide();
+      title.show(false);
+      coach.classList.add('hidden');
+      app.backdrop.show(false);
+      app.setWallVisible(true);
+    },
+    () => showTitle()
+  );
   const profile = new ProfileSheet({ save: app.save, persist: () => app.persistSave() });
   app.ui.appendChild(profile.root);
   const title = new TitleScreen({
@@ -27,6 +39,7 @@ async function main(): Promise<void> {
     endless: () => play({ mode: 'endless', movement: 0 }),
     daily: () => play({ mode: 'daily', movement: 0 }),
     zen: () => play({ mode: 'zen', movement: ZEN_INDEX }),
+    etudes: () => etudes.showList(true),
     settings: () => app.openSettings(),
     calibrate: () => app.calibration.show(true),
     profile: () => profile.show(true),
@@ -74,6 +87,7 @@ async function main(): Promise<void> {
   }
 
   function showTitle(): void {
+    etudes.clear();
     results.hide();
     app.abandonRun();
     app.setWallVisible(false);
@@ -136,12 +150,15 @@ async function main(): Promise<void> {
     }
   }
 
+  app.ui.append(etudes.caption, etudes.banner, etudes.list);
   app.hooks.onEvent = ev => {
+    if (etudes.active) etudes.onEvent(ev);
     if (overture.running) overture.onEvent(ev);
     else maybeTeachAir(ev);
   };
   app.hooks.onFrame = () => {
     if (overture.running) overture.onFrame();
+    if (etudes.active) etudes.onFrame();
     // Charge lesson: the first time the meter fills in a real run, once ever
     const run = app.run;
     if (run && !run.ended && run.mode !== 'overture' && app.engine?.canHold && !readFlag(TAUGHT_CHARGE)) {
