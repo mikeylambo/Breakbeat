@@ -15,6 +15,7 @@ import { BladeView } from '../render/BladeView.js';
 import { FxView } from '../render/FxView.js';
 import { TitleBackdrop } from '../render/TitleBackdrop.js';
 import { WorldView } from '../render/WorldView.js';
+import { applyUiTransform } from '../render/layout.js';
 import { worldFor } from '../render/worlds.js';
 import { AudioEngine } from '../audio/AudioEngine.js';
 import { StemPlayer } from '../audio/StemPlayer.js';
@@ -173,10 +174,15 @@ export class App {
       document.fonts.load('500 9px "IBM Plex Mono"'),
       document.fonts.load('600 12px Manrope')
     ]).catch(() => undefined);
+    // Boot in slices with a frame between each, so no single main-thread task blocks the title
+    const yieldFrame = (): Promise<void> => new Promise(r => requestAnimationFrame(() => r()));
     await this.stage.init(document.getElementById('game')!);
+    await yieldFrame();
     this.atlas = new TileAtlas(this.stage.resolution, this.settings.colourAssist);
+    await yieldFrame();
     this.wall = new WallView(this.stage, this.atlas);
     this.blade = new BladeView(this.stage, this.atlas);
+    await yieldFrame();
     this.fx = new FxView(this.stage, this.atlas);
     this.backdrop = new TitleBackdrop(this.stage, this.atlas);
     this.world = new WorldView(this.atlas);
@@ -188,7 +194,7 @@ export class App {
     this.hud.show(false);
     this.ui.append(this.card, this.hud.root, this.pause.root, this.settingsSheet.root, this.calibration.root);
     this.stage.onLayout(l => {
-      this.ui.style.transform = `translate(${l.x}px, ${l.y}px) scale(${l.scale})`;
+      applyUiTransform(this.ui, l);
       this.fx.setTextResolution(this.stage.resolution * Math.max(1, l.scale));
     });
 

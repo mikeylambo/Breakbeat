@@ -288,3 +288,6 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .mode-tiles { gap: 6px; }
 .mode-tile { width: 86px; padding: 12px 10px 11px; }
 .mode-status { white-space: nowrap; letter-spacing: 0.06em; }
+.boot-continue { opacity: 0.55; animation: boot-pulse 1.03s ease-in-out infinite; }
+@keyframes boot-pulse { 50% { opacity: 0.85; } }
+#boot, .title-screen.no-anim { animation: none !important; }

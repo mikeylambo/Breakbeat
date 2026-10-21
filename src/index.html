@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#05060A" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>BREAKBEAT</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="modulepreload" href="/app.js" />
+    <!--BOOT_FONTS-->
+    <link rel="stylesheet" href="/fonts/fonts.css" />
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="preload" href="/fonts/manrope-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin />
+  </head>
+  <body>
+    <div id="game" class="game-host"></div>
+    <div id="ui" class="ui-stage">
+      <div id="boot" class="title-screen" aria-hidden="true">
+        <section class="title-left">
+          <div class="title-kicker">SLU · VOL. 01</div>
+          <h1 class="wordmark"><span>BREAK</span><span class="beat">BEAT</span></h1>
+          <div class="btn-continue boot-continue"><span>Loading</span></div>
+        </section>
+      </div>
+    </div>
+    <script>
+      // Paint the title in the right place before the game script arrives (same math as render/layout.ts)
+      (function () {
+        var ui = document.getElementById('ui');
+        var s = Math.min(innerWidth / 844, innerHeight / 390);
+        ui.style.transform = 'translate(' + (innerWidth - 844 * s) / 2 + 'px,' + (innerHeight - 390 * s) / 2 + 'px) scale(' + s + ')';
+      })();
+    </script>
+    <div id="announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <script>
+      // Paint the title first, then start the game: the module downloads in parallel (modulepreload)
+      // and only evaluates once the wordmark is on screen.
+      (function () {
+        var go = function () {
+          requestAnimationFrame(function () {
+            setTimeout(function () {
+              var s = document.createElement('script');
+              s.type = 'module';
+              s.src = '/app.js';
+              document.body.appendChild(s);
+            }, 0);
+          });
+        };
+        if (document.fonts && document.fonts.load) document.fonts.load('700 46px Unbounded').then(go, go);
+        else go();
+      })();
+    </script>
+  </body>
+</html>

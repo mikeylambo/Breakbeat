@@ -9,8 +9,6 @@ const requiredFiles = [
   'public/app.js',
   'public/synth-worker.js',
   'public/fonts/fonts.css',
-  'public/fonts/unbounded-latin-700-normal.woff2',
-  'public/fonts/ibm-plex-mono-latin-500-normal.woff2',
   'public/fonts/manrope-latin-600-normal.woff2',
 ];
 

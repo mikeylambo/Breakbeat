@@ -176,7 +176,7 @@ await gate('SCREENS', async () => {
   await page.click('.title-settings');
   await page.waitForTimeout(250);
   await shot(page, 'settings');
-  await page.click('.settings-close');
+  await page.click('.settings-scrim .settings-close');
 
   await page.click('.btn-continue');
   await page.waitForFunction(() => window.__bb.engine && window.__bb.engine.currentBar >= 1);

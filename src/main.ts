@@ -13,13 +13,21 @@ import { WallView } from './render/WallView.js';
 import { announce, el } from './ui/dom.js';
 import type { PulseEvent } from './pulse/types.js';
 import { TUNING } from './tuning.js';
+import { applyUiTransform, computeLayout } from './render/layout.js';
 
 const TAUGHT_AIR = 'breakbeat-taught-air';
 const TAUGHT_CHARGE = 'breakbeat-taught-charge';
 const app = new App();
 
 async function main(): Promise<void> {
-  await app.init();
+  // Instant start: the title is live before the renderer, atlas and audio finish booting.
+  const ready = app.init();
+  const w =
+    (fn: () => unknown) =>
+    (): void => {
+      void app.audio.resume().catch(() => undefined);
+      void ready.then(() => fn());
+    };
   const etudes = new EtudeScreen(
     app,
     () => {
@@ -34,17 +42,27 @@ async function main(): Promise<void> {
   const profile = new ProfileSheet({ save: app.save, persist: () => app.persistSave() });
   app.ui.appendChild(profile.root);
   const title = new TitleScreen({
-    continue: () => (app.save.overtureDone ? play({ mode: 'odyssey', movement: nextMovementIndex(app.save) }) : startOverture()),
-    movement: i => play({ mode: 'odyssey', movement: i }),
-    endless: () => play({ mode: 'endless', movement: 0 }),
-    daily: () => play({ mode: 'daily', movement: 0 }),
-    zen: () => play({ mode: 'zen', movement: ZEN_INDEX }),
-    etudes: () => etudes.showList(true),
+    continue: w(() => (app.save.overtureDone ? play({ mode: 'odyssey', movement: nextMovementIndex(app.save) }) : startOverture())),
+    movement: i => w(() => play({ mode: 'odyssey', movement: i }))(),
+    endless: w(() => play({ mode: 'endless', movement: 0 })),
+    daily: w(() => play({ mode: 'daily', movement: 0 })),
+    zen: w(() => play({ mode: 'zen', movement: ZEN_INDEX })),
+    etudes: w(() => etudes.showList(true)),
     settings: () => app.openSettings(),
-    calibrate: () => app.calibration.show(true),
+    calibrate: w(() => app.calibration.show(true)),
     profile: () => profile.show(true),
     calibrated: () => app.settings.calibrated
   });
+  app.ui.appendChild(title.root);
+  const place = (): void => applyUiTransform(app.ui, computeLayout());
+  place();
+  window.addEventListener('resize', place);
+  title.render(app.save);
+  // The boot title is already on screen: swap in place, no entrance animation
+  title.root.classList.add('no-anim');
+  title.show(true);
+  document.getElementById('boot')?.remove();
+  setTimeout(() => title.root.classList.remove('no-anim'), 1000);
   app.calibration.onDone = () => {
     if (title.root.classList.contains('hidden')) return;
     title.render(app.save);
@@ -77,7 +95,7 @@ async function main(): Promise<void> {
     coach.classList.remove('hidden');
     coachUntil = performance.now() / 1000 + seconds;
   };
-  app.ui.append(title.root, overture.root, coach, results.root);
+  app.ui.append(overture.root, coach, results.root);
 
   function markOvertureDone(): void {
     if (!app.save.overtureDone) {
@@ -188,6 +206,8 @@ async function main(): Promise<void> {
     app.closeSheets();
     void startOverture();
   };
+  await ready;
+  window.removeEventListener('resize', place);
   showTitle();
   document.getElementById('game')!.dataset.ready = '1';
   (window as unknown as { __bb: unknown }).__bb = app;

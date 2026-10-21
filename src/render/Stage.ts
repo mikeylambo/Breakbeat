@@ -7,14 +7,10 @@
 import { Application, Container } from 'pixi.js';
 import { AdvancedBloomFilter } from 'pixi-filters/advanced-bloom';
 import { TUNING } from '../tuning.js';
+import { computeLayout, type StageLayout } from './layout.js';
 
-export interface StageLayout {
-  scale: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+export type { StageLayout } from './layout.js';
+
 
 export class Stage {
   readonly app = new Application();
@@ -30,7 +26,6 @@ export class Stage {
   resolution = 1;
   private bloom: AdvancedBloomFilter | null = null;
   private readonly listeners: ((l: StageLayout) => void)[] = [];
-  private probe: HTMLDivElement | null = null;
 
   async init(host: HTMLElement): Promise<void> {
     this.resolution = Math.min(2, window.devicePixelRatio || 1);
@@ -67,10 +62,6 @@ export class Stage {
     // Software rasterisers (no GPU) skip the bloom pass; the glow sprites are pre-softened gradients
     this.setBloomEnabled(!this.softwareGL);
 
-    this.probe = document.createElement('div');
-    this.probe.style.cssText =
-      'position:fixed;inset:0;pointer-events:none;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
-    document.body.appendChild(this.probe);
 
     const onResize = (): void => this.relayout();
     window.addEventListener('resize', onResize);
@@ -101,19 +92,9 @@ export class Stage {
   }
 
   relayout(): void {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    const cs = this.probe ? getComputedStyle(this.probe) : null;
-    const st = cs ? parseFloat(cs.paddingTop) || 0 : 0;
-    const sr = cs ? parseFloat(cs.paddingRight) || 0 : 0;
-    const sb = cs ? parseFloat(cs.paddingBottom) || 0 : 0;
-    const sl = cs ? parseFloat(cs.paddingLeft) || 0 : 0;
-    const availW = Math.max(1, w - sl - sr);
-    const availH = Math.max(1, h - st - sb);
-    const scale = Math.min(availW / TUNING.STAGE_W, availH / TUNING.STAGE_H);
-    const x = sl + (availW - TUNING.STAGE_W * scale) / 2;
-    const y = st + (availH - TUNING.STAGE_H * scale) / 2;
-    this.layout = { scale, x, y, width: w, height: h };
+    const l = computeLayout();
+    this.layout = l;
+    const { scale, x, y, width: w, height: h } = l;
     this.root.scale.set(scale);
     this.root.position.set(x, y);
     this.app.renderer.resize(w, h);
