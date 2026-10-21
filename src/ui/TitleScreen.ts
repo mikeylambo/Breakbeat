@@ -5,6 +5,7 @@
  */
 
 import { ACTS, MOVEMENTS } from '../audio/tracks.js';
+import { starCount } from '../meta/Progress.js';
 import { isUnlocked, mastery, nextMovementIndex, todayUtc, type SaveData } from '../meta/Save.js';
 import { button, el, fmt, ICONS } from './dom.js';
 
@@ -16,6 +17,7 @@ export interface TitleActions {
   zen(): void;
   settings(): void;
   calibrate(): void;
+  profile(): void;
   /** True once timing has been synced or the chip dismissed */
   calibrated(): boolean;
 }
@@ -62,6 +64,7 @@ export class TitleScreen {
     );
     left.appendChild(modes);
     left.appendChild(button('icon-btn title-settings', ICONS.gear, 'Settings', a.settings));
+    left.appendChild(button('icon-btn title-profile', ICONS.star, 'Profile, stats and locker', a.profile));
     if (save.overtureDone && !a.calibrated()) left.appendChild(button('sync-chip', 'SYNC TIMING · 10 SEC', 'Sync audio timing', a.calibrate));
 
     const right = el('section', 'tracklist', '', { 'aria-label': 'The Odyssey' });
@@ -89,7 +92,7 @@ export class TitleScreen {
       const label = `${m.number} ${m.name}. ${m.bpm} BPM. ${unlocked ? (rank ? `Mastery ${rank}.` : cleared ? 'Cleared.' : 'Unlocked.') : 'Locked.'}`;
       const row = button(
         `track-row${unlocked ? '' : ' locked'}${i === next && !first ? ' next' : ''}`,
-        `<span class="track-num">${m.number}</span><span class="track-name">${m.name}<small>${m.style.toUpperCase()}</small></span>${badge}<span class="track-bpm">${m.bpm}</span><span class="track-lock">${unlocked ? '' : ICONS.lock}</span>`,
+        `<span class="track-num">${m.number}</span><span class="track-name">${m.name}<small>${m.style.toUpperCase()}${unlocked ? ` · <span class="track-stars" aria-label="${starCount(save.stars[m.id])} of 3 stars">${'★'.repeat(starCount(save.stars[m.id]))}${'☆'.repeat(3 - starCount(save.stars[m.id]))}</span>` : ''}</small></span>${badge}<span class="track-bpm">${m.bpm}</span><span class="track-lock">${unlocked ? '' : ICONS.lock}</span>`,
         label,
         () => {
           if (unlocked) a.movement(i);

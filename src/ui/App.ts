@@ -24,6 +24,7 @@ import { MusicDirector } from '../audio/MusicDirector.js';
 import { MOVEMENTS, OVERTURE, ZEN_INDEX, trackTint, type TrackDef } from '../audio/tracks.js';
 import { installBrowserLifecycle } from '../platform/Lifecycle.js';
 import { loadSave, todayUtc, writeSave, type SaveData } from '../meta/Save.js';
+import { awardChallenges, recordStats } from '../meta/Progress.js';
 import { loadSettings, saveSettings, type Settings } from '../meta/Settings.js';
 import { InputController } from './input.js';
 import { haptics } from './haptics.js';
@@ -63,9 +64,12 @@ export interface RunState {
   inputLog: InputLogEntry[];
   bpmScale: number;
   movementsCleared: number;
+  startedMs: number;
 }
 
 export interface RunResult {
+  /** Challenge stars earned by this run */
+  newStars: string[];
   run: RunState;
   engine: PulseEngine;
   score: number;
@@ -303,7 +307,8 @@ export class App {
       morph: null,
       inputLog: [],
       bpmScale,
-      movementsCleared: 0
+      movementsCleared: 0,
+      startedMs: performance.now()
     };
     this.paused = false;
     this.pause.show(false);
@@ -444,10 +449,18 @@ export class App {
       previousBest = this.save.best[key] ?? 0;
       if (score > previousBest) this.save.best[key] = score;
     }
+    let newStars: string[] = [];
+    if (run.mode !== 'overture') {
+      recordStats(this.save, engine.telemetry, (performance.now() - run.startedMs) / 1000, run.movementsCleared);
+      if (run.mode === 'odyssey') {
+        const track = MOVEMENTS[run.startMovement]!;
+        newStars = awardChallenges(this.save, track, run.startMovement, { t: engine.telemetry, score, cleared: run.movementsCleared > 0 });
+      }
+    }
     this.persistSave();
     setTimeout(() => {
       this.hud.show(false);
-      this.hooks.onRunEnd?.({ run, engine, score, previousBest, key });
+      this.hooks.onRunEnd?.({ run, engine, score, previousBest, key, newStars });
     }, 1700);
   }
 
@@ -469,7 +482,14 @@ export class App {
   }
 
   /** Cosmetic overrides (equipped unlockables); set by the Customise screen. */
-  cosmetics: ((w: ReturnType<typeof worldFor>) => ReturnType<typeof worldFor>) | null = null;
+  cosmetics: ((w: ReturnType<typeof worldFor>) => ReturnType<typeof worldFor>) | null = w => {
+    const e = this.save.equipped;
+    return {
+      ...w,
+      blade: e.blade === 'auto' ? w.blade : (e.blade as typeof w.blade),
+      shard: e.shard === 'auto' ? w.shard : (e.shard as typeof w.shard)
+    };
+  };
 
   /** Music builds A -> B -> C through each movement: by quota progress, or every 16 bars in Zen. */
   private advanceSection(): void {

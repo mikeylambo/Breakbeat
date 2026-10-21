@@ -13,7 +13,27 @@ export interface SaveData {
   best: Record<string, number>;
   daily: { date: string; best: number };
   runs: number;
+  /** Earned challenge stars per movement id: bitmask of its 3 challenges */
+  stars: Record<string, number>;
+  stats: LifetimeStats;
+  /** Equipped cosmetics ('auto' = the movement's own world) */
+  equipped: { blade: string; shard: string };
 }
+
+export interface LifetimeStats {
+  playSec: number;
+  groups: number;
+  tiles: number;
+  allClears: number;
+  overcharges: number;
+  airPrimes: number;
+  bestChain: number;
+  bestPass: number;
+  bestPassGroups: number;
+  movementsCleared: number;
+}
+
+export const EMPTY_STATS: LifetimeStats = { playSec: 0, groups: 0, tiles: 0, allClears: 0, overcharges: 0, airPrimes: 0, bestChain: 0, bestPass: 0, bestPassGroups: 0, movementsCleared: 0 };
 
 const KEY = 'breakbeat-save-v1';
 
@@ -25,7 +45,10 @@ export function loadSave(): SaveData {
     cleared: Array.isArray(d.cleared) ? d.cleared : [],
     best: d.best && typeof d.best === 'object' ? d.best : {},
     daily: d.daily && typeof d.daily.date === 'string' ? d.daily : { date: '', best: 0 },
-    runs: d.runs ?? 0
+    runs: d.runs ?? 0,
+    stars: d.stars && typeof d.stars === 'object' ? d.stars : {},
+    stats: { ...EMPTY_STATS, ...(d.stats ?? {}) },
+    equipped: { blade: d.equipped?.blade ?? 'auto', shard: d.equipped?.shard ?? 'auto' }
   };
 }
 

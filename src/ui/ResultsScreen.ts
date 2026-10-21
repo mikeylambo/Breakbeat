@@ -76,6 +76,7 @@ export class ResultsScreen {
         ? el('div', 'results-pb', 'No best yet')
         : el('div', 'results-pb', score === previousBest ? 'Level with your best' : `${fmt(previousBest - score)} to your best`);
     left.appendChild(pbLine);
+    if (r.newStars.length) left.appendChild(el('div', 'results-stars', r.newStars.map(x => `★ ${x}`).join('<br>')));
     const stats = el('div', 'results-stats');
     const stat = (label: string, value: string): HTMLElement => el('div', 'stat', `<div class="stat-value">${value}</div><div class="stat-label">${label}</div>`);
     stats.append(stat('CHAIN', String(t.longestCombo)), stat('OVERCHARGE', String(t.overchargesLanded)), stat('AIR-PRIMES', String(t.airPrimesLanded)));

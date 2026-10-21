@@ -3,6 +3,7 @@
 import { App, type RunConfig } from './ui/App.js';
 import { TitleScreen } from './ui/TitleScreen.js';
 import { ResultsScreen } from './ui/ResultsScreen.js';
+import { ProfileSheet } from './ui/ProfileSheet.js';
 import { OvertureScreen } from './ui/overture/OvertureScreen.js';
 import { nextMovementIndex } from './meta/Save.js';
 import { ZEN_INDEX } from './audio/tracks.js';
@@ -18,6 +19,8 @@ const app = new App();
 
 async function main(): Promise<void> {
   await app.init();
+  const profile = new ProfileSheet({ save: app.save, persist: () => app.persistSave() });
+  app.ui.appendChild(profile.root);
   const title = new TitleScreen({
     continue: () => (app.save.overtureDone ? play({ mode: 'odyssey', movement: nextMovementIndex(app.save) }) : startOverture()),
     movement: i => play({ mode: 'odyssey', movement: i }),
@@ -26,6 +29,7 @@ async function main(): Promise<void> {
     zen: () => play({ mode: 'zen', movement: ZEN_INDEX }),
     settings: () => app.openSettings(),
     calibrate: () => app.calibration.show(true),
+    profile: () => profile.show(true),
     calibrated: () => app.settings.calibrated
   });
   app.calibration.onDone = () => {
