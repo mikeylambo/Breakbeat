@@ -35,6 +35,8 @@ export class StemPlayer {
   track: TrackDef | null = null;
   /** Playback rate (BPM scaling accessibility option). */
   rate = 1;
+  /** Current section index (A = 0) of the playing deck */
+  section = 0;
 
   constructor(private readonly audio: AudioEngine) {}
 
@@ -76,6 +78,7 @@ export class StemPlayer {
     this.track = track;
     this.deck = 0;
     this.layers = layers;
+    this.section = 0;
     this.launch(0, set, track, atSec);
     this.applyLayers(atSec, atSec + 0.01);
   }
@@ -87,8 +90,9 @@ export class StemPlayer {
       src.buffer = set[name];
       src.loop = true;
       src.playbackRate.value = this.rate;
-      src.loopStart = 0;
-      src.loopEnd = set[name].duration;
+      const [loStart, loEnd] = sectionRange(track, 0, set[name].duration);
+      src.loopStart = loStart;
+      src.loopEnd = loEnd;
       src.connect(this.audio.stemGains[deck]![i]!);
       src.start(Math.max(ctx.currentTime, atSec), (track.offsetMs / 1000) % set[name].duration);
       src.onended = null;
@@ -145,6 +149,23 @@ export class StemPlayer {
     this.stopDeck(from, atSec + barSec + 0.05);
     this.deck = to;
     this.track = track;
+    this.section = 0;
+  }
+
+  /**
+   * Steps the music forward to section `index` (never back). The playhead finishes the current
+   * section and flows straight into the next, so the change always lands on a section boundary.
+   */
+  setSection(index: number): void {
+    const track = this.track;
+    if (!track || index <= this.section || index >= track.sections.length) return;
+    this.section = index;
+    for (const src of this.sources[this.deck]!) {
+      if (!src?.buffer) continue;
+      const [lo, hi] = sectionRange(track, index, src.buffer.duration);
+      src.loopEnd = hi;
+      src.loopStart = lo;
+    }
   }
 
   private stopDeck(deck: number, atSec: number): void {
@@ -167,4 +188,13 @@ export class StemPlayer {
     this.stopDeck(1, atSec);
     for (const deck of this.audio.stemGains) for (const g of deck) rampParam(g.gain, 0, atSec, atSec + 0.05);
   }
+}
+
+/** [start, end) seconds of section `index` inside a stem buffer of `duration`. */
+function sectionRange(track: TrackDef, index: number, duration: number): [number, number] {
+  const total = track.sections.reduce((a, s) => a + s.bars, 0) || 1;
+  let before = 0;
+  for (let i = 0; i < index; i++) before += track.sections[i]!.bars;
+  const bars = track.sections[index]?.bars ?? total;
+  return [(duration * before) / total, (duration * (before + bars)) / total];
 }

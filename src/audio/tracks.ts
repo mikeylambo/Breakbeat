@@ -11,6 +11,14 @@ export interface TrackDef {
   id: string;
   number: string;
   name: string;
+  /** '0' (Overture), 'I', 'II', 'III' or 'Coda' */
+  act: string;
+  /** Genre palette (drives the placeholder arrangement and the brief for real stems) */
+  style: string;
+  /** Light behind the wall, '#RRGGBB' */
+  tint: string;
+  /** A/B/C sections, back to back in every stem file; the music steps forward through them */
+  sections: { name: string; bars: number }[];
   bpm: number;
   key: string;
   offsetMs: number;
@@ -28,6 +36,14 @@ export const TRACKS: readonly TrackDef[] = (manifest as { tracks: TrackDef[] }).
 export const OVERTURE: TrackDef = TRACKS.find(t => t.id === 'overture')!;
 /** The six Odyssey movements, in order. */
 export const MOVEMENTS: readonly TrackDef[] = TRACKS.filter(t => t.id !== 'overture');
+
+/** Zen plays the ambient movement. */
+export const ZEN_INDEX = Math.max(0, MOVEMENTS.findIndex(t => t.style === 'ambient'));
+export const ACTS = ['I', 'II', 'III', 'Coda'] as const;
+
+export function trackTint(t: TrackDef): number {
+  return parseInt(t.tint.slice(1), 16);
+}
 
 const KEY_SEMITONES: Record<string, number> = {
   C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11

@@ -5,6 +5,7 @@ import { TitleScreen } from './ui/TitleScreen.js';
 import { ResultsScreen } from './ui/ResultsScreen.js';
 import { OvertureScreen } from './ui/overture/OvertureScreen.js';
 import { nextMovementIndex } from './meta/Save.js';
+import { ZEN_INDEX } from './audio/tracks.js';
 import { readFlag, writeFlag } from './platform/Storage.js';
 import { WallView } from './render/WallView.js';
 import { announce, el } from './ui/dom.js';
@@ -21,7 +22,7 @@ async function main(): Promise<void> {
     movement: i => play({ mode: 'odyssey', movement: i }),
     endless: () => play({ mode: 'endless', movement: 0 }),
     daily: () => play({ mode: 'daily', movement: 0 }),
-    zen: () => play({ mode: 'zen', movement: 5 }),
+    zen: () => play({ mode: 'zen', movement: ZEN_INDEX }),
     settings: () => app.openSettings()
   });
   const overture = new OvertureScreen(

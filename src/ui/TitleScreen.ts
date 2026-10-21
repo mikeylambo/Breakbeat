@@ -4,7 +4,7 @@
  * A faint wall strip with a blade runs along the bottom (TitleBackdrop). No tagline, no footer.
  */
 
-import { MOVEMENTS } from '../audio/tracks.js';
+import { ACTS, MOVEMENTS } from '../audio/tracks.js';
 import { isUnlocked, mastery, nextMovementIndex, todayUtc, type SaveData } from '../meta/Save.js';
 import { button, el, fmt, ICONS } from './dom.js';
 
@@ -22,11 +22,17 @@ const BADGE_LABEL: Record<string, string> = { BRONZE: 'BRZ', SILVER: 'SLV', GOLD
 export class TitleScreen {
   readonly root = el('div', 'title-screen hidden', '', { role: 'main', 'aria-label': 'Title' });
 
+  /** Act shown in the tracklist (null = the act of the next movement) */
+  private act: string | null = null;
+  private save: SaveData | null = null;
+
   constructor(private readonly actions: TitleActions) {}
 
   render(save: SaveData): void {
     const a = this.actions;
+    this.save = save;
     const next = nextMovementIndex(save);
+    const act = this.act ?? MOVEMENTS[next]!.act;
     const nm = MOVEMENTS[next]!;
     const first = !save.overtureDone;
     this.root.innerHTML = '';
@@ -55,9 +61,21 @@ export class TitleScreen {
     left.appendChild(button('icon-btn title-settings', ICONS.gear, 'Settings', a.settings));
 
     const right = el('section', 'tracklist', '', { 'aria-label': 'The Odyssey' });
-    right.appendChild(el('div', 'tracklist-head', '<span>THE ODYSSEY</span><span>BPM</span>'));
+    const head = el('div', 'tracklist-head', '', { role: 'tablist', 'aria-label': 'Acts' });
+    head.appendChild(el('span', 'tracklist-title', 'THE ODYSSEY'));
+    for (const a of ACTS) {
+      const tab = button(`act-tab${a === act ? ' on' : ''}`, a === 'Coda' ? 'CODA' : `ACT ${a}`, `Act ${a}`, () => {
+        this.act = a;
+        if (this.save) this.render(this.save);
+      });
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-selected', String(a === act));
+      head.appendChild(tab);
+    }
+    right.appendChild(head);
     const list = el('ol', 'tracklist-rows');
     MOVEMENTS.forEach((m, i) => {
+      if (m.act !== act) return;
       const unlocked = isUnlocked(save, i);
       const cleared = save.cleared.includes(m.id);
       const best = save.best[m.id] ?? 0;
@@ -67,7 +85,7 @@ export class TitleScreen {
       const label = `${m.number} ${m.name}. ${m.bpm} BPM. ${unlocked ? (rank ? `Mastery ${rank}.` : cleared ? 'Cleared.' : 'Unlocked.') : 'Locked.'}`;
       const row = button(
         `track-row${unlocked ? '' : ' locked'}${i === next && !first ? ' next' : ''}`,
-        `<span class="track-num">${m.number}</span><span class="track-name">${m.name}</span>${badge}<span class="track-bpm">${m.bpm}</span><span class="track-lock">${unlocked ? '' : ICONS.lock}</span>`,
+        `<span class="track-num">${m.number}</span><span class="track-name">${m.name}<small>${m.style.toUpperCase()}</small></span>${badge}<span class="track-bpm">${m.bpm}</span><span class="track-lock">${unlocked ? '' : ICONS.lock}</span>`,
         label,
         () => {
           if (unlocked) a.movement(i);

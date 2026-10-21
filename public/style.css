@@ -194,3 +194,14 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .hud-charge.ready .hud-charge-fill { background: var(--held); box-shadow: 0 0 10px rgba(255, 196, 97, 0.7); animation: charge-ready 1.04s ease-in-out infinite; }
 @keyframes charge-ready { 50% { opacity: 0.55; } }
 .reduced-motion .hud-charge.ready .hud-charge-fill { animation: none; }
+
+/* ---------- Acts ---------- */
+.tracklist-head { align-items: center; gap: 4px; padding-bottom: 8px; }
+.tracklist-title { flex: 1; }
+.act-tab { font: 500 9px/1 var(--mono); letter-spacing: 0.14em; color: var(--quiet); padding: 6px 8px; border-radius: 6px; }
+.act-tab:hover { color: var(--text); }
+.act-tab.on { color: #1a0f02; background: var(--held); }
+.track-row { height: 40px; }
+.track-name small { display: block; margin-top: 3px; font: 500 7.5px/1 var(--mono); letter-spacing: 0.16em; color: var(--quiet); }
+.tracklist-title { white-space: nowrap; }
+.act-tab { padding: 6px 6px; }

@@ -48,7 +48,7 @@ function run(job: object, inline: () => Float32Array): Promise<AudioBuffer> {
 }
 
 export function renderStem(track: TrackDef, stem: StemName): Promise<AudioBuffer> {
-  const t = { id: track.id, bpm: track.bpm, key: track.key, loopBars: track.loopBars };
+  const t = { id: track.id, bpm: track.bpm, key: track.key, style: track.style, sections: track.sections.map(x => x.bars) };
   return run({ kind: 'stem', track: t, stem }, () => renderStemPCM(t, stem));
 }
 

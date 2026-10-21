@@ -10,8 +10,8 @@ below is what Michael delivers to replace them. No code changes are needed.
 | --- | --- |
 | Format | OGG Vorbis (q6+) or WAV, **48 kHz**, stereo or mono |
 | Alignment | **Bar-aligned**: every file starts exactly on bar 1, beat 1, no leading silence |
-| Length | Exactly `loopBars` bars at the track BPM (see `content/tracks.json`); every stem the same sample length |
-| Looping | Seamless: the last sample must flow into the first (render tails back into bar 1) |
+| Length | The track's `sections` back to back (A, B, C; 8 bars each = 24 bars) at the track BPM; every stem the same sample length |
+| Looping | Each section loops seamlessly on itself, and its end must also flow into the next section. The game only ever steps forward: A, then B, then C. |
 | Stem names | `kick`, `bass`, `keys`, `lead`, `top`, exactly |
 
 Stems enter with chain rank: rank 0 = kick + bass, 1 = + keys, 2 = + lead, 3 = + top, 4 = full mix level.

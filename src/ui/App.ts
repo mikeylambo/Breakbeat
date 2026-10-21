@@ -19,7 +19,7 @@ import { StemPlayer } from '../audio/StemPlayer.js';
 import { SfxPlayer } from '../audio/SfxPlayer.js';
 import { Scheduler } from '../audio/Scheduler.js';
 import { MusicDirector } from '../audio/MusicDirector.js';
-import { MOVEMENTS, OVERTURE, type TrackDef } from '../audio/tracks.js';
+import { MOVEMENTS, OVERTURE, ZEN_INDEX, trackTint, type TrackDef } from '../audio/tracks.js';
 import { installBrowserLifecycle } from '../platform/Lifecycle.js';
 import { loadSave, todayUtc, writeSave, type SaveData } from '../meta/Save.js';
 import { loadSettings, saveSettings, type Settings } from '../meta/Settings.js';
@@ -31,16 +31,6 @@ import { RotateCard } from './RotateCard.js';
 import { announce } from './dom.js';
 import { SettingsSheet } from './SettingsSheet.js';
 
-/** Per-movement light behind the wall (crossfaded on movement morphs). */
-export const MOVEMENT_TINT: Record<string, number> = {
-  overture: 0x1b1f33,
-  ignition: 0x1a2a4a,
-  glasswork: 0x123a3e,
-  lattice: 0x2a1d4a,
-  phosphor: 0x16382a,
-  magma: 0x3a2214,
-  'still-water': 0x173445
-};
 
 export interface RunConfig {
   mode: GameMode;
@@ -63,6 +53,7 @@ export interface RunState {
   movement: number;
   track: TrackDef;
   movementStartScore: number;
+  movementStartBar?: number;
   seed: string;
   ended: boolean;
   morph: { step: number; index: number; atSec: number } | null;
@@ -264,7 +255,7 @@ export class App {
     const overture = cfg.mode === 'overture';
     const index = overture ? 0 : Math.max(0, Math.min(MOVEMENTS.length - 1, cfg.movement));
     const dayIndex = Math.floor(Date.parse(todayUtc()) / 86400000) % MOVEMENTS.length;
-    const trackIndex = cfg.mode === 'zen' ? 5 : cfg.mode === 'daily' ? dayIndex : index;
+    const trackIndex = cfg.mode === 'zen' ? ZEN_INDEX : cfg.mode === 'daily' ? dayIndex : index;
     const track = overture ? OVERTURE : MOVEMENTS[trackIndex]!;
     const bpmScale = cfg.mode === 'daily' || overture ? 1 : this.settings.bpmScale;
     const bpm = track.bpm * bpmScale;
@@ -311,7 +302,7 @@ export class App {
     this.audio.setDanger(0, this.audio.now + 0.05, 0.05);
     this.wall.markDirty();
     this.wall.dangerLevel = 0;
-    this.wall.setPoolTint(MOVEMENT_TINT[track.id] ?? 0x1a2340, performance.now() / 1000, 0);
+    this.wall.setPoolTint(trackTint(track), performance.now() / 1000, 0);
     this.fx.markGroupsDirty();
     this.lastHapticStep = -1;
     this.hud.show(true);
@@ -437,6 +428,23 @@ export class App {
     }, 1400);
   }
 
+  /** Music builds A -> B -> C through each movement: by quota progress, or every 16 bars in Zen. */
+  private advanceSection(): void {
+    const run = this.run;
+    const e = this.engine;
+    if (!run || !e || run.morph || run.mode === 'overture') return;
+    const t = run.track;
+    const n = t.sections.length;
+    if (n < 2) return;
+    let p: number;
+    if (run.mode === 'zen' || !Number.isFinite(run.movementStartScore) || t.quota <= 0) {
+      p = (e.currentBar - (run.movementStartBar ?? 0)) / (16 * n);
+    } else {
+      p = (e.telemetry.score - run.movementStartScore) / t.quota;
+    }
+    this.stems.setSection(Math.min(n - 1, Math.floor(Math.max(0, p) * n)));
+  }
+
   /** Odyssey: quota reached -> morph to the next movement on a downbeat. */
   private checkQuota(): void {
     const run = this.run;
@@ -487,9 +495,10 @@ export class App {
     run.movement = index;
     run.track = track;
     run.movementStartScore = e.telemetry.score;
+    run.movementStartBar = e.currentBar;
     this.sfx.setTrack(track);
     this.scheduler.resetHorizon();
-    this.wall.setPoolTint(MOVEMENT_TINT[track.id] ?? 0x1a2340, performance.now() / 1000, this.clock.barDurationSec);
+    this.wall.setPoolTint(trackTint(track), performance.now() / 1000, this.clock.barDurationSec);
     announce(`Movement ${track.number}, ${track.name}.`);
   }
 
@@ -591,6 +600,7 @@ export class App {
         this.checkQuota();
       }
       this.input.update(performance.now());
+      this.advanceSection();
       this.director.update();
       // Haptic metronome: one tick per beat
       if (this.settings.hapticMetronome) {

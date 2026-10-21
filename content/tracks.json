@@ -4,10 +4,19 @@
       "id": "overture",
       "number": "00",
       "name": "Overture",
+      "act": "0",
+      "style": "overture",
+      "tint": "#1B1F33",
       "bpm": 96,
       "key": "C",
       "offsetMs": 0,
-      "loopBars": 4,
+      "loopBars": 8,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        }
+      ],
       "quota": 0,
       "colors": 4,
       "riseBars": 2,
@@ -37,10 +46,27 @@
       "id": "ignition",
       "number": "01",
       "name": "Ignition",
+      "act": "I",
+      "style": "house",
+      "tint": "#1A2A4A",
       "bpm": 116,
       "key": "C",
       "offsetMs": 0,
-      "loopBars": 8,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
       "quota": 12000,
       "colors": 4,
       "riseBars": 2,
@@ -70,11 +96,28 @@
       "id": "glasswork",
       "number": "02",
       "name": "Glasswork",
+      "act": "I",
+      "style": "garage",
+      "tint": "#123A3E",
       "bpm": 108,
       "key": "F",
       "offsetMs": 0,
-      "loopBars": 8,
-      "quota": 15000,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 13600,
       "colors": 4,
       "riseBars": 2,
       "stemsReady": false,
@@ -103,11 +146,28 @@
       "id": "lattice",
       "number": "03",
       "name": "Lattice",
+      "act": "I",
+      "style": "techno",
+      "tint": "#2A1D4A",
       "bpm": 124,
       "key": "G",
       "offsetMs": 0,
-      "loopBars": 8,
-      "quota": 18000,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 15200,
       "colors": 4,
       "riseBars": 2,
       "stemsReady": false,
@@ -136,11 +196,28 @@
       "id": "phosphor",
       "number": "04",
       "name": "Phosphor",
-      "bpm": 132,
+      "act": "I",
+      "style": "synthwave",
+      "tint": "#3A1A3E",
+      "bpm": 120,
       "key": "A",
       "offsetMs": 0,
-      "loopBars": 8,
-      "quota": 21000,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 16800,
       "colors": 4,
       "riseBars": 2,
       "stemsReady": false,
@@ -166,14 +243,431 @@
       }
     },
     {
-      "id": "magma",
+      "id": "tidewater",
       "number": "05",
-      "name": "Magma",
-      "bpm": 140,
+      "name": "Tidewater",
+      "act": "I",
+      "style": "afro",
+      "tint": "#163A30",
+      "bpm": 112,
+      "key": "D",
+      "offsetMs": 0,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 18400,
+      "colors": 4,
+      "riseBars": 2,
+      "stemsReady": false,
+      "stems": {
+        "kick": "tracks/tidewater/kick.ogg",
+        "bass": "tracks/tidewater/bass.ogg",
+        "keys": "tracks/tidewater/keys.ogg",
+        "lead": "tracks/tidewater/lead.ogg",
+        "top": "tracks/tidewater/top.ogg"
+      },
+      "sfx": {
+        "prime": [
+          "tracks/tidewater/prime-0.ogg",
+          "tracks/tidewater/prime-1.ogg",
+          "tracks/tidewater/prime-2.ogg",
+          "tracks/tidewater/prime-3.ogg"
+        ],
+        "detonate": "tracks/tidewater/detonate.ogg",
+        "hold": "tracks/tidewater/hold.ogg",
+        "over": "tracks/tidewater/over.ogg",
+        "allclear": "tracks/tidewater/allclear.ogg",
+        "slide": "tracks/tidewater/slide.ogg"
+      }
+    },
+    {
+      "id": "arc-light",
+      "number": "06",
+      "name": "Arc Light",
+      "act": "I",
+      "style": "electro",
+      "tint": "#14304A",
+      "bpm": 128,
       "key": "E",
       "offsetMs": 0,
-      "loopBars": 8,
-      "quota": 24000,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 20000,
+      "colors": 4,
+      "riseBars": 2,
+      "stemsReady": false,
+      "stems": {
+        "kick": "tracks/arc-light/kick.ogg",
+        "bass": "tracks/arc-light/bass.ogg",
+        "keys": "tracks/arc-light/keys.ogg",
+        "lead": "tracks/arc-light/lead.ogg",
+        "top": "tracks/arc-light/top.ogg"
+      },
+      "sfx": {
+        "prime": [
+          "tracks/arc-light/prime-0.ogg",
+          "tracks/arc-light/prime-1.ogg",
+          "tracks/arc-light/prime-2.ogg",
+          "tracks/arc-light/prime-3.ogg"
+        ],
+        "detonate": "tracks/arc-light/detonate.ogg",
+        "hold": "tracks/arc-light/hold.ogg",
+        "over": "tracks/arc-light/over.ogg",
+        "allclear": "tracks/arc-light/allclear.ogg",
+        "slide": "tracks/arc-light/slide.ogg"
+      }
+    },
+    {
+      "id": "paper-moon",
+      "number": "07",
+      "name": "Paper Moon",
+      "act": "II",
+      "style": "lofi",
+      "tint": "#2E2638",
+      "bpm": 88,
+      "key": "Eb",
+      "offsetMs": 0,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 21600,
+      "colors": 4,
+      "riseBars": 2,
+      "stemsReady": false,
+      "stems": {
+        "kick": "tracks/paper-moon/kick.ogg",
+        "bass": "tracks/paper-moon/bass.ogg",
+        "keys": "tracks/paper-moon/keys.ogg",
+        "lead": "tracks/paper-moon/lead.ogg",
+        "top": "tracks/paper-moon/top.ogg"
+      },
+      "sfx": {
+        "prime": [
+          "tracks/paper-moon/prime-0.ogg",
+          "tracks/paper-moon/prime-1.ogg",
+          "tracks/paper-moon/prime-2.ogg",
+          "tracks/paper-moon/prime-3.ogg"
+        ],
+        "detonate": "tracks/paper-moon/detonate.ogg",
+        "hold": "tracks/paper-moon/hold.ogg",
+        "over": "tracks/paper-moon/over.ogg",
+        "allclear": "tracks/paper-moon/allclear.ogg",
+        "slide": "tracks/paper-moon/slide.ogg"
+      }
+    },
+    {
+      "id": "brass-tacks",
+      "number": "08",
+      "name": "Brass Tacks",
+      "act": "II",
+      "style": "jazz",
+      "tint": "#3A2C16",
+      "bpm": 104,
+      "key": "Bb",
+      "offsetMs": 0,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 23200,
+      "colors": 4,
+      "riseBars": 2,
+      "stemsReady": false,
+      "stems": {
+        "kick": "tracks/brass-tacks/kick.ogg",
+        "bass": "tracks/brass-tacks/bass.ogg",
+        "keys": "tracks/brass-tacks/keys.ogg",
+        "lead": "tracks/brass-tacks/lead.ogg",
+        "top": "tracks/brass-tacks/top.ogg"
+      },
+      "sfx": {
+        "prime": [
+          "tracks/brass-tacks/prime-0.ogg",
+          "tracks/brass-tacks/prime-1.ogg",
+          "tracks/brass-tacks/prime-2.ogg",
+          "tracks/brass-tacks/prime-3.ogg"
+        ],
+        "detonate": "tracks/brass-tacks/detonate.ogg",
+        "hold": "tracks/brass-tacks/hold.ogg",
+        "over": "tracks/brass-tacks/over.ogg",
+        "allclear": "tracks/brass-tacks/allclear.ogg",
+        "slide": "tracks/brass-tacks/slide.ogg"
+      }
+    },
+    {
+      "id": "breakwater",
+      "number": "09",
+      "name": "Breakwater",
+      "act": "II",
+      "style": "breaks",
+      "tint": "#1A3346",
+      "bpm": 132,
+      "key": "D",
+      "offsetMs": 0,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 24800,
+      "colors": 5,
+      "riseBars": 2,
+      "stemsReady": false,
+      "stems": {
+        "kick": "tracks/breakwater/kick.ogg",
+        "bass": "tracks/breakwater/bass.ogg",
+        "keys": "tracks/breakwater/keys.ogg",
+        "lead": "tracks/breakwater/lead.ogg",
+        "top": "tracks/breakwater/top.ogg"
+      },
+      "sfx": {
+        "prime": [
+          "tracks/breakwater/prime-0.ogg",
+          "tracks/breakwater/prime-1.ogg",
+          "tracks/breakwater/prime-2.ogg",
+          "tracks/breakwater/prime-3.ogg"
+        ],
+        "detonate": "tracks/breakwater/detonate.ogg",
+        "hold": "tracks/breakwater/hold.ogg",
+        "over": "tracks/breakwater/over.ogg",
+        "allclear": "tracks/breakwater/allclear.ogg",
+        "slide": "tracks/breakwater/slide.ogg"
+      }
+    },
+    {
+      "id": "halflight",
+      "number": "10",
+      "name": "Halflight",
+      "act": "II",
+      "style": "halftime",
+      "tint": "#22183A",
+      "bpm": 140,
+      "key": "F",
+      "offsetMs": 0,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 26400,
+      "colors": 5,
+      "riseBars": 2,
+      "stemsReady": false,
+      "stems": {
+        "kick": "tracks/halflight/kick.ogg",
+        "bass": "tracks/halflight/bass.ogg",
+        "keys": "tracks/halflight/keys.ogg",
+        "lead": "tracks/halflight/lead.ogg",
+        "top": "tracks/halflight/top.ogg"
+      },
+      "sfx": {
+        "prime": [
+          "tracks/halflight/prime-0.ogg",
+          "tracks/halflight/prime-1.ogg",
+          "tracks/halflight/prime-2.ogg",
+          "tracks/halflight/prime-3.ogg"
+        ],
+        "detonate": "tracks/halflight/detonate.ogg",
+        "hold": "tracks/halflight/hold.ogg",
+        "over": "tracks/halflight/over.ogg",
+        "allclear": "tracks/halflight/allclear.ogg",
+        "slide": "tracks/halflight/slide.ogg"
+      }
+    },
+    {
+      "id": "still-water",
+      "number": "11",
+      "name": "Still Water",
+      "act": "II",
+      "style": "ambient",
+      "tint": "#173445",
+      "bpm": 100,
+      "key": "Ab",
+      "offsetMs": 0,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 28000,
+      "colors": 5,
+      "riseBars": 2,
+      "stemsReady": false,
+      "stems": {
+        "kick": "tracks/still-water/kick.ogg",
+        "bass": "tracks/still-water/bass.ogg",
+        "keys": "tracks/still-water/keys.ogg",
+        "lead": "tracks/still-water/lead.ogg",
+        "top": "tracks/still-water/top.ogg"
+      },
+      "sfx": {
+        "prime": [
+          "tracks/still-water/prime-0.ogg",
+          "tracks/still-water/prime-1.ogg",
+          "tracks/still-water/prime-2.ogg",
+          "tracks/still-water/prime-3.ogg"
+        ],
+        "detonate": "tracks/still-water/detonate.ogg",
+        "hold": "tracks/still-water/hold.ogg",
+        "over": "tracks/still-water/over.ogg",
+        "allclear": "tracks/still-water/allclear.ogg",
+        "slide": "tracks/still-water/slide.ogg"
+      }
+    },
+    {
+      "id": "velvet-rope",
+      "number": "12",
+      "name": "Velvet Rope",
+      "act": "II",
+      "style": "disco",
+      "tint": "#3A1C2A",
+      "bpm": 122,
+      "key": "G",
+      "offsetMs": 0,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 29600,
+      "colors": 5,
+      "riseBars": 2,
+      "stemsReady": false,
+      "stems": {
+        "kick": "tracks/velvet-rope/kick.ogg",
+        "bass": "tracks/velvet-rope/bass.ogg",
+        "keys": "tracks/velvet-rope/keys.ogg",
+        "lead": "tracks/velvet-rope/lead.ogg",
+        "top": "tracks/velvet-rope/top.ogg"
+      },
+      "sfx": {
+        "prime": [
+          "tracks/velvet-rope/prime-0.ogg",
+          "tracks/velvet-rope/prime-1.ogg",
+          "tracks/velvet-rope/prime-2.ogg",
+          "tracks/velvet-rope/prime-3.ogg"
+        ],
+        "detonate": "tracks/velvet-rope/detonate.ogg",
+        "hold": "tracks/velvet-rope/hold.ogg",
+        "over": "tracks/velvet-rope/over.ogg",
+        "allclear": "tracks/velvet-rope/allclear.ogg",
+        "slide": "tracks/velvet-rope/slide.ogg"
+      }
+    },
+    {
+      "id": "magma",
+      "number": "13",
+      "name": "Magma",
+      "act": "III",
+      "style": "industrial",
+      "tint": "#3A2214",
+      "bpm": 136,
+      "key": "E",
+      "offsetMs": 0,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 31200,
       "colors": 5,
       "riseBars": 1,
       "stemsReady": false,
@@ -199,36 +693,303 @@
       }
     },
     {
-      "id": "still-water",
-      "number": "06",
-      "name": "Still Water",
-      "bpm": 112,
-      "key": "Eb",
+      "id": "footwork",
+      "number": "14",
+      "name": "Footwork",
+      "act": "III",
+      "style": "footwork",
+      "tint": "#30161E",
+      "bpm": 150,
+      "key": "C",
       "offsetMs": 0,
-      "loopBars": 8,
-      "quota": 27000,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 32800,
       "colors": 5,
-      "riseBars": 2,
+      "riseBars": 1,
       "stemsReady": false,
       "stems": {
-        "kick": "tracks/still-water/kick.ogg",
-        "bass": "tracks/still-water/bass.ogg",
-        "keys": "tracks/still-water/keys.ogg",
-        "lead": "tracks/still-water/lead.ogg",
-        "top": "tracks/still-water/top.ogg"
+        "kick": "tracks/footwork/kick.ogg",
+        "bass": "tracks/footwork/bass.ogg",
+        "keys": "tracks/footwork/keys.ogg",
+        "lead": "tracks/footwork/lead.ogg",
+        "top": "tracks/footwork/top.ogg"
       },
       "sfx": {
         "prime": [
-          "tracks/still-water/prime-0.ogg",
-          "tracks/still-water/prime-1.ogg",
-          "tracks/still-water/prime-2.ogg",
-          "tracks/still-water/prime-3.ogg"
+          "tracks/footwork/prime-0.ogg",
+          "tracks/footwork/prime-1.ogg",
+          "tracks/footwork/prime-2.ogg",
+          "tracks/footwork/prime-3.ogg"
         ],
-        "detonate": "tracks/still-water/detonate.ogg",
-        "hold": "tracks/still-water/hold.ogg",
-        "over": "tracks/still-water/over.ogg",
-        "allclear": "tracks/still-water/allclear.ogg",
-        "slide": "tracks/still-water/slide.ogg"
+        "detonate": "tracks/footwork/detonate.ogg",
+        "hold": "tracks/footwork/hold.ogg",
+        "over": "tracks/footwork/over.ogg",
+        "allclear": "tracks/footwork/allclear.ogg",
+        "slide": "tracks/footwork/slide.ogg"
+      }
+    },
+    {
+      "id": "neon-trap",
+      "number": "15",
+      "name": "Neon Trap",
+      "act": "III",
+      "style": "trap",
+      "tint": "#281A40",
+      "bpm": 142,
+      "key": "F#",
+      "offsetMs": 0,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 34400,
+      "colors": 5,
+      "riseBars": 1,
+      "stemsReady": false,
+      "stems": {
+        "kick": "tracks/neon-trap/kick.ogg",
+        "bass": "tracks/neon-trap/bass.ogg",
+        "keys": "tracks/neon-trap/keys.ogg",
+        "lead": "tracks/neon-trap/lead.ogg",
+        "top": "tracks/neon-trap/top.ogg"
+      },
+      "sfx": {
+        "prime": [
+          "tracks/neon-trap/prime-0.ogg",
+          "tracks/neon-trap/prime-1.ogg",
+          "tracks/neon-trap/prime-2.ogg",
+          "tracks/neon-trap/prime-3.ogg"
+        ],
+        "detonate": "tracks/neon-trap/detonate.ogg",
+        "hold": "tracks/neon-trap/hold.ogg",
+        "over": "tracks/neon-trap/over.ogg",
+        "allclear": "tracks/neon-trap/allclear.ogg",
+        "slide": "tracks/neon-trap/slide.ogg"
+      }
+    },
+    {
+      "id": "prism",
+      "number": "16",
+      "name": "Prism",
+      "act": "III",
+      "style": "hyperpop",
+      "tint": "#3A1838",
+      "bpm": 146,
+      "key": "A",
+      "offsetMs": 0,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 36000,
+      "colors": 5,
+      "riseBars": 1,
+      "stemsReady": false,
+      "stems": {
+        "kick": "tracks/prism/kick.ogg",
+        "bass": "tracks/prism/bass.ogg",
+        "keys": "tracks/prism/keys.ogg",
+        "lead": "tracks/prism/lead.ogg",
+        "top": "tracks/prism/top.ogg"
+      },
+      "sfx": {
+        "prime": [
+          "tracks/prism/prime-0.ogg",
+          "tracks/prism/prime-1.ogg",
+          "tracks/prism/prime-2.ogg",
+          "tracks/prism/prime-3.ogg"
+        ],
+        "detonate": "tracks/prism/detonate.ogg",
+        "hold": "tracks/prism/hold.ogg",
+        "over": "tracks/prism/over.ogg",
+        "allclear": "tracks/prism/allclear.ogg",
+        "slide": "tracks/prism/slide.ogg"
+      }
+    },
+    {
+      "id": "jungle-gym",
+      "number": "17",
+      "name": "Jungle Gym",
+      "act": "III",
+      "style": "jungle",
+      "tint": "#1A3420",
+      "bpm": 148,
+      "key": "G",
+      "offsetMs": 0,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 37600,
+      "colors": 5,
+      "riseBars": 1,
+      "stemsReady": false,
+      "stems": {
+        "kick": "tracks/jungle-gym/kick.ogg",
+        "bass": "tracks/jungle-gym/bass.ogg",
+        "keys": "tracks/jungle-gym/keys.ogg",
+        "lead": "tracks/jungle-gym/lead.ogg",
+        "top": "tracks/jungle-gym/top.ogg"
+      },
+      "sfx": {
+        "prime": [
+          "tracks/jungle-gym/prime-0.ogg",
+          "tracks/jungle-gym/prime-1.ogg",
+          "tracks/jungle-gym/prime-2.ogg",
+          "tracks/jungle-gym/prime-3.ogg"
+        ],
+        "detonate": "tracks/jungle-gym/detonate.ogg",
+        "hold": "tracks/jungle-gym/hold.ogg",
+        "over": "tracks/jungle-gym/over.ogg",
+        "allclear": "tracks/jungle-gym/allclear.ogg",
+        "slide": "tracks/jungle-gym/slide.ogg"
+      }
+    },
+    {
+      "id": "overdrive",
+      "number": "18",
+      "name": "Overdrive",
+      "act": "III",
+      "style": "techno",
+      "tint": "#3A1414",
+      "bpm": 150,
+      "key": "D",
+      "offsetMs": 0,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 39200,
+      "colors": 5,
+      "riseBars": 1,
+      "stemsReady": false,
+      "stems": {
+        "kick": "tracks/overdrive/kick.ogg",
+        "bass": "tracks/overdrive/bass.ogg",
+        "keys": "tracks/overdrive/keys.ogg",
+        "lead": "tracks/overdrive/lead.ogg",
+        "top": "tracks/overdrive/top.ogg"
+      },
+      "sfx": {
+        "prime": [
+          "tracks/overdrive/prime-0.ogg",
+          "tracks/overdrive/prime-1.ogg",
+          "tracks/overdrive/prime-2.ogg",
+          "tracks/overdrive/prime-3.ogg"
+        ],
+        "detonate": "tracks/overdrive/detonate.ogg",
+        "hold": "tracks/overdrive/hold.ogg",
+        "over": "tracks/overdrive/over.ogg",
+        "allclear": "tracks/overdrive/allclear.ogg",
+        "slide": "tracks/overdrive/slide.ogg"
+      }
+    },
+    {
+      "id": "coda",
+      "number": "19",
+      "name": "Coda",
+      "act": "Coda",
+      "style": "coda",
+      "tint": "#1D2A3A",
+      "bpm": 126,
+      "key": "C",
+      "offsetMs": 0,
+      "loopBars": 24,
+      "sections": [
+        {
+          "name": "A",
+          "bars": 8
+        },
+        {
+          "name": "B",
+          "bars": 8
+        },
+        {
+          "name": "C",
+          "bars": 8
+        }
+      ],
+      "quota": 40800,
+      "colors": 5,
+      "riseBars": 1,
+      "stemsReady": false,
+      "stems": {
+        "kick": "tracks/coda/kick.ogg",
+        "bass": "tracks/coda/bass.ogg",
+        "keys": "tracks/coda/keys.ogg",
+        "lead": "tracks/coda/lead.ogg",
+        "top": "tracks/coda/top.ogg"
+      },
+      "sfx": {
+        "prime": [
+          "tracks/coda/prime-0.ogg",
+          "tracks/coda/prime-1.ogg",
+          "tracks/coda/prime-2.ogg",
+          "tracks/coda/prime-3.ogg"
+        ],
+        "detonate": "tracks/coda/detonate.ogg",
+        "hold": "tracks/coda/hold.ogg",
+        "over": "tracks/coda/over.ogg",
+        "allclear": "tracks/coda/allclear.ogg",
+        "slide": "tracks/coda/slide.ogg"
       }
     }
   ]
