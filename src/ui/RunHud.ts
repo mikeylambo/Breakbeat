@@ -17,6 +17,8 @@ export interface HudValues {
   bpm: number;
   bar: number;
   risesIn: number | null;
+  /** Charge meter 0..1 (1 = a hold is available) */
+  charge: number;
 }
 
 export class RunHud {
@@ -25,12 +27,15 @@ export class RunHud {
   private readonly chainWord = el('span', 'hud-chain-word', 'STEADY');
   private readonly chainMult = el('span', 'hud-chain-mult', '×1.0');
   private readonly pips: HTMLElement[] = [];
+  private readonly chargeLabel = el('div', 'hud-charge-label', 'CHARGE');
+  private readonly chargeFill = el('span', 'hud-charge-fill');
+  private readonly chargeBox = el('div', 'hud-charge', '', { role: 'meter', 'aria-label': 'Charge' });
   private readonly movement = el('div', 'hud-movement', '');
   private readonly tempo = el('div', 'hud-tempo', '');
   private readonly next = el('div', 'hud-next', '');
   private readonly nextLabel = el('div', 'hud-next-label', 'NEXT ROW');
   private readonly nextValue = el('div', 'hud-next-value', '');
-  private last: HudValues = { score: -1, chainRank: -1, combo: -1, layers: -1, movement: '', bpm: -1, bar: -1, risesIn: -2 };
+  private last: HudValues = { score: -1, chainRank: -1, combo: -1, layers: -1, movement: '', bpm: -1, bar: -1, risesIn: -2, charge: -1 };
 
   constructor(onPause: () => void) {
     const left = el('div', 'hud-left');
@@ -42,7 +47,10 @@ export class RunHud {
       this.pips.push(p);
       stems.appendChild(p);
     }
-    left.append(el('div', 'hud-label', 'SCORE'), this.score, chain, stems);
+    const bar = el('div', 'hud-charge-bar');
+    bar.appendChild(this.chargeFill);
+    this.chargeBox.append(this.chargeLabel, bar);
+    left.append(el('div', 'hud-label', 'SCORE'), this.score, chain, stems, this.chargeBox);
     const bottomLeft = el('div', 'hud-bottom-left');
     bottomLeft.append(this.movement, this.tempo);
     this.next.append(this.nextLabel, this.nextValue);
@@ -90,6 +98,15 @@ export class RunHud {
       setText(this.tempo, `${Math.round(v.bpm)} BPM · BAR ${Math.max(1, v.bar)}`);
       l.bpm = v.bpm;
       l.bar = v.bar;
+    }
+    const c = Math.round(v.charge * 100);
+    if (c !== l.charge) {
+      this.chargeFill.style.transform = `scaleX(${c / 100})`;
+      const ready = c >= 100;
+      this.chargeBox.classList.toggle('ready', ready);
+      setText(this.chargeLabel, ready ? 'HOLD READY' : 'CHARGE');
+      this.chargeBox.setAttribute('aria-valuenow', String(c));
+      l.charge = c;
     }
     if (v.risesIn !== l.risesIn) {
       this.next.classList.toggle('hidden', v.risesIn === null);

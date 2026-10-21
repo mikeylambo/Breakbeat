@@ -184,3 +184,13 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .seg.on { background: var(--held); color: #1a0f02; }
 .set-overture { margin-top: 10px; height: 38px; width: 100%; }
 .reduced-motion * { transition: none !important; }
+
+/* ---------- Charge ---------- */
+.hud-charge { margin-top: 16px; }
+.hud-charge-label { font: 500 9px/1 var(--mono); letter-spacing: 0.18em; color: var(--quiet); transition: color 0.2s; }
+.hud-charge-bar { margin-top: 6px; width: 86px; height: 5px; border-radius: 3px; background: rgba(244, 241, 234, 0.1); overflow: hidden; }
+.hud-charge-fill { display: block; height: 100%; width: 100%; background: var(--secondary); transform-origin: 0 50%; transform: scaleX(0); transition: transform 0.25s ease-out, background 0.2s; }
+.hud-charge.ready .hud-charge-label { color: var(--held); }
+.hud-charge.ready .hud-charge-fill { background: var(--held); box-shadow: 0 0 10px rgba(255, 196, 97, 0.7); animation: charge-ready 1.04s ease-in-out infinite; }
+@keyframes charge-ready { 50% { opacity: 0.55; } }
+.reduced-motion .hud-charge.ready .hud-charge-fill { animation: none; }

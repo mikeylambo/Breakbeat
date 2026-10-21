@@ -190,7 +190,7 @@ export class App {
       groupAt: cell => this.groupAt(cell),
       canHold: id => {
         const g = this.engine?.groups.get(id);
-        return !!g && !g.held;
+        return !!g && !g.held && !!this.engine?.canHold;
       },
       prime: cell => this.prime(cell),
       hold: cell => this.hold(cell)
@@ -605,10 +605,15 @@ export class App {
     this.hooks.onFrame?.();
     this.backdrop.update(wallSec);
 
-    if (e && !this.fx.frozen) {
-      this.wall.update(e, beat, dt);
+    if (e) {
+      // Hitstop: debris and pops hold for a beat of a frame, the blade keeps sweeping
+      if (!this.fx.frozen) {
+        this.wall.update(e, beat, dt);
+        this.fx.update(wallSec, dt, this.wall, this.clock.barDurationSec, beat.beatProgress);
+      } else {
+        this.fx.tickClock(wallSec);
+      }
       this.blade.update(beat);
-      this.fx.update(wallSec, dt, this.wall, this.clock.barDurationSec, beat.beatProgress);
       this.stage.setZoom(this.fx.zoom);
     }
     if (e && run && !run.ended) {
@@ -620,10 +625,11 @@ export class App {
         movement: run.mode === 'overture' ? 'OVERTURE' : run.mode === 'odyssey' ? `${run.track.number} · ${run.track.name.toUpperCase()}` : `${run.mode.toUpperCase()} · ${run.track.name.toUpperCase()}`,
         bpm: this.clock.bpm,
         bar: e.currentBar,
-        risesIn: e.barsUntilNextPush
+        risesIn: e.barsUntilNextPush,
+        charge: e.charge
       });
     }
-    if (!this.fx.frozen) this.stage.render();
+    this.stage.render();
   };
 
   /**

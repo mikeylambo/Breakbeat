@@ -171,6 +171,7 @@ await gate('SCREENS', async () => {
   const { ctx, page, errors } = await newPage(VETERAN);
   await shot(page, 'title');
 
+  step = 'settings';
   await page.click('.title-settings');
   await page.waitForTimeout(250);
   await shot(page, 'settings');
@@ -197,7 +198,10 @@ await gate('SCREENS', async () => {
         if (!queued && minCol <= s - 1) queued = e.primeAt(c, r);
         else if (!held && minCol > s + 1) {
           held = e.primeAt(c, r);
-          if (held) e.holdAt(c, r);
+          if (held) {
+            e.charge = 1;
+            e.holdAt(c, r);
+          }
         }
       }
     }
@@ -207,7 +211,7 @@ await gate('SCREENS', async () => {
   await page.waitForTimeout(260);
   await shot(page, 'run-hero');
 
-  // danger: occupy the top rows
+  step = 'danger';
   await page.evaluate(() => {
     const a = window.__bb;
     const e = a.engine;
@@ -218,14 +222,14 @@ await gate('SCREENS', async () => {
   await page.waitForTimeout(200);
   await shot(page, 'danger');
 
-  // pause
+  step = 'pause';
   await page.click('.hud-pause');
   await page.waitForTimeout(250);
   await shot(page, 'pause');
   await page.click('.pause-sheet .btn-primary');
   await page.waitForTimeout(300);
 
-  // all-clear: a single group left on the wall, ahead of the blade
+  step = 'all-clear';
   await waitSixteenth(page, 0, 3);
   await page.evaluate(() => {
     const a = window.__bb;
@@ -243,7 +247,7 @@ await gate('SCREENS', async () => {
   await page.waitForTimeout(420);
   await shot(page, 'all-clear');
 
-  // results
+  step = 'results';
   await page.waitForTimeout(1200);
   await page.evaluate(() => {
     const e = window.__bb.engine;

@@ -34,7 +34,8 @@ export class SfxPlayer {
   load(): Promise<void> {
     if (!this.ready) {
       this.ready = (async () => {
-        for (const name of NAMES) this.buffers.set(name, await renderSfx(name));
+        const bufs = await Promise.all(NAMES.map(n => renderSfx(n)));
+        NAMES.forEach((n, i) => this.buffers.set(n, bufs[i]!));
       })();
     }
     return this.ready;

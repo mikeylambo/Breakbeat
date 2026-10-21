@@ -84,6 +84,14 @@ export const TUNING = {
 
   OVERTURE_BPM: 96,
 
+  /**
+   * Charge: Overcharge is earned, not free. Each detonated group adds CHARGE_PER_GROUP, every extra
+   * group in the same pass adds CHARGE_RESONANCE_BONUS more; a hold costs a full meter.
+   */
+  CHARGE_MAX: 1,
+  CHARGE_PER_GROUP: 0.12,
+  CHARGE_RESONANCE_BONUS: 0.08,
+
   /** Logical landscape stage and wall geometry */
   STAGE_W: 844,
   STAGE_H: 390,

@@ -64,7 +64,8 @@ export class StemPlayer {
         // fall through to the placeholder arrangement
       }
     }
-    for (const name of STEM_NAMES) out[name] = await renderStem(track, name);
+    const rendered = await Promise.all(STEM_NAMES.map(name => renderStem(track, name)));
+    STEM_NAMES.forEach((name, i) => (out[name] = rendered[i]!));
     return out;
   }
 

@@ -300,7 +300,7 @@
    "focus": false,
    "riseBars": 2,
    "caption": "Hold to overcharge.",
-   "sub": "It skips one sweep, then blasts everything around it for double points. The wall keeps rising while you wait."
+   "sub": "It skips one sweep, then blasts everything around it for double points. A hold spends a full Charge \u2014 set groups off to earn it back."
   }
  ]
 }

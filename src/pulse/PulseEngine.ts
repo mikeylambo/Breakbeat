@@ -70,6 +70,8 @@ export class PulseEngine {
   gameOver = false;
   gameOverReason: 'overflow' | 'detonator' | null = null;
   bestPassSnapshot: BestPassSnapshot | null = null;
+  /** Overcharge meter 0..CHARGE_MAX; a hold spends a full meter. */
+  charge = 0;
   /** Occupied rows among the top DANGER_ROWS rows (0 = safe). */
   dangerLevel = 0;
   /** Pressure rise is live (Overture keeps it off until lesson 3). */
@@ -116,6 +118,10 @@ export class PulseEngine {
   /** Combo passes as they will stand after the current pass is finalized on the next downbeat. */
   get projectedComboPasses(): number {
     return this.passDetonations > 0 ? this.comboPasses + 1 : 0;
+  }
+
+  get canHold(): boolean {
+    return this.charge >= TUNING.CHARGE_MAX;
   }
 
   get chainRank(): number {
@@ -385,7 +391,8 @@ export class PulseEngine {
     const tile = this.board[row]?.[col];
     if (!tile) return null;
     const group = this.getGroupForTile(tile.id);
-    if (!group || group.held) return null;
+    if (!group || group.held || this.charge < TUNING.CHARGE_MAX) return null;
+    this.charge -= TUNING.CHARGE_MAX;
 
     group.held = true;
     group.state = 'held';
@@ -679,6 +686,10 @@ export class PulseEngine {
       );
 
       this.passDetonations++;
+      if (!isOvercharged) {
+        const gain = TUNING.CHARGE_PER_GROUP + (this.passDetonations > 1 ? TUNING.CHARGE_RESONANCE_BONUS : 0);
+        this.charge = Math.min(TUNING.CHARGE_MAX, this.charge + gain);
+      }
       if (isOvercharged) {
         this.passOvercharges++;
         this.telemetry.overchargesLanded++;

@@ -7,3 +7,4 @@ public/app.js
 public/app.js.map
 artifacts/
 .vercel
+public/synth-worker.js

@@ -61,6 +61,7 @@ test('Overcharge hold skips one pass and blasts 8-way neighbours on the next', (
   put(engine, 6, 9, 1); // keep the wall non-empty after the blast
   engine.advanceToStep(0);
   assert.ok(engine.primeAt(4, 8));
+  engine.charge = 1;
   engine.holdAt(4, 8);
   engine.advanceToStep(15);
   assert.notEqual(engine.board[7][5], null);
@@ -103,6 +104,7 @@ test('Hold while queued behind the blade: Overcharged exactly 2 passes after pri
   engine.advanceToStep(8); // bar 1, blade past col 3
   const g = engine.primeAt(3, 9);
   assert.equal(g.state, 'queued');
+  engine.charge = 1;
   engine.holdAt(3, 9);
   engine.drainEvents();
   engine.advanceToStep(31); // bar 2: the pass it would have fired on is skipped

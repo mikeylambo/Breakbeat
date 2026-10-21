@@ -4,7 +4,7 @@
  * Everything is pooled; nothing is allocated per frame.
  */
 
-import { Container, Graphics, Sprite, Text, TextStyle } from 'pixi.js';
+import { BitmapFont, BitmapText, Container, Graphics, Sprite, Text, TextStyle } from 'pixi.js';
 import { TUNING, computeResonanceMultiplier } from '../tuning.js';
 import type { PulseEvent } from '../pulse/types.js';
 import type { TileAtlas } from './TileAtlas.js';
@@ -45,8 +45,8 @@ export class FxView {
   private readonly recentFlashes = new Float64Array(3);
 
   private readonly pops: Container[] = [];
-  private readonly popPts: Text[] = [];
-  private readonly popSub: Text[] = [];
+  private readonly popPts: BitmapText[] = [];
+  private readonly popSub: BitmapText[] = [];
   private readonly popLife = new Float32Array(POPS);
   private readonly popY = new Float32Array(POPS);
   private popCursor = 0;
@@ -130,14 +130,14 @@ export class FxView {
       this.layer.addChild(c);
     }
 
+    // Score pops are bitmap text: glyphs baked once, so a pop never rasterises or uploads a texture
+    BitmapFont.install({ name: 'bb-pop', style: { fontFamily: 'Unbounded', fontWeight: '700', fontSize: 34, fill: 0xffffff }, chars: [['0', '9'], ',+'], resolution: 2 });
+    BitmapFont.install({ name: 'bb-pop-sub', style: { fontFamily: 'IBM Plex Mono', fontWeight: '500', fontSize: 18, fill: 0xffffff, letterSpacing: 2 }, chars: [['0', '9'], 'RESONANC×. '], resolution: 2 });
     for (let i = 0; i < POPS; i++) {
-      // Own styles per pop: each pop is coloured by its group
-      const ptsStyle = new TextStyle({ fontFamily: 'Unbounded', fontWeight: '700', fontSize: 17, fill: 0xffffff });
-      const subStyle = new TextStyle({ fontFamily: 'IBM Plex Mono', fontWeight: '500', fontSize: 9, fill: 0xffffff, letterSpacing: 1 });
       const c = new Container();
-      const a = new Text({ text: '0', style: ptsStyle });
+      const a = new BitmapText({ text: '0', style: { fontFamily: 'bb-pop', fontSize: 17 } });
       a.anchor.set(0.5, 1);
-      const b = new Text({ text: '', style: subStyle });
+      const b = new BitmapText({ text: '', style: { fontFamily: 'bb-pop-sub', fontSize: 9 } });
       b.anchor.set(0.5, 0);
       b.y = 1;
       c.addChild(a, b);
@@ -188,13 +188,12 @@ export class FxView {
 
   /** Crisp text at any letterbox scale. */
   setTextResolution(res: number): void {
-    for (const t of this.popPts) t.resolution = res;
-    for (const t of this.popSub) t.resolution = res;
     for (const t of this.chipText) t.resolution = res;
     this.bigText.resolution = res;
     this.bigSub.resolution = res;
   }
 
+  /** Hitstop freezes debris and the wall's motion only; blade, clock, audio and sim never stop. */
   get frozen(): boolean {
     return this.now < this.hitstopUntil;
   }
@@ -279,9 +278,9 @@ export class FxView {
     this.popY[i] = y;
     this.popLife[i] = 0.6;
     this.popPts[i]!.text = points.toLocaleString('en-US');
-    this.popPts[i]!.style.fill = tint;
+    this.popPts[i]!.tint = tint;
     this.popSub[i]!.text = sub;
-    this.popSub[i]!.style.fill = tint;
+    this.popSub[i]!.tint = tint;
   }
 
   /** Engine events, in order, as they are drained each frame. */
@@ -406,6 +405,11 @@ export class FxView {
     }
     g.stroke({ width: 1, color: UI.held, alpha: 0.55 });
     this.previewChip.position.set(x1 - 66, y0 - 17);
+  }
+
+  /** During hitstop only time advances (so the stop ends). */
+  tickClock(nowSec: number): void {
+    this.now = nowSec;
   }
 
   update(nowSec: number, dt: number, wall: WallView, barSec: number, beatProgress: number): void {

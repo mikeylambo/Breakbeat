@@ -161,6 +161,7 @@ console.log('=== BREAKBEAT GDD Gate Suite ===');
     for (let c = 4; c < TUNING.BOARD_COLS; c++) {
       grp = eng.primeAt(c, r);
       if (grp) {
+        eng.charge = 1;
         eng.holdAt(c, r);
         break;
       }
@@ -186,6 +187,7 @@ console.log('=== BREAKBEAT GDD Gate Suite ===');
   overflowEng.board[0][0] = { id: 9999, col: 0, row: 0, kind: 0, special: 'none' };
   overflowEng.board[0][1] = { id: 9998, col: 1, row: 0, kind: 0, special: 'none' };
   overflowEng.primeAt(0, 0);
+  overflowEng.charge = 1;
   overflowEng.holdAt(0, 0);
   overflowEng.advanceToStep(16); // Bar 2 downbeat push
   assert.equal(overflowEng.gameOver, true, 'HOLD_RISK failed: held group survived a run-ending push');
@@ -286,6 +288,7 @@ console.log('=== BREAKBEAT GDD Gate Suite ===');
   }
   for (let c = 0; c < 10; c++) {
     eng.primeAt(c, 8);
+    eng.charge = 1;
     eng.holdAt(c, 8);
   }
   eng.advanceToStep(0);
@@ -393,6 +396,7 @@ const put = (eng, col, row, kind) => { eng.board[row][col] = { id: gid++, col, r
     eng.advanceToStep(blade);
     const g = eng.primeAt(2, R - 1);
     assert.equal(g.state, 'queued');
+    eng.charge = 1;
     assert.ok(eng.holdAt(2, R - 1));
     eng.drainEvents();
     for (let st = blade + 1; st < 16 * 3; st++) eng.advanceToStep(st);
@@ -545,4 +549,23 @@ const put = (eng, col, row, kind) => { eng.board[row][col] = { id: gid++, col, r
   console.log(`PASS [OVERTURE_FLOW]: ${a.L.log.join(' ')} | deterministic x2; Skip -> Movement 01.`);
 }
 
-console.log('=== ALL 18 BREAKBEAT GATES GREEN ===');
+// 19. CHARGE — a hold needs a full meter, spends it, and the meter is earned by detonations
+{
+  const eng = new PulseEngine({ seed: 'charge', mode: 'endless', bpm: 120, riseBars: 99 }, new GemRules('brick'));
+  blank(eng);
+  for (let c = 0; c < 16; c += 2) { put(eng, c, R - 1, c % 4); put(eng, c, R - 2, c % 4); }
+  put(eng, 15, 0, 1);
+  assert.equal(eng.charge, 0);
+  eng.primeAt(0, R - 1);
+  assert.equal(eng.holdAt(0, R - 1), null, 'CHARGE: hold must be refused on an empty meter');
+  for (let c = 2; c < 16; c += 2) eng.primeAt(c, R - 1);
+  eng.advanceToStep(15);
+  assert.ok(eng.charge >= 1 - 1e-9, `CHARGE: 8 groups in one pass should fill the meter (got ${eng.charge})`);
+  put(eng, 3, R - 1, 2); put(eng, 4, R - 1, 2);
+  eng.primeAt(3, R - 1);
+  assert.ok(eng.holdAt(3, R - 1), 'CHARGE: full meter allows a hold');
+  assert.ok(eng.charge < 1e-9, 'CHARGE: a hold spends the meter');
+  console.log(`PASS [CHARGE]: holds refused on an empty meter; one 8-group pass fills it; a hold spends it.`);
+}
+
+console.log('=== ALL 19 BREAKBEAT GATES GREEN ===');

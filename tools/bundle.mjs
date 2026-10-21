@@ -13,4 +13,13 @@ await build({
   loader: { '.json': 'json' },
   logLevel: 'warning'
 });
-console.log('Bundled public/app.js');
+await build({
+  entryPoints: ['src/audio/placeholder/synth.worker.ts'],
+  bundle: true,
+  format: 'iife',
+  target: ['es2022', 'safari15'],
+  outfile: 'public/synth-worker.js',
+  minify: process.env.BB_DEV !== '1',
+  logLevel: 'warning'
+});
+console.log('Bundled public/app.js + public/synth-worker.js');

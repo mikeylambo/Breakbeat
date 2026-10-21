@@ -78,6 +78,8 @@ export class OvertureLessons {
     }
     // Lesson 3 is when the wall starts to rise
     if (lesson === 3) {
+      // The lesson grants a full Charge meter; afterwards it is earned by detonations
+      engine.charge = 1;
       (engine.config as { riseBars: number }).riseBars = l.riseBars ?? 2;
       engine.setPressureEnabled(true);
     }
