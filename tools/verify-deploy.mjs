@@ -8,6 +8,8 @@ const requiredFiles = [
   'public/manifest.webmanifest',
   'public/app.js',
   'public/synth-worker.js',
+  'public/sw.js',
+  'public/icons/icon-512.png',
   'public/fonts/fonts.css',
   'public/fonts/manrope-latin-600-normal.woff2',
 ];

@@ -208,6 +208,10 @@ async function main(): Promise<void> {
   };
   await ready;
   window.removeEventListener('resize', place);
+  // Offline: install the service worker once the game is up (never competes with boot)
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+    setTimeout(() => void navigator.serviceWorker.register('/sw.js').catch(() => undefined), 1500);
+  }
   showTitle();
   document.getElementById('game')!.dataset.ready = '1';
   (window as unknown as { __bb: unknown }).__bb = app;

@@ -9,3 +9,4 @@ artifacts/
 .vercel
 public/synth-worker.js
 public/index.html
+public/sw.js

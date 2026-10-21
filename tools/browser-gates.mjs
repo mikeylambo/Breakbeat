@@ -309,6 +309,26 @@ await gate('FRAME_HITCH', async () => {
   return `${frames.length} frames over 30 s with primes every 250 ms: p99 ${p99.toFixed(1)} ms, max ${max.toFixed(1)} ms.`;
 });
 
+// ---------------------------------------------------------------- OFFLINE
+await gate('OFFLINE', async () => {
+  const { ctx, page, errors } = await newPage(VETERAN, { width: 844, height: 390 }, 1);
+  step = 'service worker install';
+  await page.waitForFunction(() => navigator.serviceWorker?.controller || navigator.serviceWorker?.ready.then(() => true), null, { timeout: 15000 });
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload();
+  await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 15000 });
+  step = 'offline reload';
+  await ctx.setOffline(true);
+  await page.reload();
+  await page.waitForFunction(() => document.getElementById('game')?.dataset.ready === '1', null, { timeout: 20000 });
+  step = 'offline play';
+  await page.click('.btn-continue');
+  await page.waitForFunction(() => window.__bb.engine?.currentBar >= 2, null, { timeout: 20000 });
+  await ctx.setOffline(false);
+  assert.equal(errors.filter(e => !/Failed to load resource|net::ERR_INTERNET_DISCONNECTED/.test(e)).length, 0, errors.join(' | '));
+  return 'service worker precaches the game; with the network off it reloads, boots and plays a movement.';
+});
+
 // ---------------------------------------------------------------- NO_STALL
 await gate('NO_STALL', async () => {
   const { page, errors } = await newPage(VETERAN, { width: 844, height: 390 }, 1);
@@ -331,4 +351,4 @@ await gate('NO_STALL', async () => {
 await browser.close();
 server.kill();
 if (failed) process.exit(1);
-console.log('=== BROWSER GATES GREEN (FRAME_HITCH, SCREENS, NETWORK, NO_STALL) ===');
+console.log('=== BROWSER GATES GREEN (FRAME_HITCH, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');

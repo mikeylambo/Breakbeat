@@ -1,10 +1,18 @@
 {
+  "id": "/",
   "name": "BREAKBEAT",
   "short_name": "BREAKBEAT",
   "description": "You choose what breaks. The music chooses when.",
   "start_url": "/",
+  "scope": "/",
   "display": "fullscreen",
   "background_color": "#05060A",
   "theme_color": "#05060A",
-  "orientation": "landscape"
+  "orientation": "landscape",
+  "categories": ["games", "music"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
 }
