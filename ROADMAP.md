@@ -1,10 +1,11 @@
 # BREAKBEAT roadmap to 1.0
 
-Shipped through v0.9: engine, renderer, audio clock, Overture, Odyssey, Endless/Zen/Daily, Etudes,
-challenges, cosmetics, accessibility, offline PWA, desktop layout. All 20 tracks still play placeholder synth
+Shipped through v0.10: engine, renderer, audio clock, Overture, Odyssey (setlist screen), Endless/Zen/Daily,
+Etudes and Tutorial drills, challenges, cosmetics, tabbed settings and accessibility, offline PWA, desktop
+layout, blade-split logo, and record sleeves. All 20 tracks still play placeholder synth
 stems (`stemsReady: false` everywhere). The plan below runs in order. The music lane runs alongside it.
 
-## v0.10: Sound you can see
+## v0.11: Sound you can see
 
 Listen mode and visualizers share one piece of plumbing (an `AnalyserNode` per stem on the StemPlayer bus),
 so build them together. Upload Your Own Beat builds on that same plumbing.
@@ -29,7 +30,7 @@ so build them together. Upload Your Own Beat builds on that same plumbing.
 - [ ] Gates: ANALYSER_COST (under 0.5 ms a frame), BEAT_DETECT (fixture songs land within ±1 BPM and on the
       right downbeat), BYO_OFFLINE (no network).
 
-## v0.11: Competitive spine
+## v0.12: Competitive spine
 
 The engine is deterministic: a seed plus an input log is a replay. That makes ghosts and leaderboards that
 can't be cheated cheap to build, so use it.
@@ -44,7 +45,7 @@ can't be cheated cheap to build, so use it.
 - [ ] **Shareable Etude codes**: an Etude editor (it reuses the Etude board format) with URL-encoded boards.
       That's player-made content with zero moderation, because the board lives in the link.
 
-## v0.12: Platform and business
+## v0.13: Platform and business
 
 - [ ] **Distribution decision** (recommended: a Steam build via Tauri, plus a web demo).
   - Steam: Tauri wrapper, Steamworks achievements mapped from the challenge stars, Steam Deck verified.
@@ -55,13 +56,13 @@ can't be cheated cheap to build, so use it.
 - [ ] **Error reporting**: a tiny `window.onerror` / unhandledrejection beacon, opt-in, no PII.
 - [ ] **Localization scaffold**: string tables, plus EN/ES/PT-BR/JA/DE (JA needs a CJK font subset).
 
-## v0.13: Depth and replay value
+## v0.14: Depth and replay value
 
 - [ ] **Practice mode**: loop any section of any movement at 70–100% tempo and repeat a pressure-row
       scenario. It pairs with Coach's "Practise next".
 - [ ] **Remix (B-side) variants**: each movement gets a remix ruleset (inverted gravity, 5 colours from bar
       one, double-time pressure) for New Game+. That doubles the content without new music.
-- [ ] **Setlist mode**: a playlist of movements back to back, with bar-aligned crossfades. Score is cumulative.
+- [ ] **Mixtape mode**: a playlist of movements back to back, with bar-aligned crossfades. Score is cumulative.
 - [ ] **Streamer / photo mode**: a chroma-key background, a big-score overlay, and a replay director that
       pauses, scrubs and frees the camera on the best-pass loop.
 
@@ -72,6 +73,7 @@ can't be cheated cheap to build, so use it.
       targets, and that no file is clipping.
 - [ ] Commission or deliver the 20 tracks plus 6 one-shots per `MUSIC_BRIEF.md`. Drop each one in by flipping
       `stemsReady`.
+- [ ] Sleeve art for the 19 movements that still use generated stand-ins (only Magma has real art).
 - [ ] Mastering pass across all tracks so the loudness is even.
 
 ## Release candidate
