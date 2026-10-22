@@ -41,6 +41,18 @@ export class EtudeScreen {
     });
   }
 
+  /** A tutorial drill is running. */
+  get drilling(): boolean {
+    return !!this.drill;
+  }
+
+  /** Pause → back: leave the drill for the tutorial slide it came from. */
+  leaveDrill(): void {
+    const fn = this.drillBack;
+    this.clear();
+    fn?.();
+  }
+
   get active(): boolean {
     return !!this.run;
   }
@@ -97,7 +109,8 @@ export class EtudeScreen {
     this.run = new EtudeRun(def);
     this.caption.classList.remove('hidden');
     this.prepare();
-    void this.app.startRun({ mode: 'etude', movement: i, etude: def });
+    // Drills use a fixed seed so their incoming rows match the ETUDES gate's proof
+    void this.app.startRun({ mode: 'etude', movement: i, etude: def, seed: this.drill ? 'etude' : undefined });
   }
 
   onEvent(ev: PulseEvent): void {

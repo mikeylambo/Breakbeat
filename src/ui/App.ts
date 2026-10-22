@@ -136,6 +136,8 @@ export class App {
   openSettings: () => void;
   /** Returns to the title (set by TitleScreen). */
   showTitle: () => void = () => {};
+  /** Label for the pause sheet's quit row (set by main). */
+  quitLabel: () => string = () => 'Quit to title';
   /** Starts the Overture again (Settings). */
   replayOverture: () => void = () => {};
   /** Closes any open sheet (settings/pause). */
@@ -173,7 +175,7 @@ export class App {
       info: () => {
         const run = this.run;
         const e = this.engine;
-        if (!run || !e) return { title: '', score: '' };
+        if (!run || !e) return { title: '', score: '', quit: this.quitLabel() };
         const t = run.track;
         const title =
           run.mode === 'etude'
@@ -181,7 +183,7 @@ export class App {
             : run.mode === 'overture'
               ? 'OVERTURE'
               : `${run.mode === 'odyssey' ? `ACT ${t.act} · ` : `${run.mode.toUpperCase()} · `}${t.number} ${t.name.toUpperCase()} · BAR ${Math.max(1, e.currentBar)}`;
-        return { title, score: run.mode === 'overture' || run.mode === 'etude' ? '' : Math.round(e.telemetry.score * run.bpmScale).toLocaleString('en-US') };
+        return { title, score: run.mode === 'overture' || run.mode === 'etude' ? '' : Math.round(e.telemetry.score * run.bpmScale).toLocaleString('en-US'), quit: this.quitLabel() };
       }
     });
   }
@@ -333,8 +335,8 @@ export class App {
         mode: cfg.mode,
         bpm,
         colorCount: track.colors,
-        riseBars: track.riseBars,
-        pressureEnabled: !overture && !cfg.etude,
+        riseBars: cfg.etude?.pressure ?? track.riseBars,
+        pressureEnabled: !overture && (!cfg.etude || !!cfg.etude.pressure),
         fixedDeal: cfg.etude?.board
       },
       new GemRules('brick')

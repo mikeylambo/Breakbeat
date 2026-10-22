@@ -8,7 +8,7 @@ import type { PulseEngine } from '../pulse/PulseEngine.js';
 import type { PulseEvent } from '../pulse/types.js';
 
 export interface EtudeGoal {
-  type: 'allclear' | 'groups' | 'air' | 'score' | 'chain' | 'overcharge';
+  type: 'allclear' | 'groups' | 'air' | 'score' | 'chain' | 'overcharge' | 'survive';
   value?: number;
 }
 
@@ -32,6 +32,8 @@ export interface EtudeDef {
   solution: EtudeAction[];
   /** Tutorial drills: the Tutorial & Tips topic this drill belongs to */
   topic?: string;
+  /** The wall rises every this many bars (absent = no pressure rows) */
+  pressure?: number;
 }
 
 export function goalText(g: EtudeGoal): string {
@@ -46,6 +48,8 @@ export function goalText(g: EtudeGoal): string {
       return `Chain ${g.value} passes`;
     case 'overcharge':
       return `Overcharge ${g.value ?? 1}`;
+    case 'survive':
+      return `Survive ${g.value} rising rows`;
     default:
       return `Score ${g.value}`;
   }
@@ -79,8 +83,11 @@ export class EtudeRun {
     else if (g.type === 'air') won = t.airPrimesLanded >= (g.value ?? 1);
     else if (g.type === 'chain') won = t.longestCombo >= (g.value ?? 2);
     else if (g.type === 'overcharge') won = t.overchargesLanded >= (g.value ?? 1);
+    else if (g.type === 'survive') won = !engine.gameOver && t.pressurePushes >= (g.value ?? 1);
     else won = t.score >= (g.value ?? 0);
     if (won) this.state = 'won';
+    // Drills with a rising wall can top out
+    else if (engine.gameOver) this.state = 'lost';
     // Out of passes once the bar after the last allowed pass begins and nothing is still falling
     else if (engine.currentBar > this.def.passes && engine.falling.size === 0) this.state = 'lost';
     return this.state;

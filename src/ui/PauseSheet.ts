@@ -12,7 +12,7 @@ export interface PauseActions {
   settings(): void;
   quit(): void;
   /** What is paused: movement line and current score */
-  info(): { title: string; score: string };
+  info(): { title: string; score: string; quit: string };
 }
 
 export class PauseSheet {
@@ -50,6 +50,8 @@ export class PauseSheet {
     const i = this.a.info();
     setText(this.what, i.title);
     setText(this.score, i.score);
+    const q = this.root.querySelector('.menu-item.quiet .mi-name');
+    if (q) setText(q as HTMLElement, i.quit);
     this.menu.select(0, true);
     this.menu.relayout();
   }

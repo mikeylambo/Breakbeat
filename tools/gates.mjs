@@ -574,9 +574,10 @@ const put = (eng, col, row, kind) => { eng.board[row][col] = { id: gid++, col, r
   const { etudes } = JSON.parse(fs.readFileSync('content/etudes.json', 'utf8'));
   const { drills } = JSON.parse(fs.readFileSync('content/drills.json', 'utf8'));
   assert.ok(etudes.length >= 8, 'ETUDES: expected at least 8 etudes');
-  assert.ok(drills.length >= 6, 'ETUDES: expected at least 6 tutorial drills');
+  assert.ok(drills.length >= 7, 'ETUDES: expected at least 6 tutorial drills');
   for (const et of [...etudes, ...drills]) {
-    const e = new PulseEngine({ seed: 'etude', mode: 'etude', bpm: 120, pressureEnabled: false, fixedDeal: et.board }, new GemRules('brick'));
+    const cfg = { seed: 'etude', mode: 'etude', bpm: 120, pressureEnabled: !!et.pressure, riseBars: et.pressure ?? 2, fixedDeal: et.board };
+    const e = new PulseEngine(cfg, new GemRules('brick'));
     e.charge = et.charge ?? 0;
     const run = new EtudeRun(et);
     const act = p => {
@@ -595,7 +596,7 @@ const put = (eng, col, row, kind) => { eng.board[row][col] = { id: gid++, col, r
     }
     assert.equal(run.state, 'won', `ETUDES: "${et.name}" solution does not win within ${et.passes} passes`);
     // and doing nothing never wins
-    const idle = new PulseEngine({ seed: 'etude', mode: 'etude', bpm: 120, pressureEnabled: false, fixedDeal: et.board }, new GemRules('brick'));
+    const idle = new PulseEngine(cfg, new GemRules('brick'));
     const ir = new EtudeRun(et);
     for (let step = 0; step < (et.passes + 1) * 16; step++) {
       idle.advanceToStep(step);

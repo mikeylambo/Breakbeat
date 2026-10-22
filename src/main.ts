@@ -276,13 +276,17 @@ async function main(): Promise<void> {
       showTitle();
       return;
     }
+    // A drill that topped out shows its own TRY AGAIN banner over the collapsed wall
+    if (r.run.mode === 'etude') return;
     lastCfg = r.run.cfg;
     app.abandonRun();
     app.setWallVisible(false);
     results.show(r);
     app.attract('odyssey', r.run.movement, 2);
   };
-  app.showTitle = showTitle;
+  // Pause → quit: a drill goes back to its tutorial slide, everything else to the main menu
+  app.showTitle = () => (etudes.drilling ? etudes.leaveDrill() : showTitle());
+  app.quitLabel = () => (etudes.drilling ? 'Back to tutorial' : 'Quit to title');
   app.replayOverture = () => {
     app.closeSheets();
     void startOverture();
