@@ -1,39 +1,53 @@
 /**
- * SettingsSheet — volume, flash intensity, strobe-free, reduced motion, haptics, haptic metronome,
- * block symbols, BPM scaling (score-normalised), replay Overture, audio offset nudge, hide HUD.
+ * SettingsSheet — four tabs so each page stays short: Sound (volumes), Timing (audio offset, tap
+ * test), Display (flash, strobe-free, reduced motion, hide HUD) and Accessibility (tempo, block
+ * symbols, colour assist, haptics). ← → or Q / E switch tabs; Esc closes.
  */
 
 import type { Settings } from '../meta/Settings.js';
-import { button, el, ICONS } from './dom.js';
+import { button, el, ICONS, uiSound } from './dom.js';
 
 export interface SettingsHost {
   settings: Settings;
   hapticsSupported: boolean;
   apply(): void;
-  replayOverture(): void;
   calibrate(): void;
   onClose(): void;
 }
 
+const TABS = ['Sound', 'Timing', 'Display', 'Accessibility'] as const;
+type Tab = (typeof TABS)[number];
+
 export class SettingsSheet {
   readonly root = el('div', 'sheet-scrim settings-scrim hidden', '', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Settings' });
-  private readonly body = el('div', 'settings-body');
+  private readonly tabs = el('div', 'set-tabs', '', { role: 'tablist', 'aria-label': 'Settings sections' });
+  private readonly body = el('div', 'settings-body', '', { role: 'tabpanel' });
+  private tab: Tab = 'Sound';
   open = false;
 
   constructor(private readonly host: SettingsHost) {
     const card = el('div', 'sheet settings-sheet');
     const head = el('div', 'settings-head');
-    head.append(el('div', 'sheet-title', 'SETTINGS'), button('icon-btn settings-close', ICONS.close, 'Close settings', () => this.show(false)));
+    head.append(el('div', 'sheet-title', 'SETTINGS'), this.tabs, button('icon-btn settings-close', ICONS.close, 'Close settings', () => this.show(false)));
     card.append(head, this.body);
     this.root.appendChild(card);
     this.root.addEventListener('click', e => {
       if (e.target === this.root) this.show(false);
     });
     window.addEventListener('keydown', e => {
-      if (this.open && e.key === 'Escape') {
+      if (!this.open) return;
+      if (e.key === 'Escape') {
         e.stopImmediatePropagation();
         this.show(false);
+        return;
       }
+      // Sliders keep ← → for themselves while focused
+      const onSlider = document.activeElement instanceof HTMLInputElement && document.activeElement.type === 'range';
+      const step = e.key === 'e' || e.key === 'E' || (e.key === 'ArrowRight' && !onSlider) ? 1 : e.key === 'q' || e.key === 'Q' || (e.key === 'ArrowLeft' && !onSlider) ? -1 : 0;
+      if (!step) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      this.setTab(TABS[(TABS.indexOf(this.tab) + step + TABS.length) % TABS.length]!);
     });
   }
 
@@ -42,6 +56,13 @@ export class SettingsSheet {
     this.root.classList.toggle('hidden', !on);
     if (on) this.render();
     else this.host.onClose();
+  }
+
+  private setTab(t: Tab): void {
+    if (t === this.tab) return;
+    this.tab = t;
+    uiSound('move', TABS.indexOf(t));
+    this.render();
   }
 
   private render(): void {
@@ -76,89 +97,82 @@ export class SettingsSheet {
       return row;
     };
 
-    const col1 = el('div', 'set-col');
-    col1.append(
-      el('div', 'set-group', 'SOUND'),
-      slider('Volume', 'volume'),
-      slider('Music', 'music'),
-      slider('Effects', 'sfx'),
-      el('div', 'set-group', 'TIMING')
-    );
-    // Audio offset nudge
-    const off = el('div', 'set-row');
-    const offVal = el('span', 'set-value set-offset', `${s.offsetMs > 0 ? '+' : ''}${s.offsetMs} ms`, { 'aria-live': 'polite' });
-    const nudge = (d: number): void => {
-      s.offsetMs = Math.max(-150, Math.min(150, s.offsetMs + d));
-      offVal.textContent = `${s.offsetMs > 0 ? '+' : ''}${s.offsetMs} ms`;
-      change();
+    const segmented = <V extends string | number>(label: string, note: string, opts: readonly (readonly [V, string])[], get: () => V, set: (v: V) => void): HTMLElement => {
+      const row = el('div', 'set-row');
+      const seg = el('div', 'segmented', '', { role: 'radiogroup', 'aria-label': label });
+      for (const [v, l] of opts) {
+        const btn = button(`seg${get() === v ? ' on' : ''}`, l, `${label} ${l}`, () => {
+          set(v);
+          change();
+          this.render();
+        });
+        btn.setAttribute('role', 'radio');
+        btn.setAttribute('aria-checked', String(get() === v));
+        seg.appendChild(btn);
+      }
+      row.append(el('span', 'set-label', `${label}${note ? `<small>${note}</small>` : ''}`), seg);
+      return row;
     };
-    off.append(
-      el('span', 'set-label', 'Audio offset<small>If the blade looks early, nudge +</small>'),
-      button('step-btn', '−', 'Nudge audio offset earlier', () => nudge(-5)),
-      offVal,
-      button('step-btn', '+', 'Nudge audio offset later', () => nudge(5))
-    );
-    col1.appendChild(off);
-    // BPM scaling
-    const bpm = el('div', 'set-row');
-    const seg = el('div', 'segmented', '', { role: 'radiogroup', 'aria-label': 'Tempo' });
-    for (const [v, l] of [
-      [0.85, '85%'],
-      [1, '100%']
-    ] as const) {
-      const btn = button(`seg${s.bpmScale === v ? ' on' : ''}`, l, `Tempo ${l}`, () => {
-        s.bpmScale = v;
+    const flag = (label: string, key: 'symbols' | 'colourAssist', note: string): HTMLElement => {
+      const row = el('label', 'set-row set-toggle');
+      const input = el('input', '', '', { type: 'checkbox', role: 'switch', 'aria-label': label });
+      input.checked = s[key];
+      input.addEventListener('change', () => {
+        s[key] = input.checked;
         change();
-        this.render();
       });
-      btn.setAttribute('role', 'radio');
-      btn.setAttribute('aria-checked', String(s.bpmScale === v));
-      seg.appendChild(btn);
-    }
-    bpm.append(el('span', 'set-label', 'Tempo<small>Scores are scaled to match</small>'), seg);
-    col1.appendChild(bpm);
-    col1.appendChild(
-      button('btn set-overture', 'Sync timing (tap test)', 'Calibrate audio timing', () => {
-        this.show(false);
-        this.host.calibrate();
-      })
-    );
-    col1.appendChild(
-      button('btn set-overture', 'Replay Overture', 'Replay the Overture', () => {
-        this.show(false);
-        this.host.replayOverture();
-      })
-    );
+      row.append(el('span', 'set-label', `${label}<small>${note}</small>`), input, el('span', 'switch', '', { 'aria-hidden': 'true' }));
+      return row;
+    };
 
-    // Block symbols: a per-colour shape on every block, for telling colours apart
-    const symbols = el('div', 'set-row');
-    const sseg = el('div', 'segmented', '', { role: 'radiogroup', 'aria-label': 'Block symbols' });
-    for (const [v, l] of [
-      ['off', 'Off'],
-      ['on', 'On'],
-      ['bold', 'Bold']
-    ] as const) {
-      const btn = button(`seg${s.symbols === v ? ' on' : ''}`, l, `Block symbols ${l}`, () => {
-        s.symbols = v;
-        change();
-        this.render();
-      });
-      btn.setAttribute('role', 'radio');
-      btn.setAttribute('aria-checked', String(s.symbols === v));
-      sseg.appendChild(btn);
+    this.tabs.innerHTML = '';
+    for (const t of TABS) {
+      const tb = button(`set-tab${t === this.tab ? ' on' : ''}`, t, `${t} settings`, () => this.setTab(t));
+      tb.setAttribute('role', 'tab');
+      tb.setAttribute('aria-selected', String(t === this.tab));
+      this.tabs.appendChild(tb);
     }
-    symbols.append(el('span', 'set-label', 'Block symbols<small>A shape per colour, for colour vision</small>'), sseg);
-    const col2 = el('div', 'set-col');
-    col2.append(
-      el('div', 'set-group', 'COMFORT'),
-      slider('Flash intensity', 'flash'),
-      toggle('Strobe-free', 'strobeFree', 'Max 3 flashes a second'),
-      toggle('Reduced motion', 'reducedMotion', 'No camera breath or wall slide'),
-      symbols,
-      toggle('Haptics', 'haptics', this.host.hapticsSupported ? '' : 'Not supported on this device', !this.host.hapticsSupported),
-      toggle('Haptic metronome', 'hapticMetronome', 'A tick on every beat', !this.host.hapticsSupported),
-      toggle('Hide HUD', 'hudHidden', 'Or press V')
-    );
-    b.append(col1, col2);
+
+    const page = el('div', 'set-page');
+    if (this.tab === 'Sound') {
+      page.append(slider('Volume', 'volume'), slider('Music', 'music'), slider('Effects', 'sfx'));
+    } else if (this.tab === 'Timing') {
+      const off = el('div', 'set-row');
+      const offVal = el('span', 'set-value set-offset', `${s.offsetMs > 0 ? '+' : ''}${s.offsetMs} ms`, { 'aria-live': 'polite' });
+      const nudge = (d: number): void => {
+        s.offsetMs = Math.max(-150, Math.min(150, s.offsetMs + d));
+        offVal.textContent = `${s.offsetMs > 0 ? '+' : ''}${s.offsetMs} ms`;
+        change();
+      };
+      off.append(
+        el('span', 'set-label', 'Audio offset<small>If the blade looks early, nudge +</small>'),
+        button('step-btn', '−', 'Nudge audio offset earlier', () => nudge(-5)),
+        offVal,
+        button('step-btn', '+', 'Nudge audio offset later', () => nudge(5))
+      );
+      page.append(
+        off,
+        button('btn set-overture', 'Sync timing (tap test)', 'Calibrate audio timing', () => {
+          this.show(false);
+          this.host.calibrate();
+        })
+      );
+    } else if (this.tab === 'Display') {
+      page.append(
+        slider('Flash intensity', 'flash'),
+        toggle('Strobe-free', 'strobeFree', 'Max 3 flashes a second'),
+        toggle('Reduced motion', 'reducedMotion', 'No camera breath or wall slide'),
+        toggle('Hide HUD', 'hudHidden', 'Or press V')
+      );
+    } else {
+      page.append(
+        segmented('Tempo', 'Scores are scaled to match', [[0.85, '85%'], [1, '100%']] as const, () => s.bpmScale as 0.85 | 1, v => (s.bpmScale = v)),
+        flag('Block symbols', 'symbols', 'A shape for each colour'),
+        flag('Colour assist', 'colourAssist', 'Brighter blocks with stronger colour edges'),
+        toggle('Haptics', 'haptics', this.host.hapticsSupported ? '' : 'Not supported on this device', !this.host.hapticsSupported),
+        toggle('Haptic metronome', 'hapticMetronome', 'A tick on every beat', !this.host.hapticsSupported)
+      );
+    }
+    b.appendChild(page);
   }
 }

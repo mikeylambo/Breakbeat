@@ -12,8 +12,10 @@ export interface Settings {
   reducedMotion: boolean;
   haptics: boolean;
   hapticMetronome: boolean;
-  /** Per-colour symbols on the blocks: an accessibility aid, off by default */
-  symbols: SymbolMode;
+  /** Per-colour symbols on the blocks (off by default) */
+  symbols: boolean;
+  /** Brighter, more saturated blocks with stronger colour edges (and bolder symbols) */
+  colourAssist: boolean;
   /** Tempo scale (1 = written BPM). Scores are normalised by it. */
   bpmScale: number;
   /** Audio offset nudge in ms (+ = visuals later) */
@@ -22,8 +24,6 @@ export interface Settings {
   /** Tap-to-sync done (or dismissed) */
   calibrated: boolean;
 }
-
-export type SymbolMode = 'off' | 'on' | 'bold';
 
 const KEY = 'breakbeat-settings-v1';
 
@@ -36,7 +36,8 @@ export const DEFAULT_SETTINGS: Settings = {
   reducedMotion: false,
   haptics: true,
   hapticMetronome: false,
-  symbols: 'off',
+  symbols: false,
+  colourAssist: false,
   bpmScale: 1,
   offsetMs: 0,
   hudHidden: false,
@@ -44,12 +45,17 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 export function loadSettings(): Settings {
-  const raw = readJson<Partial<Settings> & { colourAssist?: boolean }>(KEY, {});
-  const s = { ...DEFAULT_SETTINGS, ...raw };
-  // v0.10: "Colour assist" (stronger glyphs) became Block symbols: Bold
-  if (raw.symbols === undefined && raw.colourAssist) s.symbols = 'bold';
-  if (!['off', 'on', 'bold'].includes(s.symbols)) s.symbols = 'off';
-  delete (s as { colourAssist?: boolean }).colourAssist;
+  const raw = readJson<Partial<Omit<Settings, 'symbols'>> & { symbols?: unknown }>(KEY, {});
+  const s = { ...DEFAULT_SETTINGS, ...raw } as Settings;
+  // Older saves: symbols was 'off' | 'on' | 'bold' ("bold" meant Colour assist), and before that
+  // symbols were always on with Colour assist as a separate toggle
+  if (raw.symbols === undefined) s.symbols = !!raw.colourAssist;
+  else if (typeof raw.symbols === 'string') {
+    s.symbols = raw.symbols !== 'off';
+    s.colourAssist = raw.symbols === 'bold' || !!raw.colourAssist;
+  }
+  s.symbols = !!s.symbols;
+  s.colourAssist = !!s.colourAssist;
   try {
     if (!localStorageHas(KEY) && matchMedia('(prefers-reduced-motion: reduce)').matches) s.reducedMotion = true;
   } catch {

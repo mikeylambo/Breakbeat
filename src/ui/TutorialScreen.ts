@@ -194,7 +194,7 @@ const TOPICS: Topic[] = [
     slides: [
       {
         title: 'Touch, mouse and keys',
-        body: `${kbd('Tap')} / ${kbd('Click')} prime · ${kbd('Long-press')} hold · ${kbd('Esc')} pause · ${kbd('V')} hide HUD · ${kbd('H')} HUD style · ${kbd('F')} fullscreen. With a mouse, hovering a group previews it.`,
+        body: `${kbd('Tap')} / ${kbd('Click')} prime · ${kbd('Long-press')} hold · ${kbd('Esc')} pause · ${kbd('V')} hide HUD · ${kbd('F')} fullscreen. With a mouse, hovering a group previews it.`,
         art: controlsArt()
       }
     ]

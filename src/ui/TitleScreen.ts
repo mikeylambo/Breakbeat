@@ -103,7 +103,7 @@ export class TitleScreen {
       { id: 'etudes', name: 'Etudes', meta: `${save.etudes.length}/8`, desc: 'Hand-built puzzles: clear the target in a set number of passes.', ghost: 'Etudes', action: a.etudes },
       { id: 'tutorial', name: 'Tutorial & Tips', meta: '', desc: 'How every piece of Breakbeat works, one slide at a time.', ghost: 'Learn', cls: 'quiet', action: a.tutorial },
       { id: 'profile', name: 'Profile', meta: '', desc: 'Lifetime stats, challenge stars and the cosmetic locker.', ghost: 'Profile', cls: 'quiet', action: a.profile },
-      { id: 'settings', name: 'Settings', meta: '', desc: 'Sound, timing, comfort, accessibility and HUD style.', ghost: 'Settings', cls: 'quiet', action: a.settings }
+      { id: 'settings', name: 'Settings', meta: '', desc: 'Sound, timing, display and accessibility.', ghost: 'Settings', cls: 'quiet', action: a.settings }
     ];
     const items: MenuItem[] = this.entries.map((e, i) => ({
       id: e.id,

@@ -152,7 +152,6 @@ export class App {
       settings: this.settings,
       hapticsSupported: typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function',
       apply: () => this.persistSettings(),
-      replayOverture: () => this.replayOverture(),
       calibrate: () => this.calibration.show(true),
       onClose: () => undefined
     });
@@ -198,7 +197,7 @@ export class App {
     const yieldFrame = (): Promise<void> => new Promise(r => requestAnimationFrame(() => r()));
     await this.stage.init(document.getElementById('game')!);
     await yieldFrame();
-    this.atlas = new TileAtlas(this.stage.resolution, this.settings.symbols);
+    this.atlas = new TileAtlas(this.stage.resolution, this.settings.symbols, this.settings.colourAssist);
     await yieldFrame();
     this.wall = new WallView(this.stage, this.atlas);
     this.blade = new BladeView(this.stage, this.atlas);
@@ -282,8 +281,8 @@ export class App {
   applySettings(): void {
     const s = this.settings;
     this.audio.setVolumes(s.volume, s.music, s.sfx);
-    this.atlas.setSymbols(s.symbols);
-    document.documentElement.dataset.symbols = s.symbols;
+    this.atlas.setLook(s.symbols, s.colourAssist);
+    document.documentElement.dataset.symbols = s.symbols ? 'on' : 'off';
     this.wall.setAtlas(this.atlas);
     this.fx.setAtlas(this.atlas);
     this.backdrop?.setAtlas(this.atlas);

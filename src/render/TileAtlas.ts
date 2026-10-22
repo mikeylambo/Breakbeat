@@ -1,7 +1,7 @@
 /**
  * TileAtlas — every tile texture is drawn once at boot (at device pixel ratio) into one canvas and
  * sliced into sub-textures, so the whole wall batches into a single draw. Rebuilt only when the
- * Block symbols setting (off / on / bold) changes. Glows are gradients, never canvas shadows.
+ * Block symbols or Colour assist setting changes. Glows are gradients, never canvas shadows.
  *
  * States: idle (per kind), primed and held (per kind x 16 corner masks: outer corners of a fused
  * slab round to 6 px, inner corners stay square), plus shared white sprites for tinting.
@@ -9,7 +9,6 @@
 
 import { Rectangle, Texture, TextureSource } from 'pixi.js';
 import { TUNING } from '../tuning.js';
-import type { SymbolMode } from '../meta/Settings.js';
 import { HELD_GRADIENT, TILE_COLOURS, adjust, hex, rgba, type TileColour } from './palette.js';
 
 const T = TUNING.TILE_PX; // 30
@@ -24,6 +23,7 @@ export const CORNER_BL = 8;
 
 export class TileAtlas {
   private source: TextureSource | null = null;
+  private canvas: HTMLCanvasElement | null = null;
   private idleTex: Texture[] = [];
   private primedTex: Texture[] = [];
   private heldTex: Texture[] = [];
@@ -38,7 +38,8 @@ export class TileAtlas {
 
   constructor(
     private readonly resolution: number,
-    public symbols: SymbolMode = 'off'
+    public symbols = false,
+    public assist = false
   ) {
     this.build();
   }
@@ -55,9 +56,10 @@ export class TileAtlas {
     return this.heldTex[(kind % KINDS) * 16 + (corners & 15)]!;
   }
 
-  setSymbols(mode: SymbolMode): void {
-    if (mode === this.symbols) return;
-    this.symbols = mode;
+  setLook(symbols: boolean, assist: boolean): void {
+    if (symbols === this.symbols && assist === this.assist) return;
+    this.symbols = symbols;
+    this.assist = assist;
     this.build();
   }
 
@@ -67,10 +69,14 @@ export class TileAtlas {
     const tileRows = Math.ceil(tileCount / PER_ROW);
     const W = PER_ROW * CELL;
     const H = tileRows * CELL + 64 + 4;
-    const canvas = document.createElement('canvas');
+    // One canvas for the atlas's lifetime: a look change redraws it in place (same layout), so
+    // every Texture already handed out (wall, blade, world, fx, replay) stays valid
+    const canvas = this.canvas ?? document.createElement('canvas');
+    this.canvas = canvas;
     canvas.width = Math.ceil(W * res);
     canvas.height = Math.ceil(H * res);
     const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.scale(res, res);
 
     const frames: Rectangle[] = [];
@@ -83,7 +89,7 @@ export class TileAtlas {
       return { x: x + 2, y: y + 2 };
     };
 
-    const sym = this.symbols;
+    const sym: Look = { symbols: this.symbols, assist: this.assist };
     for (let k = 0; k < KINDS; k++) {
       const c = TILE_COLOURS[k]!;
       const p = next();
@@ -153,7 +159,10 @@ export class TileAtlas {
     ctx.fillStyle = v;
     ctx.fillRect(172, miscY, 60, 60);
 
-    const old = this.source;
+    if (this.source) {
+      this.source.update();
+      return;
+    }
     const source = TextureSource.from(canvas);
     source.resolution = res;
     source.scaleMode = 'linear';
@@ -177,7 +186,6 @@ export class TileAtlas {
     this.diamond = sub(diamondRect);
     this.softDot = sub(dotRect);
     this.vignette = sub(vigRect);
-    old?.destroy();
   }
 }
 
@@ -270,10 +278,18 @@ function bevel(ctx: CanvasRenderingContext2D, x: number, y: number, radii: [numb
   ctx.restore();
 }
 
-function drawIdle(ctx: CanvasRenderingContext2D, x: number, y: number, c: TileColour, sym: SymbolMode): void {
-  const core = adjust(c.core, 0.72, 0.88);
-  const base = adjust(c.base, 0.72, 0.88);
-  const deep = adjust(c.deep, 0.72, 0.88);
+/** Block look: per-colour symbols, and Colour assist (brighter, more saturated, edged, bolder symbols) */
+interface Look {
+  symbols: boolean;
+  assist: boolean;
+}
+
+function drawIdle(ctx: CanvasRenderingContext2D, x: number, y: number, c: TileColour, sym: Look): void {
+  // Idle blocks sit back (brightness 0.72, saturation 0.88); Colour assist brings them forward
+  const [br, sat] = sym.assist ? [0.92, 1.12] : [0.72, 0.88];
+  const core = adjust(c.core, br, sat);
+  const base = adjust(c.base, br, sat);
+  const deep = adjust(c.deep, br, sat);
   const g = ctx.createRadialGradient(x + T * 0.5, y + T * 0.38, 1, x + T * 0.5, y + T * 0.5, T * 0.72);
   g.addColorStop(0, hex(core));
   g.addColorStop(0.5, hex(base));
@@ -283,10 +299,19 @@ function drawIdle(ctx: CanvasRenderingContext2D, x: number, y: number, c: TileCo
   ctx.fillStyle = g;
   ctx.fill();
   bevel(ctx, x, y, radii, 0.32, 0.28);
-  if (sym !== 'off') drawGlyph(ctx, c, x, y, rgba(c.deep === 0 ? 0 : adjust(c.deep, 0.55, 1), sym === 'bold' ? 0.85 : 0.55), true);
+  if (sym.assist) {
+    // A crisp edge in the colour's light tone separates neighbours of similar hue
+    ctx.save();
+    roundedPath(ctx, x + 1, y + 1, T - 2, T - 2, [3.5, 3.5, 3.5, 3.5]);
+    ctx.strokeStyle = rgba(c.core, 0.7);
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (sym.symbols) drawGlyph(ctx, c, x, y, rgba(c.deep === 0 ? 0 : adjust(c.deep, 0.55, 1), sym.assist ? 0.85 : 0.55), true);
 }
 
-function drawPrimed(ctx: CanvasRenderingContext2D, x: number, y: number, c: TileColour, mask: number, sym: SymbolMode): void {
+function drawPrimed(ctx: CanvasRenderingContext2D, x: number, y: number, c: TileColour, mask: number, sym: Look): void {
   const radii = cornerRadii(mask, 6);
   const g = ctx.createRadialGradient(x + T * 0.5, y + T * 0.4, 1, x + T * 0.5, y + T * 0.5, T * 0.75);
   g.addColorStop(0, hex(c.primedCore));
@@ -296,7 +321,7 @@ function drawPrimed(ctx: CanvasRenderingContext2D, x: number, y: number, c: Tile
   ctx.fillStyle = g;
   ctx.fill();
   // No per-tile bevel: fused slabs must read as one piece
-  if (sym === 'off') return;
+  if (!sym.symbols) return;
   // Inverted glyph: light on the bright slab, with a soft deep under-shadow for legibility
   ctx.save();
   ctx.translate(0, 0.8);
@@ -305,7 +330,7 @@ function drawPrimed(ctx: CanvasRenderingContext2D, x: number, y: number, c: Tile
   drawGlyph(ctx, c, x, y, rgba(0xffffff, 0.96), false);
 }
 
-function drawHeld(ctx: CanvasRenderingContext2D, x: number, y: number, c: TileColour, mask: number, sym: SymbolMode): void {
+function drawHeld(ctx: CanvasRenderingContext2D, x: number, y: number, c: TileColour, mask: number, sym: Look): void {
   const radii = cornerRadii(mask, 6);
   const g = ctx.createRadialGradient(x + T * 0.5, y + T * 0.42, 1, x + T * 0.5, y + T * 0.5, T * 0.74);
   g.addColorStop(0, HELD_GRADIENT[0]);
@@ -315,15 +340,15 @@ function drawHeld(ctx: CanvasRenderingContext2D, x: number, y: number, c: TileCo
   ctx.fillStyle = g;
   ctx.fill();
   // Colour identity stays: through the glyph, or (symbols off) a ring of the group's colour
-  if (sym !== 'off') {
-    drawGlyph(ctx, c, x, y, rgba(c.deep, sym === 'bold' ? 0.9 : 0.62), false);
+  if (sym.symbols) {
+    drawGlyph(ctx, c, x, y, rgba(c.deep, sym.assist ? 0.9 : 0.62), false);
     return;
   }
   ctx.save();
   roundedPath(ctx, x, y, T, T, radii);
   ctx.clip();
   ctx.strokeStyle = hex(c.base);
-  ctx.lineWidth = 6;
+  ctx.lineWidth = sym.assist ? 8 : 6;
   roundedPath(ctx, x, y, T, T, radii);
   ctx.stroke();
   ctx.restore();
