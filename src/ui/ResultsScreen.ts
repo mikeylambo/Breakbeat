@@ -1,14 +1,16 @@
 /**
- * ResultsScreen — left: movement, score, mastery badge + progress to the next rank, personal-best
- * line, stats (chain, Overcharge, air-primes). Right: best-pass replay loop, "Practise next",
- * Next movement / Replay / Share pass.
+ * ResultsScreen — a reveal, not a form. The score counts up on the music, the mastery badge
+ * stamps down, a personal best gets its fanfare, then the stats tick in. Right: the best-pass
+ * replay loop and "Practise next". Bottom: Next / Replay / Share / Title as one keyboard row.
+ * Any key or tap during the reveal skips to the end. The run's movement keeps playing underneath.
  */
 
 import { mastery } from '../meta/Save.js';
 import { recordRun, type CoachAdvice } from '../meta/Coach.js';
 import { ReplayView } from '../render/ReplayView.js';
 import type { App, RunResult } from './App.js';
-import { announce, button, el, fmt, ICONS } from './dom.js';
+import { announce, coveredBySheet, el, fmt, setText, uiSound } from './dom.js';
+import { MenuList, type MenuItem } from './MenuList.js';
 import { sharePass } from './share.js';
 
 export interface ResultsActions {
@@ -17,25 +19,61 @@ export interface ResultsActions {
   title(): void;
 }
 
+/** Reveal timeline (seconds from show) */
+const T_SCORE = 0.35;
+const T_SCORE_END = 1.45;
+const T_STAMP = 1.6;
+const T_PB = 1.95;
+const T_STATS = 2.2;
+const T_DONE = 2.9;
+
 export class ResultsScreen {
   readonly root = el('div', 'results hidden', '', { role: 'main', 'aria-label': 'Results' });
+  private readonly actionsMenu: MenuList;
   private replay: ReplayView | null = null;
   private t0 = 0;
   private last = 0;
   private result: RunResult | null = null;
   private sharing = false;
+  /** Reveal state */
+  private revealT = 0;
+  private revealDone = true;
+  private score = 0;
+  private scoreEl: HTMLElement | null = null;
+  private statEls: { el: HTMLElement; value: number; at: number }[] = [];
+  private ticks = 0;
+  private pb = false;
 
   constructor(
     private readonly app: App,
     private readonly actions: ResultsActions
-  ) {}
+  ) {
+    this.actionsMenu = new MenuList({ cls: 'results-actions', horizontal: true, active: () => this.visible && this.revealDone });
+    window.addEventListener('keydown', e => {
+      if (!this.visible || coveredBySheet(this.root) || e.metaKey || e.ctrlKey) return;
+      if (!this.revealDone) {
+        this.skipReveal();
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      } else if (e.key === 'Escape') {
+        uiSound('back');
+        this.actions.title();
+      } else if ((e.key === 'r' || e.key === 'R') && !e.repeat) {
+        uiSound('pick');
+        this.actions.replay();
+      }
+    });
+    this.root.addEventListener('pointerdown', () => {
+      if (!this.revealDone) this.skipReveal();
+    });
+  }
 
   private ensureReplay(): ReplayView {
     if (!this.replay) {
       this.replay = new ReplayView(this.app.atlas);
       const scale = 0.62;
       this.replay.root.scale.set(scale);
-      this.replay.root.position.set(812 - this.replay.width * scale - 5, 42);
+      this.replay.root.position.set(812 - this.replay.width * scale - 5, 46);
       this.app.stage.root.addChild(this.replay.root);
     }
     return this.replay;
@@ -57,53 +95,70 @@ export class ResultsScreen {
     const best = Math.max(score, previousBest);
     const m = mastery(best);
     const pb = score > previousBest;
+    this.pb = pb && previousBest > 0;
+    this.score = score;
     const movementLabel =
       run.mode === 'odyssey' ? `${run.track.number} · ${run.track.name.toUpperCase()}` : `${run.mode.toUpperCase()} · ${run.track.name.toUpperCase()}`;
 
     this.root.innerHTML = '';
+    this.root.classList.toggle('is-pb', pb);
     const left = el('section', 'results-left');
-    left.append(
-      el('div', 'results-kicker', movementLabel),
-      el('div', 'results-score', fmt(score), { 'aria-label': `Score ${fmt(score)}` })
-    );
+    this.scoreEl = el('div', 'results-score', '0', { 'aria-label': `Score ${fmt(score)}` });
+    left.append(el('div', 'results-kicker', `${run.mode === 'odyssey' ? `ACT ${run.track.act} · ` : ''}${movementLabel}`), this.scoreEl);
     const rank = el('div', 'results-rank');
     const pct = Math.round(Math.max(0, Math.min(1, m.progress)) * 100);
-    rank.innerHTML = `<span class="badge badge-${m.rank.toLowerCase()}">${m.rank}</span><span class="rank-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress to ${m.next ?? 'max rank'}"><span style="width:${pct}%"></span></span><span class="rank-next">${m.next ? `${fmt(m.toNext)} TO ${m.next}` : 'TOP RANK'}</span>`;
+    rank.innerHTML = `<span class="badge badge-${m.rank.toLowerCase()}">${m.rank}</span><span class="rank-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress to ${m.next ?? 'max rank'}"><span style="--p:${pct / 100}"></span></span><span class="rank-next">${m.next ? `${fmt(m.toNext)} TO ${m.next}` : 'TOP RANK'}</span>`;
     left.appendChild(rank);
     const pbLine = pb
-      ? el('div', 'results-pb new', `NEW PERSONAL BEST · +${fmt(score - previousBest)}`)
-      : previousBest === 0
-        ? el('div', 'results-pb', 'No best yet')
-        : el('div', 'results-pb', score === previousBest ? 'Level with your best' : `${fmt(previousBest - score)} to your best`);
+      ? el('div', 'results-pb new', previousBest > 0 ? `NEW PERSONAL BEST · +${fmt(score - previousBest)}` : 'FIRST CLEAR · NEW PERSONAL BEST')
+      : el('div', 'results-pb', score === 0 ? 'NOTHING LANDED · GO AGAIN' : score === previousBest ? 'LEVEL WITH YOUR BEST' : `${fmt(previousBest - score)} TO YOUR BEST`);
     left.appendChild(pbLine);
-    if (r.newStars.length) left.appendChild(el('div', 'results-stars', r.newStars.map(x => `★ ${x}`).join('<br>')));
     const stats = el('div', 'results-stats');
-    const stat = (label: string, value: string): HTMLElement => el('div', 'stat', `<div class="stat-value">${value}</div><div class="stat-label">${label}</div>`);
-    stats.append(stat('CHAIN', String(t.longestCombo)), stat('OVERCHARGE', String(t.overchargesLanded)), stat('AIR-PRIMES', String(t.airPrimesLanded)));
+    this.statEls = [];
+    const stat = (label: string, value: number, i: number): HTMLElement => {
+      const v = el('div', 'stat-value', '0');
+      this.statEls.push({ el: v, value, at: T_STATS + i * 0.14 });
+      const s = el('div', 'stat');
+      s.style.setProperty('--i', String(i));
+      s.append(v, el('div', 'stat-label', label));
+      return s;
+    };
+    stats.append(stat('CHAIN', t.longestCombo, 0), stat('OVERCHARGE', t.overchargesLanded, 1), stat('AIR-PRIMES', t.airPrimesLanded, 2));
     left.appendChild(stats);
-    left.appendChild(button('icon-btn results-home', ICONS.close, 'Back to title', this.actions.title));
+    if (r.newStars.length) left.appendChild(el('div', 'results-stars', r.newStars.map(x => `<span>★ ${x}</span>`).join('')));
 
     const right = el('section', 'results-right');
     const snap = engine.bestPassSnapshot;
     right.appendChild(
-      el('div', 'replay-label', snap ? `BEST PASS · +${fmt(snap.points)} · ${snap.groupsDetonated} GROUP${snap.groupsDetonated === 1 ? '' : 'S'}` : 'NO PASS LANDED')
+      el('div', 'replay-label', snap ? `BEST PASS <b>+${fmt(snap.points)}</b> · ${snap.groupsDetonated} GROUP${snap.groupsDetonated === 1 ? '' : 'S'}` : 'NO PASS LANDED')
     );
     const card = el('div', 'practise-card');
     card.innerHTML = `<div class="practise-label">PRACTISE NEXT</div><div class="practise-text">${advice ? advice.text : 'Finish a run to get a practice target.'}</div>`;
     right.appendChild(card);
-    const row = el('div', 'results-actions');
-    const shareBtn = button('btn', 'Share pass', 'Share best pass', () => void this.share());
-    if (!snap) shareBtn.disabled = true;
-    row.append(button('btn btn-primary', 'Next movement', 'Next movement', this.actions.next), button('btn', 'Replay', 'Replay', this.actions.replay), shareBtn);
-    right.appendChild(row);
-    this.root.append(left, right);
+
+    const items: MenuItem[] = [];
+    const item = (id: string, name: string, action: () => void, cls = ''): MenuItem => ({ id, label: name, cls, action, html: `<span class="mi-name">${name}</span>` });
+    if (run.mode === 'odyssey') items.push(item('next', 'Next movement', this.actions.next, 'btn-primary'), item('replay', 'Replay', this.actions.replay));
+    else items.push(item('replay', 'Play again', this.actions.replay, 'btn-primary'));
+    const share = item('share', 'Share pass', () => void this.share());
+    if (!snap) share.locked = true;
+    items.push(share, item('title', 'Title', this.actions.title, 'quiet'));
+    const foot = el('div', 'results-foot');
+    foot.append(this.actionsMenu.root, el('div', 'results-keys', '<b>ENTER</b>GO<b>R</b>REPLAY<b>ESC</b>TITLE'));
+    this.root.append(left, right, foot);
+    this.actionsMenu.setItems(items, 0);
 
     const replay = this.ensureReplay();
     replay.setSnapshot(snap, this.app.clock.bpm);
     replay.root.visible = !!snap;
     this.t0 = performance.now() / 1000;
     this.last = this.t0;
-    this.root.classList.remove('hidden');
+    this.revealT = 0;
+    this.ticks = 0;
+    this.revealDone = false;
+    this.root.classList.remove('hidden', 'revealed', 'stamped', 'pb-in', 'stats-in');
+    this.actionsMenu.relayout();
+    if (document.documentElement.classList.contains('reduced-motion')) this.skipReveal();
     announce(`Run over. ${movementLabel}. Score ${fmt(score)}. ${pb ? 'New personal best.' : `${fmt(previousBest - score)} to your best.`} ${advice ? advice.text : ''}`);
   }
 
@@ -111,16 +166,61 @@ export class ResultsScreen {
     this.root.classList.add('hidden');
     if (this.replay) this.replay.root.visible = false;
     this.result = null;
+    this.revealDone = true;
   }
 
   get visible(): boolean {
     return !this.root.classList.contains('hidden');
   }
 
+  private skipReveal(): void {
+    this.revealT = T_DONE;
+    this.step(T_DONE, true);
+  }
+
+  /** Advances the reveal to time `t`. */
+  private step(t: number, skipping = false): void {
+    const c = this.root.classList;
+    if (this.scoreEl) {
+      const p = Math.max(0, Math.min(1, (t - T_SCORE) / (T_SCORE_END - T_SCORE)));
+      const eased = 1 - Math.pow(1 - p, 3);
+      setText(this.scoreEl, fmt(this.score * eased));
+      // a tick per ~80 ms while it climbs, rising through the chord
+      const tick = Math.floor(p * 14);
+      if (!skipping && p > 0 && p < 1 && tick > this.ticks) {
+        this.ticks = tick;
+        uiSound('tick', tick);
+      }
+    }
+    if (t >= T_STAMP && !c.contains('stamped')) {
+      c.add('stamped');
+      if (!skipping) uiSound('stamp');
+    }
+    if (t >= T_PB && !c.contains('pb-in')) {
+      c.add('pb-in');
+      if (!skipping && this.root.classList.contains('is-pb')) uiSound('fanfare');
+    }
+    if (t >= T_STATS) c.add('stats-in');
+    for (const s of this.statEls) {
+      const p = Math.max(0, Math.min(1, (t - s.at) / 0.4));
+      setText(s.el, fmt(s.value * p));
+    }
+    if (t >= T_DONE) {
+      c.add('revealed');
+      this.revealDone = true;
+      this.actionsMenu.relayout();
+    }
+  }
+
   onFrame(): void {
-    if (!this.visible || !this.replay) return;
+    if (!this.visible) return;
     const now = performance.now() / 1000;
-    this.replay.update(now - this.t0, Math.min(0.05, now - this.last));
+    const dt = Math.min(0.05, now - this.last);
+    if (!this.revealDone) {
+      this.revealT += dt;
+      this.step(this.revealT);
+    }
+    if (this.replay) this.replay.update(now - this.t0, dt);
     this.last = now;
   }
 
@@ -129,11 +229,12 @@ export class ResultsScreen {
     const snap = r?.engine.bestPassSnapshot;
     if (!r || !snap || this.sharing) return;
     this.sharing = true;
-    const btn = this.root.querySelector('.results-actions .btn:last-child') as HTMLButtonElement | null;
+    const btn = this.root.querySelector('.results-actions .menu-item:nth-of-type(' + (this.actionsMenu.items.findIndex(i => i.id === 'share') + 1) + ') .mi-name') as HTMLElement | null;
     if (btn) btn.textContent = 'Recording…';
+    const track = r.run.track;
     try {
+      this.app.stopAttract();
       await this.app.audio.unlock();
-      const track = r.run.track;
       const result = await sharePass({
         snapshot: snap,
         bpm: this.app.clock.bpm,
@@ -148,6 +249,7 @@ export class ResultsScreen {
       if (btn) btn.textContent = result === 'downloaded' ? 'Saved' : result === 'shared' ? 'Shared' : 'Share pass';
     } finally {
       this.sharing = false;
+      if (this.visible) this.app.attract('odyssey', r.run.movement, 2);
     }
   }
 }

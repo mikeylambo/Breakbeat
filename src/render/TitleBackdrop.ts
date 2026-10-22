@@ -2,6 +2,7 @@
 
 import { Container, Sprite } from 'pixi.js';
 import { TUNING } from '../tuning.js';
+import type { BeatQuery } from '../pulse/BeatClock.js';
 import type { Stage } from './Stage.js';
 import type { TileAtlas } from './TileAtlas.js';
 import { UI } from './palette.js';
@@ -58,19 +59,23 @@ export class TitleBackdrop {
     this.root.visible = on;
   }
 
-  update(nowSec: number): void {
+  /** The blade crosses once every 2 bars of whatever is playing (wall time when silent). */
+  update(nowSec: number, beat: BeatQuery | null, barSec: number): void {
     if (!this.root.visible) return;
-    // One crossing every 2 bars at 116 BPM, matching the music's feel
-    const period = (60 / 116) * 8;
-    const p = (nowSec % period) / period;
+    const period = beat ? barSec * 2 : (60 / 116) * 8;
+    const t = beat ? beat.visualElapsedSec : nowSec;
+    const p = (t % period) / period;
     const x = p * (TUNING.STAGE_W + 40) - 20;
+    const kick = beat ? (1 - beat.beatProgress) ** 3 : 0;
     this.blade.x = x - 1;
+    this.blade.alpha = 0.6 + 0.4 * kick;
     this.bladeGlow.x = x;
+    this.bladeGlow.alpha = 0.35 + 0.4 * kick;
     for (let i = 0; i < this.tiles.length; i++) {
       const s = this.tiles[i]!;
       const d = x - (s.x + 15);
-      // tiles the blade just crossed light up and fade back
-      s.alpha = d > 0 && d < 140 ? 0.22 + 0.3 * (1 - d / 140) : 0.22;
+      // tiles the blade just crossed light up and fade back; the whole strip breathes on the kick
+      s.alpha = 0.2 + 0.06 * kick + (d > 0 && d < 140 ? 0.34 * (1 - d / 140) : 0);
     }
   }
 }

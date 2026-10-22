@@ -172,6 +172,13 @@ await gate('SCREENS', async () => {
   const { ctx, page, errors } = await newPage(VETERAN);
   await shot(page, 'title');
 
+  step = 'title keyboard';
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(450);
+  await shot(page, 'title-setlist');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowUp');
   step = 'settings';
   await page.click('.title-settings');
   await page.waitForTimeout(250);
@@ -256,8 +263,8 @@ await gate('SCREENS', async () => {
     for (let c = 0; c < 16; c++) e.board[0][c] = { id: 892000 + c, col: c, row: 0, kind: c % 4, special: 'none' };
     for (let c = 0; c < 16; c++) if (!e.board[1][c]) e.board[1][c] = { id: 893000 + c, col: c, row: 1, kind: (c + 1) % 4, special: 'none' };
   });
-  await page.waitForFunction(() => !!document.querySelector('.results:not(.hidden)'), null, { timeout: 20000 });
-  await page.waitForTimeout(900);
+  await page.waitForFunction(() => !!document.querySelector('.results.revealed:not(.hidden)'), null, { timeout: 20000 });
+  await page.waitForTimeout(500);
   await shot(page, 'results');
 
   // rotate (portrait)

@@ -52,3 +52,32 @@ export const ICONS = {
   star: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 3.2l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3.1-5.4 3.1 1.2-6L3.3 9.5l6.1-.7z"/></svg>',
   close: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>'
 };
+
+export type UiSoundKind = 'move' | 'pick' | 'back' | 'deny' | 'tick' | 'stamp' | 'fanfare';
+let uiSoundFn: ((kind: UiSoundKind, index: number) => void) | null = null;
+
+/** Menu feedback sounds (set once by App; silent until audio is unlocked). */
+export function setUiSound(fn: (kind: UiSoundKind, index: number) => void): void {
+  uiSoundFn = fn;
+}
+
+export function uiSound(kind: UiSoundKind, index = 0): void {
+  uiSoundFn?.(kind, index);
+}
+
+/** True when a modal sheet is open that does not contain `node` (menus underneath ignore keys). */
+export function coveredBySheet(node: HTMLElement): boolean {
+  const open = document.querySelectorAll<HTMLElement>('.sheet-scrim:not(.hidden), .etude-banner:not(.hidden), .rotate-card:not(.hidden)');
+  for (const s of open) if (!s.contains(node)) return true;
+  return false;
+}
+
+/** Blade wipe across the whole window: resolves at the midpoint (swap screens there). */
+export function bladeWipe(host: HTMLElement = document.body, accent = '#ffc461'): Promise<void> {
+  if (document.documentElement.classList.contains('reduced-motion')) return Promise.resolve();
+  const w = el('div', 'blade-wipe', '<i></i>', { 'aria-hidden': 'true' });
+  w.style.setProperty('--accent', accent);
+  host.appendChild(w);
+  setTimeout(() => w.remove(), 700);
+  return new Promise(r => setTimeout(r, 230));
+}

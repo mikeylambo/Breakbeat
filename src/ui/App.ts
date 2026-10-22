@@ -33,7 +33,7 @@ import { haptics } from './haptics.js';
 import { RunHud } from './RunHud.js';
 import { PauseSheet } from './PauseSheet.js';
 import { RotateCard } from './RotateCard.js';
-import { announce } from './dom.js';
+import { announce, setUiSound, type UiSoundKind } from './dom.js';
 import { SettingsSheet } from './SettingsSheet.js';
 import { CalibrationSheet } from './CalibrationSheet.js';
 import { DeskPanels } from './DeskPanels.js';
@@ -169,6 +169,19 @@ export class App {
         this.pause.show(false);
         this.abandonRun();
         this.showTitle();
+      },
+      info: () => {
+        const run = this.run;
+        const e = this.engine;
+        if (!run || !e) return { title: '', score: '' };
+        const t = run.track;
+        const title =
+          run.mode === 'etude'
+            ? `ETUDE · ${run.cfg.etude?.name.toUpperCase() ?? ''}`
+            : run.mode === 'overture'
+              ? 'OVERTURE'
+              : `${run.mode === 'odyssey' ? `ACT ${t.act} · ` : `${run.mode.toUpperCase()} · `}${t.number} ${t.name.toUpperCase()} · BAR ${Math.max(1, e.currentBar)}`;
+        return { title, score: run.mode === 'overture' || run.mode === 'etude' ? '' : Math.round(e.telemetry.score * run.bpmScale).toLocaleString('en-US') };
       }
     });
   }
@@ -191,7 +204,8 @@ export class App {
     this.fx = new FxView(this.stage, this.atlas);
     this.backdrop = new TitleBackdrop(this.stage, this.atlas);
     this.world = new WorldView(this.atlas);
-    this.stage.background.addChildAt(this.world.root, 0);
+    // Under the wall layers but outside them: the title shows the world without the wall
+    this.stage.camera.addChildAt(this.world.root, 0);
     this.card.className = 'movement-card';
     this.card.setAttribute('aria-hidden', 'true');
     this.applySettings();
@@ -245,6 +259,16 @@ export class App {
       }
     });
 
+    setUiSound((kind, i) => this.uiSound(kind, i));
+    // The first gesture anywhere wakes the title music
+    const wake = (): void => {
+      void this.audio.unlock().then(() => {
+        if (this.audio.running && !this.attractOn) this.playAttract();
+      });
+    };
+    window.addEventListener('pointerdown', wake, true);
+    window.addEventListener('keydown', wake, true);
+
     // Render placeholder audio in the background; no user gesture needed for offline rendering.
     void this.sfx.load();
     void this.stems.load(this.save.overtureDone ? MOVEMENTS[0]! : OVERTURE).then(() => this.stems.load(MOVEMENTS[0]!));
@@ -293,10 +317,10 @@ export class App {
     // Restart / replay from the pause sheet arrives with the context suspended by the app
     await this.audio.resume();
     await this.audio.unlock();
+    this.stopAttract();
     const overture = cfg.mode === 'overture';
     const index = overture ? 0 : Math.max(0, Math.min(MOVEMENTS.length - 1, cfg.movement));
-    const dayIndex = Math.floor(Date.parse(todayUtc()) / 86400000) % MOVEMENTS.length;
-    const trackIndex = cfg.mode === 'etude' ? cfg.movement % 6 : cfg.mode === 'zen' ? ZEN_INDEX : cfg.mode === 'daily' ? dayIndex : index;
+    const trackIndex = App.trackIndex(cfg.mode, cfg.movement);
     const track = overture ? OVERTURE : MOVEMENTS[trackIndex]!;
     const bpmScale = cfg.mode === 'daily' || overture ? 1 : this.settings.bpmScale;
     const bpm = track.bpm * bpmScale;
@@ -359,6 +383,109 @@ export class App {
     this.persistSave();
     if (cfg.etude) announce(`Etude: ${cfg.etude.name}.`);
     else if (!overture) announce(`Movement ${track.number}, ${track.name}. ${Math.round(bpm)} BPM.`);
+  }
+
+  /** Which movement's music a run of `mode` plays. */
+  static trackIndex(mode: GameMode, movement: number): number {
+    const index = Math.max(0, Math.min(MOVEMENTS.length - 1, movement));
+    if (mode === 'etude') return movement % 6;
+    if (mode === 'zen') return ZEN_INDEX;
+    if (mode === 'daily') return Math.floor(Date.parse(todayUtc()) / 86400000) % MOVEMENTS.length;
+    return index;
+  }
+
+  // ---------------------------------------------------------------- attract (title / results music)
+
+  private attractTrack: TrackDef | null = null;
+  private attractLayers = 3;
+  private attractToken = 0;
+  private attractMorph: { step: number; bpm: number } | null = null;
+  /** True once the attract music is scheduled on the transport */
+  attractOn = false;
+
+  /**
+   * Menus play music: the selected run's movement loops behind the title (and the last run's
+   * behind results), its world drawn around it. Changing selection morphs on the next downbeat,
+   * so browsing the setlist is beat-matched like a DJ blend.
+   */
+  attract(mode: GameMode, movement: number, layers = 3): void {
+    if (this.run) return;
+    const track = mode === 'overture' ? OVERTURE : MOVEMENTS[App.trackIndex(mode, movement)]!;
+    if (track === this.attractTrack && layers === this.attractLayers) return;
+    this.attractTrack = track;
+    this.attractLayers = layers;
+    const w = this.cosmetics?.(worldFor(track.style)) ?? worldFor(track.style);
+    this.world.setWorld(w);
+    this.world.root.visible = true;
+    this.wall.setPoolTint(trackTint(track), performance.now() / 1000, 0);
+    this.sfx.setTrack(track);
+    document.documentElement.style.setProperty('--world', `#${w.accent.toString(16).padStart(6, '0')}`);
+    this.playAttract();
+  }
+
+  private playAttract(): void {
+    const track = this.attractTrack;
+    if (!track || this.run) return;
+    if (!this.audio.running) {
+      // Back from a paused run the context is suspended by us: wake it (no-op until a gesture otherwise)
+      if (!document.hidden && !this.blocked) void this.audio.resume().then(() => this.audio.running && this.attractTrack === track && !this.attractOn && this.playAttract());
+      return;
+    }
+    const token = ++this.attractToken;
+    void this.stems.load(track).then(() => {
+      if (token !== this.attractToken || this.run || this.attractTrack !== track) return;
+      const now = this.audio.now;
+      const bpm = track.bpm;
+      if (this.attractOn && this.clock.isRunning && this.stems.track) {
+        // Blend on the next downbeat at least half a bar away
+        const q = this.clock.query(now);
+        const s16 = q.absoluteStep % TUNING.SIXTEENTHS_PER_BAR;
+        const step = (q.bar + (s16 >= 8 ? 1 : 0)) * TUNING.SIXTEENTHS_PER_BAR;
+        const atSec = this.clock.stepToAudioSec(step);
+        if (this.stems.track !== track) void this.stems.morph(track, atSec, Math.min(1.2, (60 / bpm) * 2));
+        this.stems.setLayers(this.attractLayers, atSec, 60 / bpm);
+        this.attractMorph = { step, bpm };
+        return;
+      }
+      const t0 = now + 0.08;
+      this.stems.rate = 1;
+      this.clock.bpm = bpm;
+      this.clock.start(t0);
+      this.attractMorph = null;
+      this.attractOn = true;
+      void this.stems.start(track, t0, this.attractLayers);
+    });
+  }
+
+  /** Stops the menu music (a run is starting). */
+  stopAttract(): void {
+    this.attractToken++;
+    this.attractTrack = null;
+    this.attractMorph = null;
+    if (this.attractOn) this.stems.stopAll(this.audio.now + 0.05);
+    this.attractOn = false;
+  }
+
+  /** The track currently looping behind a menu. */
+  get attracting(): TrackDef | null {
+    return this.attractOn ? this.attractTrack : null;
+  }
+
+  /** Menu feedback: tones in the key of the music playing. */
+  uiSound(kind: UiSoundKind, i = 0): void {
+    if (!this.audio.running) return;
+    const t = this.audio.now + 0.004;
+    if (kind === 'move') this.sfx.play(`prime-${i % 4}`, t, 0.3, true);
+    else if (kind === 'pick') {
+      this.sfx.play(`prime-${i % 4}`, t, 0.45, true);
+      this.sfx.play('detonate', t, 0.35);
+    } else if (kind === 'back') this.sfx.play('slide', t, 0.5);
+    else if (kind === 'tick') this.sfx.play(`prime-${i % 4}`, t, 0.16 + 0.04 * (i % 3), true);
+    else if (kind === 'stamp') {
+      this.sfx.play('detonate', t, 0.7);
+      this.sfx.play('prime-0', t, 0.4, true);
+    } else if (kind === 'fanfare') this.sfx.play('allclear', t, 0.55);
+    else this.sfx.play('slide', t, 0.8);
   }
 
   /** Ends the current run silently (quit / restart). */
@@ -643,6 +770,7 @@ export class App {
   }
 
   private lastRank = 0;
+  private lastBeatCss = '';
   private countingIn = false;
   private readonly countEl = document.createElement('div');
 
@@ -754,8 +882,26 @@ export class App {
       }
     }
 
+    if (!e && this.attractOn) {
+      const m = this.attractMorph;
+      if (m && beat.absoluteStep >= m.step) {
+        this.clock.setBpmAtStep(m.bpm, m.step);
+        this.attractMorph = null;
+      }
+    }
     this.hooks.onFrame?.();
-    this.backdrop.update(wallSec);
+    this.backdrop.update(wallSec, this.attractOn && this.clock.isRunning ? beat : null, this.clock.barDurationSec);
+    if (!e) {
+      // Menus: the world breathes on the music; CSS reads the beat as --beat (1 on the beat -> 0)
+      const bp = this.attractOn && this.clock.isRunning ? beat.beatProgress : (wallSec / (60 / 116)) % 1;
+      if (this.world.root.visible) this.world.update(wallSec, dt, bp);
+      const pulse = this.settings.reducedMotion || !this.attractOn ? 0 : (1 - bp) * (1 - bp);
+      const v = pulse.toFixed(2);
+      if (v !== this.lastBeatCss) {
+        this.lastBeatCss = v;
+        document.documentElement.style.setProperty('--beat', v);
+      }
+    }
 
     if (e) {
       // Hitstop: debris and pops hold for a beat of a frame, the blade keeps sweeping
@@ -861,6 +1007,7 @@ export class App {
     this.stage.fx.visible = on;
     this.stage.blade.visible = on;
     this.stage.background.visible = on;
+    if (on) this.world.root.visible = true;
     document.getElementById('game')?.classList.toggle('title-mode', !on);
   }
 

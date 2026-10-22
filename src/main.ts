@@ -10,7 +10,7 @@ import { nextMovementIndex } from './meta/Save.js';
 import { ZEN_INDEX } from './audio/tracks.js';
 import { readFlag, writeFlag } from './platform/Storage.js';
 import { WallView } from './render/WallView.js';
-import { announce, el } from './ui/dom.js';
+import { announce, bladeWipe, el } from './ui/dom.js';
 import type { PulseEvent } from './pulse/types.js';
 import { TUNING } from './tuning.js';
 import { applyUiTransform, computeLayout } from './render/layout.js';
@@ -51,7 +51,9 @@ async function main(): Promise<void> {
     settings: () => app.openSettings(),
     calibrate: w(() => app.calibration.show(true)),
     profile: () => profile.show(true),
-    calibrated: () => app.settings.calibrated
+    preview: (mode, movement) => void ready.then(() => app.attract(mode, movement)),
+    calibrated: () => app.settings.calibrated,
+    sounding: () => !!app.attracting && app.audio.running
   });
   app.ui.appendChild(title.root);
   const place = (): void => applyUiTransform(app.ui, computeLayout());
@@ -66,6 +68,7 @@ async function main(): Promise<void> {
   app.calibration.onDone = () => {
     if (title.root.classList.contains('hidden')) return;
     title.render(app.save);
+    title.previewCurrent();
   };
   const overture = new OvertureScreen(
     app,
@@ -88,6 +91,8 @@ async function main(): Promise<void> {
     title: () => showTitle()
   });
   let lastCfg: RunConfig | null = null;
+  let nowPlaying: unknown = null;
+  let leaving = false;
   let coachUntil = 0;
   const coach = el('div', 'coachmark hidden', '', { role: 'status' });
   const showCoach = (html: string, seconds: number): void => {
@@ -117,6 +122,13 @@ async function main(): Promise<void> {
 
   async function play(cfg: RunConfig): Promise<void> {
     if (cfg.mode !== 'overture') lastCfg = cfg;
+    // Leaving a menu: the music cuts, a blade wipes the screen, the wall deals in behind it
+    if (title.visible || results.visible) {
+      leaving = true;
+      app.stopAttract();
+      await bladeWipe();
+      leaving = false;
+    }
     results.hide();
     title.show(false);
     coach.classList.add('hidden');
@@ -186,6 +198,14 @@ async function main(): Promise<void> {
       announce('Charge full. Long-press a primed group to overcharge it.');
     }
     results.onFrame();
+    if (title.visible) {
+      const t = app.attracting;
+      if (t !== nowPlaying) {
+        nowPlaying = t;
+        if (t) title.setNowPlaying(t.id === 'overture' ? 'NOW PLAYING · OVERTURE' : `NOW PLAYING · ${t.number} ${t.name.toUpperCase()} · ${t.style.toUpperCase()}`);
+      }
+      title.onBeat(app.beat.bar, leaving || (!!t && app.audio.running));
+    }
     if (coachUntil && performance.now() / 1000 > coachUntil) {
       coachUntil = 0;
       coach.classList.add('hidden');
@@ -200,6 +220,7 @@ async function main(): Promise<void> {
     app.abandonRun();
     app.setWallVisible(false);
     results.show(r);
+    app.attract('odyssey', r.run.movement, 2);
   };
   app.showTitle = showTitle;
   app.replayOverture = () => {

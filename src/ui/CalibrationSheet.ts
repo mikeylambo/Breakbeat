@@ -52,6 +52,8 @@ export class CalibrationSheet {
   show(on: boolean): void {
     this.open = on;
     this.root.classList.toggle('hidden', !on);
+    // The clicks need silence: menu music stops while the sheet is open
+    if (on) this.app.stopAttract();
     if (on) this.reset();
     else {
       this.running = false;

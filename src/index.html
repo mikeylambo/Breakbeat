@@ -22,9 +22,9 @@
     <div id="ui" class="ui-stage">
       <div id="boot" class="title-screen" aria-hidden="true">
         <section class="title-left">
-          <div class="title-kicker">SLU · VOL. 01</div>
-          <h1 class="wordmark"><span>BREAK</span><span class="beat">BEAT</span></h1>
-          <div class="btn-continue boot-continue"><span>Loading</span></div>
+          <div class="title-kicker">SLU <b>·</b> VOL. 01</div>
+          <h1 class="wordmark"><span class="w-break">BREAK</span><span class="w-beat">BEAT</span></h1>
+          <div class="menu main-menu"><div class="menu-item btn-continue boot-continue"><span class="mi-name">Loading</span></div></div>
         </section>
       </div>
     </div>
@@ -51,7 +51,7 @@
             }, 0);
           });
         };
-        if (document.fonts && document.fonts.load) document.fonts.load('700 46px Unbounded').then(go, go);
+        if (document.fonts && document.fonts.load) document.fonts.load('700 50px Unbounded').then(go, go);
         else go();
       })();
     </script>
