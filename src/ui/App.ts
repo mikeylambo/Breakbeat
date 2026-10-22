@@ -30,7 +30,7 @@ import type { EtudeDef } from '../meta/Etude.js';
 import { loadSettings, saveSettings, type Settings } from '../meta/Settings.js';
 import { InputController } from './input.js';
 import { haptics } from './haptics.js';
-import { RunHud } from './RunHud.js';
+import { HUD_NAMES, HUD_STYLES, RunHud, type HudStyle } from './RunHud.js';
 import { PauseSheet } from './PauseSheet.js';
 import { RotateCard } from './RotateCard.js';
 import { announce, setUiSound, type UiSoundKind } from './dom.js';
@@ -118,7 +118,7 @@ export class App {
   readonly calibration: CalibrationSheet;
   input!: InputController;
 
-  settings: Settings = loadSettings();
+  settings: Settings = withUrlOverrides(loadSettings());
   save: SaveData = loadSave();
   engine: PulseEngine | null = null;
   run: RunState | null = null;
@@ -251,6 +251,12 @@ export class App {
         this.settings.hudHidden = !this.settings.hudHidden;
         saveSettings(this.settings);
         this.hud.setHidden(this.settings.hudHidden);
+      } else if ((e.key === 'h' || e.key === 'H') && !e.metaKey && !e.ctrlKey && this.run && !this.run.ended) {
+        // Cycle HUD styles mid-run (for comparing them while playing)
+        const i = HUD_STYLES.indexOf(this.settings.hudStyle);
+        this.settings.hudStyle = HUD_STYLES[(i + 1) % HUD_STYLES.length]!;
+        this.persistSettings();
+        this.toast(`HUD ${this.settings.hudStyle.toUpperCase()} · ${HUD_NAMES[this.settings.hudStyle]}`);
       } else if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey) {
         if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
         else void document.documentElement.requestFullscreen?.().catch(() => undefined);
@@ -297,6 +303,7 @@ export class App {
     // Flash intensity also scales the soft glow sprites when bloom is off
     haptics.setEnabled(s.haptics);
     this.hud.setHidden(s.hudHidden);
+    this.hud.setStyle(s.hudStyle);
     this.clock.outputLatencySec = this.audio.outputLatencySec + s.offsetMs / 1000;
     document.documentElement.classList.toggle('reduced-motion', s.reducedMotion);
   }
@@ -769,6 +776,23 @@ export class App {
     }
   }
 
+  private readonly toastEl = document.createElement('div');
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** A short status line at the top of the stage. */
+  toast(text: string): void {
+    const t = this.toastEl;
+    t.className = 'toast';
+    t.textContent = text;
+    if (!t.parentElement) this.ui.appendChild(t);
+    t.classList.remove('show');
+    void t.offsetWidth;
+    t.classList.add('show');
+    announce(text);
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => t.classList.remove('show'), 1400);
+  }
+
   private lastRank = 0;
   private lastBeatCss = '';
   private countingIn = false;
@@ -925,7 +949,11 @@ export class App {
         bpm: this.clock.bpm,
         bar: e.currentBar,
         risesIn: e.barsUntilNextPush,
-        charge: e.charge
+        charge: e.charge,
+        best: run.mode === 'daily' ? (this.save.daily.date === todayUtc() ? this.save.daily.best : 0) : (this.save.best[run.mode === 'odyssey' ? MOVEMENTS[run.startMovement]!.id : run.mode] ?? 0),
+        groups: e.telemetry.groupsCleared,
+        credit: run.mode === 'overture' ? '♪ Overture' : `♪ ${run.track.number} ${run.track.name} · ${run.track.style[0]!.toUpperCase()}${run.track.style.slice(1)}`,
+        pulse: this.settings.reducedMotion ? 0 : (1 - beat.beatProgress) * (1 - beat.beatProgress)
       });
     }
     this.stage.render();
@@ -1014,4 +1042,18 @@ export class App {
   get cellPoint(): { x: number; y: number } {
     return this.cellPt;
   }
+}
+
+/** ?hud=a|b|c picks a HUD style for testing (and is remembered). */
+function withUrlOverrides(s: Settings): Settings {
+  try {
+    const h = new URLSearchParams(location.search).get('hud')?.toLowerCase();
+    if (h && (HUD_STYLES as readonly string[]).includes(h)) {
+      s.hudStyle = h as HudStyle;
+      saveSettings(s);
+    }
+  } catch {
+    // ignore
+  }
+  return s;
 }

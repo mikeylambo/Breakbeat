@@ -5,6 +5,7 @@
 
 import type { Settings } from '../meta/Settings.js';
 import { button, el, ICONS } from './dom.js';
+import { HUD_NAMES, HUD_STYLES } from './RunHud.js';
 
 export interface SettingsHost {
   settings: Settings;
@@ -131,6 +132,20 @@ export class SettingsSheet {
     );
 
     const col2 = el('div', 'set-col');
+    const hud = el('div', 'set-row');
+    const hseg = el('div', 'segmented', '', { role: 'radiogroup', 'aria-label': 'HUD style' });
+    for (const k of HUD_STYLES) {
+      const btn = button(`seg${s.hudStyle === k ? ' on' : ''}`, k.toUpperCase(), `HUD style ${k.toUpperCase()}, ${HUD_NAMES[k]}`, () => {
+        s.hudStyle = k;
+        change();
+        this.render();
+      });
+      btn.setAttribute('role', 'radio');
+      btn.setAttribute('aria-checked', String(s.hudStyle === k));
+      hseg.appendChild(btn);
+    }
+    hud.append(el('span', 'set-label', `HUD style<small>${HUD_NAMES[s.hudStyle]} · or press H in a run</small>`), hseg);
+    col2.append(el('div', 'set-group', 'HUD'), hud);
     col2.append(
       el('div', 'set-group', 'COMFORT'),
       slider('Flash intensity', 'flash'),

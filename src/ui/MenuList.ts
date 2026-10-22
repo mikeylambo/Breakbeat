@@ -123,8 +123,10 @@ export class MenuList {
     if (this.opts.active && !this.opts.active()) return;
     if (!this.focused || coveredBySheet(this.root)) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    // One key press drives one menu: a screen that opens on it must not receive it too
     if (this.opts.onKey?.(e, this)) {
       e.preventDefault();
+      e.stopImmediatePropagation();
       return;
     }
     const n = this.rows.length;
@@ -147,6 +149,6 @@ export class MenuList {
         return;
     }
     e.preventDefault();
-    e.stopPropagation();
+    e.stopImmediatePropagation();
   };
 }

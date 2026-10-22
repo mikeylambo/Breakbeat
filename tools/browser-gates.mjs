@@ -32,7 +32,7 @@ const cellXY = (c, r) => [167 + 15 + c * 32, 34 + 15 + r * 32];
 const FRESH = { v: 1, overtureDone: false, cleared: [], best: {}, daily: { date: '', best: 0 }, runs: 0 };
 const VETERAN = { v: 1, overtureDone: true, cleared: ['ignition', 'glasswork'], best: { ignition: 54200, glasswork: 23100, endless: 41800, zen: 12600 }, daily: { date: '', best: 0 }, runs: 14 };
 
-async function newPage(save, viewport = { width: 844, height: 390 }, dpr = 2) {
+async function newPage(save, viewport = { width: 844, height: 390 }, dpr = 2, enter = true) {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: dpr, acceptDownloads: true, hasTouch: false });
   await ctx.addInitScript(s => {
     try {
@@ -57,7 +57,16 @@ async function newPage(save, viewport = { width: 844, height: 390 }, dpr = 2) {
   await page.goto(`${ORIGIN}/`);
   await page.waitForFunction(() => document.getElementById('game')?.dataset.ready === '1');
   await page.waitForTimeout(300);
+  if (enter) await pressStart(page);
   return { ctx, page, requests, errors };
+}
+
+/** Title card -> main menu (any key). */
+async function pressStart(page) {
+  await page.waitForTimeout(300);
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('.title-screen:not(.hidden)');
+  await page.waitForTimeout(500);
 }
 
 const shot = (page, name) => page.screenshot({ path: `${OUT}/${name}.png` });
@@ -119,7 +128,9 @@ const gate = async (name, fn) => {
 
 // ---------------------------------------------------------------- NETWORK + SCREENS (Overture + Movement 01)
 await gate('NETWORK', async () => {
-  const { ctx, page, requests, errors } = await newPage(FRESH);
+  const { ctx, page, requests, errors } = await newPage(FRESH, undefined, 2, false);
+  await shot(page, 'title-card');
+  await pressStart(page);
   await shot(page, 'title-first-launch');
   step = 'start overture';
   await page.click('.btn-continue');
@@ -172,15 +183,26 @@ await gate('SCREENS', async () => {
   const { ctx, page, errors } = await newPage(VETERAN);
   await shot(page, 'title');
 
-  step = 'title keyboard';
-  await page.keyboard.press('ArrowRight');
+  step = 'odyssey setlist';
   await page.keyboard.press('ArrowDown');
-  await page.waitForTimeout(450);
-  await shot(page, 'title-setlist');
-  await page.keyboard.press('ArrowLeft');
-  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('.setlist-screen:not(.hidden)');
+  await page.waitForTimeout(500);
+  await shot(page, 'setlist');
+  await page.keyboard.press('Escape');
+  step = 'tutorial';
+  for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('.tutorial:not(.hidden)');
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(500);
+  await shot(page, 'tutorial');
+  await page.keyboard.press('Escape');
+  for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowUp');
   step = 'settings';
-  await page.click('.title-settings');
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('.settings-scrim:not(.hidden)');
   await page.waitForTimeout(250);
   await shot(page, 'settings');
   await page.click('.settings-scrim .settings-close');
@@ -218,6 +240,14 @@ await gate('SCREENS', async () => {
   });
   await page.waitForTimeout(260);
   await shot(page, 'run-hero');
+  step = 'hud styles';
+  await page.evaluate(() => window.__bb.engine.setPressureEnabled(false));
+  for (const h of ['b', 'c']) {
+    await page.keyboard.press('h');
+    await page.waitForTimeout(250);
+    await shot(page, `run-hud-${h}`);
+  }
+  await page.keyboard.press('h');
 
   step = 'danger';
   await page.evaluate(() => {
@@ -236,6 +266,7 @@ await gate('SCREENS', async () => {
   await shot(page, 'pause');
   await page.click('.pause-sheet .btn-primary');
   await page.waitForTimeout(300);
+  await page.evaluate(() => window.__bb.engine.setPressureEnabled(true));
 
   step = 'all-clear';
   await waitSixteenth(page, 0, 3);
@@ -329,6 +360,7 @@ await gate('OFFLINE', async () => {
   await page.reload();
   await page.waitForFunction(() => document.getElementById('game')?.dataset.ready === '1', null, { timeout: 20000 });
   step = 'offline play';
+  await pressStart(page);
   await page.click('.btn-continue');
   await page.waitForFunction(() => window.__bb.engine?.currentBar >= 2, null, { timeout: 20000 });
   await ctx.setOffline(false);

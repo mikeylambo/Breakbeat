@@ -14,6 +14,8 @@ await page.waitForFunction(() => document.getElementById('game')?.dataset.ready 
 await page.evaluate(() => (window.__tag = 'title'));
 await page.waitForTimeout(3000);
 await page.evaluate(() => (window.__tag = 'start'));
+await page.keyboard.press('Enter');
+await page.waitForSelector('.title-screen:not(.hidden)');
 await page.click('.btn-continue');
 await page.waitForFunction(() => window.__bb.engine?.currentBar >= 2);
 await page.evaluate(() => (window.__tag = 'play'));

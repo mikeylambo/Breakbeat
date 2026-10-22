@@ -1,7 +1,10 @@
-/** BREAKBEAT v0.6 entry: screens and flow. */
+/** BREAKBEAT entry: screens and flow (title card -> main menu -> setlist / tutorial -> run -> results). */
 
 import { App, type RunConfig } from './ui/App.js';
 import { TitleScreen } from './ui/TitleScreen.js';
+import { SplashScreen } from './ui/SplashScreen.js';
+import { SetlistScreen } from './ui/SetlistScreen.js';
+import { TutorialScreen } from './ui/TutorialScreen.js';
 import { ResultsScreen } from './ui/ResultsScreen.js';
 import { ProfileSheet } from './ui/ProfileSheet.js';
 import { EtudeScreen } from './ui/EtudeScreen.js';
@@ -10,9 +13,9 @@ import { nextMovementIndex } from './meta/Save.js';
 import { ZEN_INDEX } from './audio/tracks.js';
 import { readFlag, writeFlag } from './platform/Storage.js';
 import { WallView } from './render/WallView.js';
-import { announce, bladeWipe, el } from './ui/dom.js';
+import { announce, bladeWipe, el, uiSound } from './ui/dom.js';
 import type { PulseEvent } from './pulse/types.js';
-import { TUNING } from './tuning.js';
+import { TUNING, type GameMode } from './tuning.js';
 import { applyUiTransform, computeLayout } from './render/layout.js';
 
 const TAUGHT_AIR = 'breakbeat-taught-air';
@@ -31,8 +34,7 @@ async function main(): Promise<void> {
   const etudes = new EtudeScreen(
     app,
     () => {
-      results.hide();
-      title.show(false);
+      hideMenus();
       coach.classList.add('hidden');
       app.backdrop.show(false);
       app.setWallVisible(true);
@@ -41,30 +43,71 @@ async function main(): Promise<void> {
   );
   const profile = new ProfileSheet({ save: app.save, persist: () => app.persistSave() });
   app.ui.appendChild(profile.root);
+  const preview = (mode: GameMode, movement: number): void => void ready.then(() => app.attract(mode, movement));
+
+  // Title card -> main menu. The press unlocks audio, so the music lands with the menu.
+  const splash = new SplashScreen(() => {
+    void app.audio.unlock();
+    uiSound('stamp');
+    void ready.then(async () => {
+      await app.audio.unlock();
+      await bladeWipe();
+      splash.show(false);
+      showTitle(false);
+    });
+  });
   const title = new TitleScreen({
     continue: w(() => (app.save.overtureDone ? play({ mode: 'odyssey', movement: nextMovementIndex(app.save) }) : startOverture())),
-    movement: i => w(() => play({ mode: 'odyssey', movement: i }))(),
+    odyssey: () => {
+      title.show(false);
+      setlist.open(app.save);
+    },
     endless: w(() => play({ mode: 'endless', movement: 0 })),
     daily: w(() => play({ mode: 'daily', movement: 0 })),
     zen: w(() => play({ mode: 'zen', movement: ZEN_INDEX })),
     etudes: w(() => etudes.showList(true)),
+    tutorial: () => {
+      title.show(false);
+      tutorial.open();
+    },
     settings: () => app.openSettings(),
     calibrate: w(() => app.calibration.show(true)),
     profile: () => profile.show(true),
-    preview: (mode, movement) => void ready.then(() => app.attract(mode, movement)),
-    calibrated: () => app.settings.calibrated,
-    sounding: () => !!app.attracting && app.audio.running
+    back: () => {
+      title.show(false);
+      splash.show(true);
+    },
+    preview,
+    calibrated: () => app.settings.calibrated
   });
-  app.ui.appendChild(title.root);
+  const setlist = new SetlistScreen({
+    play: i => w(() => play({ mode: 'odyssey', movement: i }))(),
+    preview: i => preview('odyssey', i),
+    back: () => {
+      setlist.hide();
+      title.show(true);
+    }
+  });
+  const tutorial = new TutorialScreen({
+    back: () => {
+      tutorial.hide();
+      title.show(true);
+    },
+    overture: () => {
+      tutorial.hide();
+      void startOverture();
+    }
+  });
+  app.ui.append(splash.root, title.root, setlist.root, tutorial.root);
   const place = (): void => applyUiTransform(app.ui, computeLayout());
   place();
   window.addEventListener('resize', place);
   title.render(app.save);
-  // The boot title is already on screen: swap in place, no entrance animation
-  title.root.classList.add('no-anim');
-  title.show(true);
+  // The boot title card is already on screen: swap in place, no entrance animation
+  splash.root.classList.add('no-anim');
+  splash.show(true);
   document.getElementById('boot')?.remove();
-  setTimeout(() => title.root.classList.remove('no-anim'), 1000);
+  setTimeout(() => splash.root.classList.remove('no-anim'), 1000);
   app.calibration.onDone = () => {
     if (title.root.classList.contains('hidden')) return;
     title.render(app.save);
@@ -92,7 +135,6 @@ async function main(): Promise<void> {
   });
   let lastCfg: RunConfig | null = null;
   let nowPlaying: unknown = null;
-  let leaving = false;
   let coachUntil = 0;
   const coach = el('div', 'coachmark hidden', '', { role: 'status' });
   const showCoach = (html: string, seconds: number): void => {
@@ -109,28 +151,34 @@ async function main(): Promise<void> {
     }
   }
 
-  function showTitle(): void {
-    etudes.clear();
+  function hideMenus(): void {
     results.hide();
-    app.abandonRun();
+    title.show(false);
+    setlist.hide();
+    tutorial.hide();
+    splash.show(false);
+  }
+
+  /** Back to the main menu (after a run, or from the title card). */
+  function showTitle(fromRun = true): void {
+    etudes.clear();
+    if (fromRun) app.abandonRun();
+    hideMenus();
     app.setWallVisible(false);
     app.backdrop.show(true);
     title.render(app.save);
     title.show(true);
-    announce('Breakbeat. Title.');
+    announce('Breakbeat. Main menu.');
   }
 
   async function play(cfg: RunConfig): Promise<void> {
     if (cfg.mode !== 'overture') lastCfg = cfg;
     // Leaving a menu: the music cuts, a blade wipes the screen, the wall deals in behind it
-    if (title.visible || results.visible) {
-      leaving = true;
+    if (title.visible || results.visible || setlist.visible || tutorial.visible) {
       app.stopAttract();
       await bladeWipe();
-      leaving = false;
     }
-    results.hide();
-    title.show(false);
+    hideMenus();
     coach.classList.add('hidden');
     app.backdrop.show(false);
     app.setWallVisible(true);
@@ -204,7 +252,6 @@ async function main(): Promise<void> {
         nowPlaying = t;
         if (t) title.setNowPlaying(t.id === 'overture' ? 'NOW PLAYING · OVERTURE' : `NOW PLAYING · ${t.number} ${t.name.toUpperCase()} · ${t.style.toUpperCase()}`);
       }
-      title.onBeat(app.beat.bar, leaving || (!!t && app.audio.running));
     }
     if (coachUntil && performance.now() / 1000 > coachUntil) {
       coachUntil = 0;
@@ -233,7 +280,9 @@ async function main(): Promise<void> {
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
     setTimeout(() => void navigator.serviceWorker.register('/sw.js').catch(() => undefined), 1500);
   }
-  showTitle();
+  app.setWallVisible(false);
+  app.backdrop.show(true);
+  title.previewCurrent();
   document.getElementById('game')!.dataset.ready = '1';
   (window as unknown as { __bb: unknown }).__bb = app;
   (app as unknown as { __overture: unknown }).__overture = overture;
