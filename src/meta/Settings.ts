@@ -12,7 +12,8 @@ export interface Settings {
   reducedMotion: boolean;
   haptics: boolean;
   hapticMetronome: boolean;
-  colourAssist: boolean;
+  /** Per-colour symbols on the blocks: an accessibility aid, off by default */
+  symbols: SymbolMode;
   /** Tempo scale (1 = written BPM). Scores are normalised by it. */
   bpmScale: number;
   /** Audio offset nudge in ms (+ = visuals later) */
@@ -21,6 +22,8 @@ export interface Settings {
   /** Tap-to-sync done (or dismissed) */
   calibrated: boolean;
 }
+
+export type SymbolMode = 'off' | 'on' | 'bold';
 
 const KEY = 'breakbeat-settings-v1';
 
@@ -33,7 +36,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reducedMotion: false,
   haptics: true,
   hapticMetronome: false,
-  colourAssist: false,
+  symbols: 'off',
   bpmScale: 1,
   offsetMs: 0,
   hudHidden: false,
@@ -41,7 +44,12 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 export function loadSettings(): Settings {
-  const s = { ...DEFAULT_SETTINGS, ...readJson<Partial<Settings>>(KEY, {}) };
+  const raw = readJson<Partial<Settings> & { colourAssist?: boolean }>(KEY, {});
+  const s = { ...DEFAULT_SETTINGS, ...raw };
+  // v0.10: "Colour assist" (stronger glyphs) became Block symbols: Bold
+  if (raw.symbols === undefined && raw.colourAssist) s.symbols = 'bold';
+  if (!['off', 'on', 'bold'].includes(s.symbols)) s.symbols = 'off';
+  delete (s as { colourAssist?: boolean }).colourAssist;
   try {
     if (!localStorageHas(KEY) && matchMedia('(prefers-reduced-motion: reduce)').matches) s.reducedMotion = true;
   } catch {

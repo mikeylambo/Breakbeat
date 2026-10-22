@@ -198,7 +198,7 @@ export class App {
     const yieldFrame = (): Promise<void> => new Promise(r => requestAnimationFrame(() => r()));
     await this.stage.init(document.getElementById('game')!);
     await yieldFrame();
-    this.atlas = new TileAtlas(this.stage.resolution, this.settings.colourAssist);
+    this.atlas = new TileAtlas(this.stage.resolution, this.settings.symbols);
     await yieldFrame();
     this.wall = new WallView(this.stage, this.atlas);
     this.blade = new BladeView(this.stage, this.atlas);
@@ -282,7 +282,8 @@ export class App {
   applySettings(): void {
     const s = this.settings;
     this.audio.setVolumes(s.volume, s.music, s.sfx);
-    this.atlas.setAssist(s.colourAssist);
+    this.atlas.setSymbols(s.symbols);
+    document.documentElement.dataset.symbols = s.symbols;
     this.wall.setAtlas(this.atlas);
     this.fx.setAtlas(this.atlas);
     this.backdrop?.setAtlas(this.atlas);

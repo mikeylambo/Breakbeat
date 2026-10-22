@@ -171,8 +171,8 @@ const TOPICS: Topic[] = [
     name: 'Block Symbols',
     slides: [
       {
-        title: 'Colour, twice',
-        body: 'Each colour has its own <b>symbol</b> and brightness, so you never need to tell two colours apart. The symbols don’t change the rules. <b>Colour assist</b> in Settings makes them bolder.',
+        title: 'A shape for every colour',
+        body: 'Turn on <b>Block symbols</b> in Settings and each colour gets its own shape, so you never need to tell two colours apart. <b>Bold</b> makes them stronger. They never change the rules.',
         art: symbolsArt()
       }
     ]
@@ -430,7 +430,7 @@ function symbolsArt(): string {
     b += `<g transform="translate(${x} 22) scale(2.2)">${tile(k, 0, 0)}</g>`;
     b += label(x + 22, 92, names[k]!, 'middle', '#f4f1ea') + label(x + 22, 108, marks[k]!, 'middle');
   }
-  return svg(370, 118, b);
+  return svg(370, 118, b).replace('class="tut-svg"', 'class="tut-svg tut-keep-sym"');
 }
 
 function modesArt(): string {

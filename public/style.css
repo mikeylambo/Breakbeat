@@ -593,3 +593,4 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .tut-try.done { background: linear-gradient(90deg, rgba(124, 242, 196, 0.9), rgba(44, 201, 148, 0.9)); }
 @media (hover: none) { .tut-try kbd { display: none; } }
 .eb-sub { margin-top: 8px; font: 500 10.5px/1.4 var(--body); color: var(--secondary); }
+:root[data-symbols='off'] .tutorial .tut-svg:not(.tut-keep-sym) .tg { display: none; }

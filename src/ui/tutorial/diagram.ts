@@ -51,7 +51,8 @@ export function tile(kind: number, x: number, y: number, state: 'idle' | 'primed
   const g = glyph(kind, x + S / 2, y + S / 2, state === 'idle' ? 'rgba(0,0,0,0.38)' : hex(c.deep));
   const outline = state === 'primed' ? `<rect x="${x - 1}" y="${y - 1}" width="${S + 2}" height="${S + 2}" rx="4" fill="none" stroke="#fff" stroke-width="1.4"/>` : '';
   const heldRing = state === 'held' ? `<rect x="${x - 2}" y="${y - 2}" width="${S + 4}" height="${S + 4}" rx="5" fill="none" stroke="#ffc461" stroke-width="1.6" stroke-dasharray="3 2"/>` : '';
-  return `<rect x="${x}" y="${y}" width="${S}" height="${S}" rx="3.5" fill="${fill}" opacity="${state === 'idle' ? 0.86 : 1}"/>${g}${outline}${heldRing}`;
+  // Glyphs follow the Block symbols setting (CSS hides .tg when it is off)
+  return `<rect x="${x}" y="${y}" width="${S}" height="${S}" rx="3.5" fill="${fill}" opacity="${state === 'idle' ? 0.86 : 1}"/><g class="tg">${g}</g>${outline}${heldRing}`;
 }
 
 export function board(rows: string[], o: BoardOpts = {}): string {

@@ -1,6 +1,6 @@
 /**
  * SettingsSheet — volume, flash intensity, strobe-free, reduced motion, haptics, haptic metronome,
- * colour-assist, BPM scaling (score-normalised), replay Overture, audio offset nudge, hide HUD.
+ * block symbols, BPM scaling (score-normalised), replay Overture, audio offset nudge, hide HUD.
  */
 
 import type { Settings } from '../meta/Settings.js';
@@ -63,7 +63,7 @@ export class SettingsSheet {
       row.append(el('span', 'set-label', label), input, val);
       return row;
     };
-    const toggle = (label: string, key: 'strobeFree' | 'reducedMotion' | 'haptics' | 'hapticMetronome' | 'colourAssist' | 'hudHidden', note = '', disabled = false): HTMLElement => {
+    const toggle = (label: string, key: 'strobeFree' | 'reducedMotion' | 'haptics' | 'hapticMetronome' | 'hudHidden', note = '', disabled = false): HTMLElement => {
       const row = el('label', `set-row set-toggle${disabled ? ' disabled' : ''}`);
       const input = el('input', '', '', { type: 'checkbox', role: 'switch', 'aria-label': label });
       input.checked = s[key];
@@ -130,13 +130,31 @@ export class SettingsSheet {
       })
     );
 
+    // Block symbols: a per-colour shape on every block, for telling colours apart
+    const symbols = el('div', 'set-row');
+    const sseg = el('div', 'segmented', '', { role: 'radiogroup', 'aria-label': 'Block symbols' });
+    for (const [v, l] of [
+      ['off', 'Off'],
+      ['on', 'On'],
+      ['bold', 'Bold']
+    ] as const) {
+      const btn = button(`seg${s.symbols === v ? ' on' : ''}`, l, `Block symbols ${l}`, () => {
+        s.symbols = v;
+        change();
+        this.render();
+      });
+      btn.setAttribute('role', 'radio');
+      btn.setAttribute('aria-checked', String(s.symbols === v));
+      sseg.appendChild(btn);
+    }
+    symbols.append(el('span', 'set-label', 'Block symbols<small>A shape per colour, for colour vision</small>'), sseg);
     const col2 = el('div', 'set-col');
     col2.append(
       el('div', 'set-group', 'COMFORT'),
       slider('Flash intensity', 'flash'),
       toggle('Strobe-free', 'strobeFree', 'Max 3 flashes a second'),
       toggle('Reduced motion', 'reducedMotion', 'No camera breath or wall slide'),
-      toggle('Colour assist', 'colourAssist', 'Stronger glyphs'),
+      symbols,
       toggle('Haptics', 'haptics', this.host.hapticsSupported ? '' : 'Not supported on this device', !this.host.hapticsSupported),
       toggle('Haptic metronome', 'hapticMetronome', 'A tick on every beat', !this.host.hapticsSupported),
       toggle('Hide HUD', 'hudHidden', 'Or press V')
