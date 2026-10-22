@@ -194,9 +194,22 @@ await gate('SCREENS', async () => {
   for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
   await page.waitForSelector('.tutorial:not(.hidden)');
-  await page.keyboard.press('ArrowRight');
+  for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowDown');
   await page.waitForTimeout(500);
   await shot(page, 'tutorial');
+  step = 'drill';
+  await page.keyboard.press('t');
+  await page.waitForFunction(() => window.__bb.engine?.currentBar >= 1, null, { timeout: 20000 });
+  await page.mouse.move(...cellXY(7, 9));
+  await page.mouse.down();
+  await page.waitForTimeout(450);
+  await page.mouse.up();
+  await page.waitForSelector('.etude-banner:not(.hidden)', { timeout: 20000 });
+  await page.waitForTimeout(300);
+  await shot(page, 'drill-solved');
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('.tutorial:not(.hidden)');
+  assert.ok(await page.evaluate(() => document.querySelector('.tut-menu .menu-item.on .tut-tag')?.textContent === '✓'), 'drill not marked done');
   await page.keyboard.press('Escape');
   for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowUp');
   step = 'settings';
@@ -240,14 +253,7 @@ await gate('SCREENS', async () => {
   });
   await page.waitForTimeout(260);
   await shot(page, 'run-hero');
-  step = 'hud styles';
   await page.evaluate(() => window.__bb.engine.setPressureEnabled(false));
-  for (const h of ['b', 'c']) {
-    await page.keyboard.press('h');
-    await page.waitForTimeout(250);
-    await shot(page, `run-hud-${h}`);
-  }
-  await page.keyboard.press('h');
 
   step = 'danger';
   await page.evaluate(() => {

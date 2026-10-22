@@ -26,7 +26,7 @@ Browser gates (FRAME_HITCH, SCREENS, NETWORK) use Playwright + Chromium; install
 | `src/content/gems/` | Gem rules (primeable groups, collapse, Overcharge blast, scoring) |
 | `src/render/` | PixiJS 8 renderer: Stage, TileAtlas, WallView, BladeView, FxView, ReplayView |
 | `src/audio/` | AudioEngine, StemPlayer, SfxPlayer, Scheduler (setInterval lookahead), MusicDirector, placeholder synth |
-| `src/ui/` | DOM screens over the canvas: title card (Splash), main menu (Title), Odyssey setlist, Tutorial & Tips, Run HUD (styles A/B/C), Pause, Results, Settings, Rotate, Overture, input. `MenuList` is the shared keyboard + mouse menu |
+| `src/ui/` | DOM screens over the canvas: title card (Splash), main menu (Title), Odyssey setlist, Tutorial & Tips (with Try it drills, `content/drills.json`), Run HUD (Lumines-style panel + Charge gauge), Pause, Results, Settings, Rotate, Overture, input. `MenuList` is the shared keyboard + mouse menu |
 | `src/meta/` | Save, Settings, Coach (practise next) |
 | `src/platform/` | Storage, haptics, lifecycle, share — same interfaces as Web-Game-Shell (see its README) |
 | `content/` | `tracks.json` (movements, stems, quotas), `overture.json` (lesson boards) |

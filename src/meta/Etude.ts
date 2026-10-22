@@ -1,5 +1,6 @@
 /**
  * Etudes — hand-authored puzzles: a fixed board, a goal, and a pass limit. No pressure rows.
+ * Tutorial "Try it" drills (content/drills.json) are the same shape with a `topic`.
  * DOM-free so the ETUDES gate can replay every authored solution against the real engine.
  */
 
@@ -7,7 +8,7 @@ import type { PulseEngine } from '../pulse/PulseEngine.js';
 import type { PulseEvent } from '../pulse/types.js';
 
 export interface EtudeGoal {
-  type: 'allclear' | 'groups' | 'air' | 'score';
+  type: 'allclear' | 'groups' | 'air' | 'score' | 'chain' | 'overcharge';
   value?: number;
 }
 
@@ -29,6 +30,8 @@ export interface EtudeDef {
   charge?: number;
   board: number[][];
   solution: EtudeAction[];
+  /** Tutorial drills: the Tutorial & Tips topic this drill belongs to */
+  topic?: string;
 }
 
 export function goalText(g: EtudeGoal): string {
@@ -39,6 +42,10 @@ export function goalText(g: EtudeGoal): string {
       return `${g.value} groups in one pass`;
     case 'air':
       return `Air-prime ${g.value}`;
+    case 'chain':
+      return `Chain ${g.value} passes`;
+    case 'overcharge':
+      return `Overcharge ${g.value ?? 1}`;
     default:
       return `Score ${g.value}`;
   }
@@ -70,6 +77,8 @@ export class EtudeRun {
     if (g.type === 'allclear') won = t.allClears >= 1;
     else if (g.type === 'groups') for (const v of this.perBar.values()) won ||= v >= (g.value ?? 0);
     else if (g.type === 'air') won = t.airPrimesLanded >= (g.value ?? 1);
+    else if (g.type === 'chain') won = t.longestCombo >= (g.value ?? 2);
+    else if (g.type === 'overcharge') won = t.overchargesLanded >= (g.value ?? 1);
     else won = t.score >= (g.value ?? 0);
     if (won) this.state = 'won';
     // Out of passes once the bar after the last allowed pass begins and nothing is still falling

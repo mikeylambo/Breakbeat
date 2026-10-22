@@ -572,8 +572,10 @@ const put = (eng, col, row, kind) => { eng.board[row][col] = { id: gid++, col, r
 {
   const { EtudeRun } = await import('../build/src/meta/Etude.js');
   const { etudes } = JSON.parse(fs.readFileSync('content/etudes.json', 'utf8'));
+  const { drills } = JSON.parse(fs.readFileSync('content/drills.json', 'utf8'));
   assert.ok(etudes.length >= 8, 'ETUDES: expected at least 8 etudes');
-  for (const et of etudes) {
+  assert.ok(drills.length >= 6, 'ETUDES: expected at least 6 tutorial drills');
+  for (const et of [...etudes, ...drills]) {
     const e = new PulseEngine({ seed: 'etude', mode: 'etude', bpm: 120, pressureEnabled: false, fixedDeal: et.board }, new GemRules('brick'));
     e.charge = et.charge ?? 0;
     const run = new EtudeRun(et);
@@ -602,7 +604,7 @@ const put = (eng, col, row, kind) => { eng.board[row][col] = { id: gid++, col, r
     }
     assert.equal(ir.state, 'lost', `ETUDES: "${et.name}" is won without input`);
   }
-  console.log(`PASS [ETUDES]: ${etudes.length} puzzles solved by their stored solutions; none win without input.`);
+  console.log(`PASS [ETUDES]: ${etudes.length} puzzles + ${drills.length} tutorial drills solved by their stored solutions; none win without input.`);
 }
 
 console.log('=== ALL 20 BREAKBEAT GATES GREEN ===');

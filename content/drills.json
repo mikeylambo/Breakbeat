@@ -1,0 +1,381 @@
+{
+ "drills": [
+  {
+   "id": "drill-prime",
+   "topic": "basics",
+   "name": "Prime",
+   "hint": "Tap the jade pair. The blade sets it off.",
+   "goal": {
+    "type": "groups",
+    "value": 1
+   },
+   "passes": 2,
+   "board": [
+    [
+     -1,
+     -1,
+     -1,
+     -1,
+     3,
+     3,
+     -1,
+     -1,
+     1,
+     0,
+     -1,
+     -1,
+     2,
+     1,
+     -1,
+     -1
+    ]
+   ],
+   "solution": [
+    {
+     "col": 4,
+     "row": 9,
+     "pass": 1
+    }
+   ]
+  },
+  {
+   "id": "drill-stack",
+   "topic": "collapse",
+   "name": "Stack",
+   "hint": "Clear the middle pair, then catch what falls into place.",
+   "goal": {
+    "type": "allclear"
+   },
+   "passes": 2,
+   "board": [
+    [
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     3,
+     1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1
+    ],
+    [
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     2,
+     2,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1
+    ],
+    [
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     3,
+     1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1
+    ]
+   ],
+   "solution": [
+    {
+     "col": 6,
+     "row": 8,
+     "pass": 1
+    },
+    {
+     "col": 6,
+     "row": 9,
+     "pass": 2
+    },
+    {
+     "col": 7,
+     "row": 9,
+     "pass": 2
+    }
+   ]
+  },
+  {
+   "id": "drill-resonance",
+   "topic": "resonance",
+   "name": "One Sweep",
+   "hint": "Prime all four before the blade gets there.",
+   "goal": {
+    "type": "groups",
+    "value": 4
+   },
+   "passes": 1,
+   "board": [
+    [
+     -1,
+     -1,
+     -1,
+     0,
+     0,
+     1,
+     1,
+     2,
+     2,
+     3,
+     3,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1
+    ]
+   ],
+   "solution": [
+    {
+     "col": 3,
+     "row": 9,
+     "pass": 1
+    },
+    {
+     "col": 5,
+     "row": 9,
+     "pass": 1
+    },
+    {
+     "col": 7,
+     "row": 9,
+     "pass": 1
+    },
+    {
+     "col": 9,
+     "row": 9,
+     "pass": 1
+    }
+   ]
+  },
+  {
+   "id": "drill-chain",
+   "topic": "chain",
+   "name": "Keep It Going",
+   "hint": "Set off one pair per pass. All three at once breaks the chain.",
+   "goal": {
+    "type": "chain",
+    "value": 3
+   },
+   "passes": 4,
+   "board": [
+    [
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     2,
+     2,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1
+    ],
+    [
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     1,
+     1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1
+    ],
+    [
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     0,
+     0,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1
+    ]
+   ],
+   "solution": [
+    {
+     "pass": 1,
+     "col": 7,
+     "row": 9
+    },
+    {
+     "pass": 2,
+     "col": 7,
+     "row": 9
+    },
+    {
+     "pass": 3,
+     "col": 7,
+     "row": 9
+    }
+   ]
+  },
+  {
+   "id": "drill-overcharge",
+   "topic": "overcharge",
+   "name": "Overcharge",
+   "hint": "Prime the amber pair, then long-press it. Watch the blast.",
+   "goal": {
+    "type": "overcharge",
+    "value": 1
+   },
+   "passes": 3,
+   "charge": 1,
+   "board": [
+    [
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     1,
+     2,
+     3,
+     1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1
+    ],
+    [
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     2,
+     0,
+     0,
+     3,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1
+    ]
+   ],
+   "solution": [
+    {
+     "col": 7,
+     "row": 9,
+     "hold": true,
+     "pass": 1
+    }
+   ]
+  },
+  {
+   "id": "drill-air",
+   "topic": "air",
+   "name": "Catch",
+   "hint": "Set off the azure pair, then tap the magenta pair while it falls.",
+   "goal": {
+    "type": "air",
+    "value": 1
+   },
+   "passes": 1,
+   "board": [
+    [
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     1,
+     1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1
+    ],
+    [
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     2,
+     2,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1,
+     -1
+    ]
+   ],
+   "solution": [
+    {
+     "col": 7,
+     "row": 9,
+     "pass": 1
+    },
+    {
+     "step": 7,
+     "col": 7,
+     "row": 9
+    }
+   ]
+  }
+ ]
+}

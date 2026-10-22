@@ -1,17 +1,22 @@
 /**
  * TutorialScreen — Tutorial & Tips. Left: the topic directory. Right: the topic's slides, each an
- * animated diagram drawn in the game's own tiles plus two or three lines of copy. ↑ ↓ topic,
- * ← → slide, Esc back. The last entry replays the interactive Overture.
+ * animated diagram drawn in the game's own tiles plus two or three lines of copy. Topics with a
+ * drill get "Try it" (Enter or T): a small fixed board on the real wall with one goal, then back
+ * here. ↑ ↓ topic, ← → slide, Esc back. The last entry replays the interactive Overture.
  */
 
+import { goalText, type EtudeDef } from '../meta/Etude.js';
 import { computeResonanceMultiplier, TUNING } from '../tuning.js';
-import { el, uiSound } from './dom.js';
+import { DRILLS, drillDone } from './EtudeScreen.js';
+import { el, ICONS, uiSound } from './dom.js';
 import { MenuList, type MenuItem } from './MenuList.js';
 import { arrow, board, DEFS, label, PITCH as P, SIZE as S, tile } from './tutorial/diagram.js';
 
 export interface TutorialActions {
   back(): void;
   overture(): void;
+  /** "Try it": play this topic's drill on the real wall */
+  drill(def: EtudeDef): void;
 }
 
 interface Slide {
@@ -220,6 +225,14 @@ export class TutorialScreen {
           this.a.back();
           return true;
         }
+        if ((e.key === 't' || e.key === 'T') && !e.repeat) {
+          const d = this.drillFor(this.topic);
+          if (d) {
+            uiSound('pick');
+            this.a.drill(d);
+          }
+          return !!d;
+        }
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
           this.page(e.key === 'ArrowRight' ? 1 : -1);
           return true;
@@ -227,13 +240,6 @@ export class TutorialScreen {
         return false;
       }
     });
-    const items: MenuItem[] = TOPICS.map((t, i) => ({
-      id: t.id,
-      label: t.name,
-      cls: t.id === 'overture' ? 'tut-play' : '',
-      action: () => (t.id === 'overture' ? this.a.overture() : this.page(1)),
-      html: `<span class="slab-i">${String(i + 1).padStart(2, '0')}</span><span class="mi-name">${t.name}</span>`
-    }));
     const left = el('section', 'tut-left');
     left.append(el('h2', 'sl-title', 'Tutorial & Tips'), this.menu.root);
     const prev = el('button', 'tut-nav prev', '‹', { type: 'button', 'aria-label': 'Previous slide' });
@@ -243,8 +249,28 @@ export class TutorialScreen {
     const right = el('section', 'tut-right');
     right.append(this.stage, prev, next, this.dots);
     this.root.innerHTML = DEFS;
-    this.root.append(el('div', 'sl-panel', '', { 'aria-hidden': 'true' }), left, right, el('div', 'sl-foot', '<b>↑ ↓</b>TOPIC<b>← →</b>SLIDE<b>ESC</b>BACK'));
-    this.menu.setItems(items, 0);
+    this.root.append(el('div', 'sl-panel', '', { 'aria-hidden': 'true' }), left, right, el('div', 'sl-foot', '<b>↑ ↓</b>TOPIC<b>← →</b>SLIDE<b>T</b>TRY IT<b>ESC</b>BACK'));
+    this.renderItems(0);
+  }
+
+  private drillFor(i: number): EtudeDef | null {
+    return DRILLS.find(d => d.topic === TOPICS[i]?.id) ?? null;
+  }
+
+  /** Directory rows; topics with a drill carry a TRY IT tag (ticked once passed). */
+  private renderItems(index: number): void {
+    const items: MenuItem[] = TOPICS.map((t, i) => {
+      const d = this.drillFor(i);
+      const tag = d ? `<span class="tut-tag${drillDone(d) ? ' done' : ''}">${drillDone(d) ? '✓' : 'TRY IT'}</span>` : '';
+      return {
+        id: t.id,
+        label: `${t.name}${d ? (drillDone(d) ? '. Drill passed.' : '. Has a drill.') : ''}`,
+        cls: t.id === 'overture' ? 'tut-play' : '',
+        action: () => (t.id === 'overture' ? this.a.overture() : d ? this.a.drill(d) : this.page(1)),
+        html: `<span class="slab-i">${String(i + 1).padStart(2, '0')}</span><span class="mi-name">${t.name}</span>${tag}`
+      };
+    });
+    this.menu.setItems(items, index);
   }
 
   get visible(): boolean {
@@ -253,6 +279,7 @@ export class TutorialScreen {
 
   open(): void {
     this.root.classList.remove('hidden');
+    this.renderItems(this.topic);
     this.menu.relayout();
     this.render();
   }
@@ -287,6 +314,17 @@ export class TutorialScreen {
     }
     const s = t.slides[this.slide]!;
     this.stage.innerHTML = `<div class="tut-art">${s.art}</div><div class="tut-copy"><div class="tut-kicker">${t.name.toUpperCase()} · ${this.slide + 1}/${t.slides.length}</div><h3>${s.title}</h3><p>${s.body}</p></div>`;
+    const d = this.drillFor(this.topic);
+    if (d) {
+      const done = drillDone(d);
+      const b = el('button', `tut-try${done ? ' done' : ''}`, `<span class="tt-play">${ICONS.play}</span><span class="tt-text"><b>Try it${done ? ' ✓' : ''}</b><small>${d.name.toUpperCase()} · ${goalText(d.goal).toUpperCase()}</small></span><kbd>T</kbd>`, { type: 'button', 'aria-label': `Try it: ${d.name}. ${goalText(d.goal)}.` });
+      b.addEventListener('click', e => {
+        e.stopPropagation();
+        uiSound('pick');
+        this.a.drill(d);
+      });
+      this.stage.querySelector('.tut-copy')!.appendChild(b);
+    }
     this.stage.classList.remove('in');
     void this.stage.offsetWidth;
     this.stage.classList.add('in');

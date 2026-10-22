@@ -20,8 +20,6 @@ export interface Settings {
   hudHidden: boolean;
   /** Tap-to-sync done (or dismissed) */
   calibrated: boolean;
-  /** Run HUD style: A clean, B panel, C edge */
-  hudStyle: 'a' | 'b' | 'c';
 }
 
 const KEY = 'breakbeat-settings-v1';
@@ -39,13 +37,11 @@ export const DEFAULT_SETTINGS: Settings = {
   bpmScale: 1,
   offsetMs: 0,
   hudHidden: false,
-  calibrated: false,
-  hudStyle: 'a'
+  calibrated: false
 };
 
 export function loadSettings(): Settings {
   const s = { ...DEFAULT_SETTINGS, ...readJson<Partial<Settings>>(KEY, {}) };
-  if (!['a', 'b', 'c'].includes(s.hudStyle)) s.hudStyle = 'a';
   try {
     if (!localStorageHas(KEY) && matchMedia('(prefers-reduced-motion: reduce)').matches) s.reducedMotion = true;
   } catch {

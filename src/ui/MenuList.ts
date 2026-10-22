@@ -141,8 +141,9 @@ export class MenuList {
         break;
       case 'Enter':
       case ' ':
-        // A focused button activates natively (and routes through the row's click)
-        if (e.repeat || (e.target instanceof HTMLButtonElement && e.target !== document.body)) return;
+        // One of our rows focused activates natively (and routes through its click); a button
+        // focused anywhere else is stale focus, and preventDefault below stops it firing
+        if (e.repeat || (e.target instanceof HTMLButtonElement && this.root.contains(e.target))) return;
         this.pick();
         break;
       default:

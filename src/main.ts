@@ -96,7 +96,20 @@ async function main(): Promise<void> {
     overture: () => {
       tutorial.hide();
       void startOverture();
-    }
+    },
+    drill: def =>
+      w(async () => {
+        app.stopAttract();
+        await bladeWipe();
+        etudes.startDrill(def, () => {
+          // Back to the slide the drill came from
+          app.abandonRun();
+          hideMenus();
+          app.setWallVisible(false);
+          app.backdrop.show(true);
+          tutorial.open();
+        });
+      })()
   });
   app.ui.append(splash.root, title.root, setlist.root, tutorial.root);
   const place = (): void => applyUiTransform(app.ui, computeLayout());

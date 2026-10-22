@@ -1,15 +1,22 @@
 /**
  * EtudeScreen — the puzzle list, the in-run goal caption (name, goal, passes left, hint) and the
- * solved / out-of-passes banner.
+ * solved / out-of-passes banner. Tutorial "Try it" drills run through here too, returning to the
+ * tutorial when done.
  */
 
 import data from '../../content/etudes.json';
+import drillData from '../../content/drills.json';
+import { readFlag, writeFlag } from '../platform/Storage.js';
 import { EtudeRun, goalText, type EtudeDef } from '../meta/Etude.js';
 import type { PulseEvent } from '../pulse/types.js';
 import type { App } from './App.js';
 import { announce, button, el, ICONS } from './dom.js';
 
 export const ETUDES: readonly EtudeDef[] = (data as unknown as { etudes: EtudeDef[] }).etudes;
+export const DRILLS: readonly EtudeDef[] = (drillData as unknown as { drills: EtudeDef[] }).drills;
+
+const drillKey = (d: EtudeDef): string => `breakbeat-${d.id}`;
+export const drillDone = (d: EtudeDef): boolean => readFlag(drillKey(d));
 
 export class EtudeScreen {
   readonly list = el('div', 'sheet-scrim hidden', '', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Etudes' });
@@ -20,6 +27,9 @@ export class EtudeScreen {
   private lastLeft = -1;
   private resolved = false;
   private engineRef: unknown = null;
+  /** Set while a tutorial drill runs: where "Back to tutorial" goes */
+  private drillBack: (() => void) | null = null;
+  private drill: EtudeDef | null = null;
 
   constructor(
     private readonly app: App,
@@ -67,7 +77,19 @@ export class EtudeScreen {
 
   start(i: number): void {
     this.index = i;
-    const def = ETUDES[i]!;
+    this.drill = null;
+    this.drillBack = null;
+    this.launch(ETUDES[i]!, i);
+  }
+
+  /** Runs a tutorial drill; `back` returns to the tutorial. */
+  startDrill(def: EtudeDef, back: () => void): void {
+    this.drill = def;
+    this.drillBack = back;
+    this.launch(def, 0);
+  }
+
+  private launch(def: EtudeDef, i: number): void {
     this.showList(false);
     this.banner.classList.add('hidden');
     this.resolved = false;
@@ -99,12 +121,16 @@ export class EtudeScreen {
     if (left !== this.lastLeft) {
       this.lastLeft = left;
       const d = run.def;
-      this.caption.innerHTML = `<div class="et-cap-main">${d.name} · <span>${goalText(d.goal)}</span></div><div class="et-cap-sub">${left} PASS${left === 1 ? '' : 'ES'} LEFT · ${d.hint}</div>`;
+      this.caption.innerHTML = `<div class="et-cap-main">${this.drill ? 'TRY IT · ' : ''}${d.name} · <span>${goalText(d.goal)}</span></div><div class="et-cap-sub">${left} PASS${left === 1 ? '' : 'ES'} LEFT · ${d.hint}</div>`;
     }
     const state = run.check(e);
     if (state === 'playing') return;
     this.resolved = true;
     const won = state === 'won';
+    if (this.drill) {
+      this.drillBanner(won);
+      return;
+    }
     if (won && !this.app.save.etudes.includes(run.def.id)) {
       this.app.save.etudes.push(run.def.id);
       this.app.persistSave();
@@ -120,9 +146,30 @@ export class EtudeScreen {
     announce(won ? `Solved ${run.def.name}.` : 'Out of passes. Retry?');
   }
 
+  private drillBanner(won: boolean): void {
+    const d = this.drill!;
+    if (won) writeFlag(drillKey(d), true);
+    const back = (): void => {
+      const fn = this.drillBack;
+      this.clear();
+      fn?.();
+    };
+    this.banner.innerHTML = `<div class="eb-title">${won ? 'NICE' : 'TRY AGAIN'}</div><div class="eb-sub">${won ? 'You\u2019ve got it.' : d.hint}</div>`;
+    const row = el('div', 'eb-actions');
+    const primary = won ? button('btn btn-primary', 'Back to tutorial', 'Back to tutorial', back) : button('btn btn-primary', 'Retry', 'Retry', () => this.startDrill(d, this.drillBack!));
+    row.append(primary, won ? button('btn', 'Again', 'Play the drill again', () => this.startDrill(d, this.drillBack!)) : button('btn btn-quiet', 'Back to tutorial', 'Back to tutorial', back));
+    this.banner.appendChild(row);
+    this.banner.classList.remove('hidden');
+    primary.focus({ preventScroll: true });
+    announce(won ? `Nice. ${d.name} done.` : `Try again. ${d.hint}`);
+  }
+
   /** Hides the etude UI without leaving the current screen. */
   clear(): void {
+    if (this.banner.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
     this.run = null;
+    this.drill = null;
+    this.drillBack = null;
     this.banner.classList.add('hidden');
     this.caption.classList.add('hidden');
   }
