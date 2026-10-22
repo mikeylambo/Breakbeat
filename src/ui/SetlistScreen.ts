@@ -11,6 +11,7 @@ import { hex } from '../render/palette.js';
 import { worldFor } from '../render/worlds.js';
 import { button, el, fmt, ICONS, uiSound } from './dom.js';
 import { MenuList, type MenuItem } from './MenuList.js';
+import { SleeveLayer } from './SleeveLayer.js';
 
 export interface SetlistActions {
   play(index: number): void;
@@ -25,6 +26,7 @@ export class SetlistScreen {
   private readonly list: MenuList;
   private readonly acts = el('div', 'act-tabs', '', { role: 'tablist', 'aria-label': 'Acts' });
   private readonly detail = el('section', 'sl-detail', '', { 'aria-live': 'polite' });
+  private readonly sleeve = new SleeveLayer();
   private act: string = ACTS[0];
   private save: SaveData | null = null;
 
@@ -58,7 +60,9 @@ export class SetlistScreen {
     const left = el('section', 'sl-left');
     left.append(head, this.list.root);
     const foot = el('div', 'sl-foot', '<b>↑ ↓</b>MOVEMENT<b>← →</b>ACT<b>ENTER</b>PLAY<b>ESC</b>BACK');
-    this.root.append(el('div', 'sl-panel', '', { 'aria-hidden': 'true' }), el('div', 'sl-ghost', '', { 'aria-hidden': 'true' }), left, this.detail, foot);
+    const panel = el('div', 'sl-panel', '', { 'aria-hidden': 'true' });
+    panel.appendChild(this.sleeve.root);
+    this.root.append(panel, el('div', 'sl-ghost', '', { 'aria-hidden': 'true' }), left, this.detail, foot);
   }
 
   get visible(): boolean {
@@ -119,6 +123,7 @@ export class SetlistScreen {
     if (!save) return;
     const m = MOVEMENTS[i]!;
     const unlocked = isUnlocked(save, i);
+    this.sleeve.set(m, !unlocked);
     const accent = hex(worldFor(m.style).accent);
     this.root.style.setProperty('--sel-accent', accent);
     (this.root.querySelector('.sl-ghost') as HTMLElement).textContent = m.number;

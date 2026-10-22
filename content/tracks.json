@@ -670,6 +670,7 @@
       "quota": 31200,
       "colors": 5,
       "riseBars": 1,
+      "sleeve": "sleeves/magma.webp",
       "stemsReady": false,
       "stems": {
         "kick": "tracks/magma/kick.ogg",

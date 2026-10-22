@@ -26,6 +26,8 @@ export interface TrackDef {
   quota: number;
   colors: number;
   riseBars: number;
+  /** Commissioned sleeve art under public/ (else a generated stand-in, see render/SleeveArt.ts) */
+  sleeve?: string;
   /** False until Michael's stems land; the placeholder synth renders the stems instead. */
   stemsReady: boolean;
   stems: Record<StemName, string>;

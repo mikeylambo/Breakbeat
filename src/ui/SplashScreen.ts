@@ -1,10 +1,11 @@
 /**
- * SplashScreen — the title card. A tilted BREAKBEAT logo over a slow sunburst and the wall strip,
- * "Press any key" in the corner. The press is the gesture browsers need before audio may play, so
+ * SplashScreen — the title card. The blade-split BREAKBEAT logo cuts in over a slow sunburst and the
+ * wall strip, "Press any key" below. The press is the gesture browsers need before audio may play, so
  * the music lands exactly as the main menu appears.
  */
 
 import { el } from './dom.js';
+import { LOGO_HTML } from './logo.js';
 
 export class SplashScreen {
   readonly root = el('div', 'splash hidden', '', { role: 'main', 'aria-label': 'Breakbeat. Press any key to start.' });
@@ -49,4 +50,4 @@ export class SplashScreen {
 }
 
 /** Shared with src/index.html's boot markup (keep in sync) so the first paint is the real title. */
-export const SPLASH_HTML = `<div class="splash-burst" aria-hidden="true"></div><div class="splash-dots" aria-hidden="true"></div><div class="splash-logo"><h1 class="splash-word"><span class="w-break">BREAK</span><span class="w-beat">BEAT</span></h1><div class="splash-stripe"><span>VOL. 01</span><span>THE ODYSSEY</span></div></div><div class="splash-press"></div><div class="splash-foot">19 MOVEMENTS · 3 ACTS + CODA</div>`;
+export const SPLASH_HTML = `<div class="splash-burst" aria-hidden="true"></div><div class="splash-dots" aria-hidden="true"></div><div class="splash-logo intro">${LOGO_HTML}<div class="logo-vol">VOL. 01</div></div><div class="splash-press"></div><div class="splash-foot">19 MOVEMENTS · 3 ACTS + CODA</div>`;

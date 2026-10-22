@@ -11,6 +11,9 @@ import { nextMovementIndex, todayUtc, type SaveData } from '../meta/Save.js';
 import type { GameMode } from '../tuning.js';
 import { el, fmt, setText, uiSound } from './dom.js';
 import { MenuList, type MenuItem } from './MenuList.js';
+import { SleeveLayer } from './SleeveLayer.js';
+import { LOGO_HTML } from './logo.js';
+import type { TrackDef } from '../audio/tracks.js';
 
 export interface TitleActions {
   continue(): void;
@@ -50,6 +53,7 @@ export class TitleScreen {
   private readonly nowPlaying = el('div', 'now-playing', '', { 'aria-hidden': 'true' });
   private readonly npText = el('span', 'np-text');
   private readonly sync = el('div', 'mm-sync');
+  private readonly sleeve = new SleeveLayer();
   private entries: Entry[] = [];
   private save: SaveData | null = null;
 
@@ -66,12 +70,14 @@ export class TitleScreen {
       }
     });
     const head = el('div', 'mm-head');
-    head.innerHTML = '<div class="mm-mark"><span>BREAK</span><b>BEAT</b></div>';
+    head.innerHTML = `<div class="mm-mark">${LOGO_HTML}</div>`;
     const eq = el('span', 'np-eq', '<i></i><i></i><i></i><i></i>');
     this.nowPlaying.append(eq, this.npText);
     const foot = el('div', 'mm-foot');
     foot.append(this.desc, el('div', 'mm-keys', '<b>↑ ↓</b>SELECT<b>ENTER</b>CONFIRM<b>ESC</b>BACK'));
-    this.root.append(el('div', 'mm-panel', '', { 'aria-hidden': 'true' }), this.ghost, head, this.stats, this.nowPlaying, this.sync, this.menu.root, foot);
+    const panel = el('div', 'mm-panel', '', { 'aria-hidden': 'true' });
+    panel.appendChild(this.sleeve.root);
+    this.root.append(panel, this.ghost, head, this.stats, this.nowPlaying, this.sync, this.menu.root, foot);
   }
 
   get visible(): boolean {
@@ -152,6 +158,11 @@ export class TitleScreen {
     else if (id === 'endless') this.actions.preview('endless', 0);
     else if (id === 'daily') this.actions.preview('daily', 0);
     else if (id === 'zen') this.actions.preview('zen', 0);
+  }
+
+  /** The sleeve of whatever is playing behind the menu. */
+  setSleeve(track: TrackDef | null): void {
+    this.sleeve.set(track);
   }
 
   /** The "now playing" credit, bottom left. */

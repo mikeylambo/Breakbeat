@@ -263,6 +263,7 @@ async function main(): Promise<void> {
       const t = app.attracting;
       if (t !== nowPlaying) {
         nowPlaying = t;
+        title.setSleeve(t && t.id !== 'overture' ? t : null);
         if (t) title.setNowPlaying(t.id === 'overture' ? 'NOW PLAYING · OVERTURE' : `NOW PLAYING · ${t.number} ${t.name.toUpperCase()} · ${t.style.toUpperCase()}`);
       }
     }
