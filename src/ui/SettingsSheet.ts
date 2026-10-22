@@ -1,9 +1,10 @@
 /**
- * SettingsSheet — four tabs so each page stays short: Sound (volumes), Timing (audio offset, tap
- * test), Display (flash, strobe-free, reduced motion, hide HUD) and Accessibility (tempo, block
- * symbols, colour assist, haptics). ← → or Q / E switch tabs; Esc closes.
+ * SettingsSheet — four tabs so each page stays short: Sound (volumes, visualizer), Timing (audio
+ * offset, tap test), Display (flash, strobe-free, reduced motion, hide HUD) and Accessibility
+ * (tempo, block symbols, colour assist, haptics). ← → or Q / E switch tabs; Esc closes.
  */
 
+import { VISUALIZER_PRESETS } from '../render/visualizerPresets.js';
 import type { Settings } from '../meta/Settings.js';
 import { button, el, ICONS, uiSound } from './dom.js';
 
@@ -84,7 +85,7 @@ export class SettingsSheet {
       row.append(el('span', 'set-label', label), input, val);
       return row;
     };
-    const toggle = (label: string, key: 'strobeFree' | 'reducedMotion' | 'haptics' | 'hapticMetronome' | 'hudHidden', note = '', disabled = false): HTMLElement => {
+    const toggle = (label: string, key: 'strobeFree' | 'reducedMotion' | 'haptics' | 'hapticMetronome' | 'hudHidden' | 'zenVisualizer', note = '', disabled = false): HTMLElement => {
       const row = el('label', `set-row set-toggle${disabled ? ' disabled' : ''}`);
       const input = el('input', '', '', { type: 'checkbox', role: 'switch', 'aria-label': label });
       input.checked = s[key];
@@ -135,7 +136,13 @@ export class SettingsSheet {
 
     const page = el('div', 'set-page');
     if (this.tab === 'Sound') {
-      page.append(slider('Volume', 'volume'), slider('Music', 'music'), slider('Effects', 'sfx'));
+      page.append(
+        slider('Volume', 'volume'),
+        slider('Music', 'music'),
+        slider('Effects', 'sfx'),
+        segmented('Visualizer', 'Behind the menus while music plays', [['off', 'Off'], ...VISUALIZER_PRESETS] as const, () => s.visualizer, v => (s.visualizer = v)),
+        toggle('Visualizer in Zen', 'zenVisualizer', 'Behind the wall', s.visualizer === 'off')
+      );
     } else if (this.tab === 'Timing') {
       const off = el('div', 'set-row');
       const offVal = el('span', 'set-value set-offset', `${s.offsetMs > 0 ? '+' : ''}${s.offsetMs} ms`, { 'aria-live': 'polite' });

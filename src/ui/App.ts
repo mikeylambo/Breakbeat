@@ -15,6 +15,7 @@ import { BladeView } from '../render/BladeView.js';
 import { FxView } from '../render/FxView.js';
 import { TitleBackdrop } from '../render/TitleBackdrop.js';
 import { WorldView } from '../render/WorldView.js';
+import { VisualizerView } from '../render/VisualizerView.js';
 import { applyUiTransform } from '../render/layout.js';
 import { worldFor } from '../render/worlds.js';
 import { AudioEngine } from '../audio/AudioEngine.js';
@@ -98,6 +99,7 @@ export class App {
   fx!: FxView;
   backdrop!: TitleBackdrop;
   world!: WorldView;
+  vis!: VisualizerView;
   desk!: DeskPanels;
   private deskTick = 0;
   private hoverCell = -1;
@@ -210,6 +212,8 @@ export class App {
     this.world = new WorldView(this.atlas, this.features);
     // Under the wall layers but outside them: the title shows the world without the wall
     this.stage.camera.addChildAt(this.world.root, 0);
+    this.vis = new VisualizerView(this.atlas, this.features);
+    this.stage.camera.addChildAt(this.vis.root, 1);
     this.card.className = 'movement-card';
     this.card.setAttribute('aria-hidden', 'true');
     this.applySettings();
@@ -293,6 +297,12 @@ export class App {
     if (this.world) {
       this.world.reducedMotion = s.reducedMotion;
       this.world.intensity = 0.4 + 0.6 * s.flash;
+    }
+    if (this.vis) {
+      this.vis.reducedMotion = s.reducedMotion;
+      this.vis.strobeFree = s.strobeFree;
+      this.vis.flash = s.flash;
+      if (s.visualizer !== 'off') this.vis.setPreset(s.visualizer);
     }
     this.wall.flashScale = s.flash;
     this.fx.settings.reducedMotion = s.reducedMotion;
@@ -421,6 +431,7 @@ export class App {
     this.attractLayers = layers;
     const w = this.cosmetics?.(worldFor(track.style)) ?? worldFor(track.style);
     this.world.setWorld(w);
+    this.vis.accent = w.accent;
     this.world.root.visible = true;
     this.wall.setPoolTint(trackTint(track), performance.now() / 1000, 0);
     this.sfx.setTrack(track);
@@ -631,6 +642,7 @@ export class App {
     const w = worldFor(track.style);
     const c = this.cosmetics?.(w) ?? w;
     this.world.setWorld(c);
+    this.vis.accent = c.accent;
     this.blade.setStyle(c.blade, c.accent);
     this.fx.setShardMaterial(c.shard);
     if (!card) return;
@@ -896,6 +908,11 @@ export class App {
       }
     }
     this.hooks.onFrame?.();
+    // Visualizer: behind the menus while their music plays, and behind the wall in Zen when chosen
+    const vs = this.settings;
+    const inZen = !!e && run?.mode === 'zen' && vs.zenVisualizer && !this.paused;
+    this.vis.setTarget(vs.visualizer === 'off' ? 0 : !e && this.attractOn ? 0.7 : inZen ? 0.55 : 0);
+    this.vis.update(dt);
     this.backdrop.update(wallSec, this.attractOn && this.clock.isRunning ? beat : null, this.clock.barDurationSec);
     if (!e) {
       // Menus: the world breathes on the music; CSS reads the beat as --beat (1 on the beat -> 0)

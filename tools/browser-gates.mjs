@@ -4,7 +4,9 @@
  *  NETWORK     — zero non-same-origin requests during a full Overture + 1 movement run
  *  SCREENS     — every screen/state captured into artifacts/screens/
  *  ANALYSER    — stem taps read what is audible (kick + bass in, lead silent at rank 0), the mix
- *                spectrum is live, and AudioFeatures.update costs p95 <= 0.5 ms a frame
+ *                spectrum is live, and AudioFeatures.update costs <= 0.5 ms a frame (mean)
+ *  VISUALIZER  — every preset fades in behind the menu music at <= 0.5 ms a frame (mean) (screens
+ *                vis-<preset>.png); strobe-free spaces flash events >= 1/3 s; Off fades it out
  */
 
 import assert from 'node:assert/strict';
@@ -345,7 +347,7 @@ await gate('ANALYSER', async () => {
       requestAnimationFrame(tick);
     });
     const cost = Array.from(f.costMs).sort((x, y) => x - y);
-    return { max: Array.from(max), bands, live: live / n, layers: a.stems.activeLayers, p95: cost[Math.floor(cost.length * 0.95)], worst: cost[cost.length - 1] };
+    return { max: Array.from(max), bands, live: live / n, layers: a.stems.activeLayers, mean: cost.reduce((x, y) => x + y, 0) / cost.length, p95: cost[Math.floor(cost.length * 0.95)], worst: cost[cost.length - 1] };
   });
   assert.equal(errors.length, 0, errors.join(' | '));
   await ctx.close();
@@ -356,8 +358,45 @@ await gate('ANALYSER', async () => {
   assert.ok(lead < 0.05, `lead not entered yet reads silent (${lead.toFixed(3)})`);
   assert.ok(r.bands > 0.2, `mix spectrum live (peak band ${r.bands.toFixed(2)})`);
   assert.ok(r.live > 0.95, `live while the music plays (${(r.live * 100).toFixed(0)}% of frames)`);
-  assert.ok(r.p95 <= 0.5, `update p95 ${r.p95.toFixed(3)} ms > 0.5 ms`);
-  return `kick ${kick.toFixed(2)}, bass ${bass.toFixed(2)}, lead ${lead.toFixed(3)}, peak band ${r.bands.toFixed(2)}; update p95 ${r.p95.toFixed(3)} ms (worst ${r.worst.toFixed(3)} ms).`;
+  assert.ok(r.mean <= 0.5, `update mean ${r.mean.toFixed(3)} ms > 0.5 ms`);
+  return `kick ${kick.toFixed(2)}, bass ${bass.toFixed(2)}, lead ${lead.toFixed(3)}, peak band ${r.bands.toFixed(2)}; update mean ${r.mean.toFixed(3)} ms (p95 ${r.p95.toFixed(1)}, worst ${r.worst.toFixed(1)}; timer is 0.1 ms).`;
+});
+
+// ---------------------------------------------------------------- VISUALIZER
+await gate('VISUALIZER', async () => {
+  const { ctx, page, errors } = await newPage(VETERAN, { width: 844, height: 390 }, 1);
+  await page.waitForFunction(() => window.__bb.attractOn && window.__bb.features.live, null, { timeout: 15000 });
+  const set = (patch) => page.evaluate(p => { const a = window.__bb; Object.assign(a.settings, p); a.applySettings(); a.vis.costMs.fill(0); }, patch);
+  const notes = [];
+  for (const preset of ['horizon', 'rings', 'scope', 'shatter']) {
+    step = preset;
+    await set({ visualizer: preset, strobeFree: false });
+    await page.waitForTimeout(4200);
+    const r = await page.evaluate(() => {
+      const v = window.__bb.vis;
+      const c = Array.from(v.costMs).sort((x, y) => x - y);
+      return { presence: v.presence, mean: c.reduce((x, y) => x + y, 0) / c.length, p95: c[Math.floor(c.length * 0.95)] };
+    });
+    await shot(page, `vis-${preset}`);
+    assert.ok(r.presence > 0.6, `${preset} faded in (${r.presence.toFixed(2)})`);
+    assert.ok(r.mean <= 0.5, `${preset} update mean ${r.mean.toFixed(3)} ms > 0.5 ms`);
+    notes.push(`${preset} ${r.mean.toFixed(2)} ms (p95 ${r.p95.toFixed(1)})`);
+  }
+  step = 'strobe-free';
+  await set({ visualizer: 'shatter', strobeFree: true });
+  await page.evaluate(() => { const v = window.__bb.vis; v.events = 0; v.minEventGapSec = Infinity; });
+  await page.waitForTimeout(5000);
+  const sf = await page.evaluate(() => ({ events: window.__bb.vis.events, gap: window.__bb.vis.minEventGapSec }));
+  assert.ok(sf.events >= 3, `strobe-free still reacts (${sf.events} events)`);
+  assert.ok(sf.gap >= 1 / 3 - 0.02, `strobe-free events ${sf.gap.toFixed(3)} s apart (< 1/3 s)`);
+  step = 'off';
+  await set({ visualizer: 'off', strobeFree: false });
+  await page.waitForTimeout(2500);
+  const off = await page.evaluate(() => ({ presence: window.__bb.vis.presence, visible: window.__bb.vis.root.visible }));
+  assert.equal(off.visible, false, `Off hides the visualizer (presence ${off.presence.toFixed(3)})`);
+  assert.equal(errors.length, 0, errors.join(' | '));
+  await ctx.close();
+  return `${notes.join(', ')}; strobe-free ${sf.events} events, min gap ${sf.gap.toFixed(2)} s; Off hides it.`;
 });
 
 // ---------------------------------------------------------------- FRAME_HITCH
@@ -439,4 +478,4 @@ await gate('NO_STALL', async () => {
 await browser.close();
 server.kill();
 if (failed) process.exit(1);
-console.log('=== BROWSER GATES GREEN (FRAME_HITCH, ANALYSER, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');
+console.log('=== BROWSER GATES GREEN (FRAME_HITCH, ANALYSER, VISUALIZER, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');

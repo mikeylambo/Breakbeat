@@ -3,7 +3,7 @@
  * - Per stem (kick, bass, keys, lead, top): normalised level, envelope and onset pulse, tapped
  *   post-gain, so a muted or not-yet-entered layer reads 0. What you see is what you hear.
  * - The mix: 16 log-spaced spectrum bands (40 Hz..16 kHz) after the danger low-pass, plus
- *   low / mid / high and overall energy.
+ *   low / mid / high, overall energy and a 96-point waveform (-1..1) for scopes.
  * - Beat and bar phase from the BeatClock query, so views have one place to read the groove.
  * Analysers report what is being rendered now, which reaches the ears `outputLatency` later. Raw
  * readings go through a short ring and are read back delayed by that latency, the same rule the
@@ -16,8 +16,10 @@ import { bandRanges, bandsFrom, follow, rms, StemTracker } from './featureMath.j
 import { STEM_NAMES, type StemName } from './tracks.js';
 
 export const BAND_COUNT = 16;
+export const WAVE_POINTS = 96;
 const STEMS = STEM_NAMES.length;
-const RAW = STEMS + BAND_COUNT;
+const WAVE_AT = STEMS + BAND_COUNT;
+const RAW = WAVE_AT + WAVE_POINTS;
 const RING = 64;
 const COST_FRAMES = 240;
 
@@ -28,6 +30,8 @@ export class AudioFeatures {
   readonly onset = new Float32Array(STEMS);
   /** Mix spectrum, low to high. 0..1, smoothed. */
   readonly bands = new Float32Array(BAND_COUNT);
+  /** Mix waveform, one block decimated to WAVE_POINTS samples. -1..1. */
+  readonly wave = new Float32Array(WAVE_POINTS);
   low = 0;
   mid = 0;
   high = 0;
@@ -47,6 +51,7 @@ export class AudioFeatures {
   private readonly trackers = STEM_NAMES.map(() => new StemTracker());
   private readonly timeBuf: Float32Array<ArrayBuffer>;
   private readonly freqBuf: Uint8Array<ArrayBuffer>;
+  private readonly mixTime: Float32Array<ArrayBuffer>;
   private readonly ranges: Int32Array;
   private readonly rawBands = new Float32Array(BAND_COUNT);
   private readonly ring = new Float32Array(RING * RAW);
@@ -58,6 +63,7 @@ export class AudioFeatures {
   constructor(private readonly audio: AudioEngine) {
     this.timeBuf = new Float32Array(audio.stemAnalysers[0]!.fftSize);
     this.freqBuf = new Uint8Array(audio.mixAnalyser.frequencyBinCount);
+    this.mixTime = new Float32Array(audio.mixAnalyser.fftSize);
     this.ranges = bandRanges(BAND_COUNT, audio.mixAnalyser.frequencyBinCount, audio.ctx.sampleRate);
   }
 
@@ -94,6 +100,14 @@ export class AudioFeatures {
     a.mixAnalyser.getByteFrequencyData(this.freqBuf);
     bandsFrom(this.freqBuf, this.ranges, this.rawBands);
     this.ring.set(this.rawBands, base + STEMS);
+    // Waveform: start on a rising zero crossing so the scope stands still on steady tones
+    a.mixAnalyser.getFloatTimeDomainData(this.mixTime);
+    const span = this.mixTime.length >> 1;
+    let z = 0;
+    while (z < span && !(this.mixTime[z]! <= 0 && this.mixTime[z + 1]! > 0)) z++;
+    if (z >= span) z = 0;
+    const stride = span / WAVE_POINTS;
+    for (let w = 0; w < WAVE_POINTS; w++) this.ring[base + WAVE_AT + w] = this.mixTime[z + Math.floor(w * stride)]!;
     this.ringT[this.ringHead] = now;
     this.ringHead = (this.ringHead + 1) % RING;
 
@@ -128,6 +142,7 @@ export class AudioFeatures {
       else if (b < 11) mi += this.bands[b]!;
       else hi += this.bands[b]!;
     }
+    for (let w = 0; w < WAVE_POINTS; w++) this.wave[w] = this.ring[src + WAVE_AT + w]!;
     this.low = lo / 4;
     this.mid = mi / 7;
     this.high = hi / 5;

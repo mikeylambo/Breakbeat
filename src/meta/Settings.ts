@@ -1,6 +1,7 @@
 /** Player settings (persisted; every access try/catch guarded via platform/Storage). */
 
 import { readJson, writeJson } from '../platform/Storage.js';
+import { VISUALIZER_PRESETS, type VisualizerPreset } from '../render/visualizerPresets.js';
 
 export interface Settings {
   volume: number;
@@ -21,6 +22,9 @@ export interface Settings {
   /** Audio offset nudge in ms (+ = visuals later) */
   offsetMs: number;
   hudHidden: boolean;
+  /** Music visualizer behind the menus (and Zen, when zenVisualizer is on) */
+  visualizer: 'off' | VisualizerPreset;
+  zenVisualizer: boolean;
   /** Tap-to-sync done (or dismissed) */
   calibrated: boolean;
 }
@@ -41,6 +45,8 @@ export const DEFAULT_SETTINGS: Settings = {
   bpmScale: 1,
   offsetMs: 0,
   hudHidden: false,
+  visualizer: 'horizon',
+  zenVisualizer: false,
   calibrated: false
 };
 
@@ -56,6 +62,7 @@ export function loadSettings(): Settings {
   }
   s.symbols = !!s.symbols;
   s.colourAssist = !!s.colourAssist;
+  if (s.visualizer !== 'off' && !VISUALIZER_PRESETS.some(p => p[0] === s.visualizer)) s.visualizer = DEFAULT_SETTINGS.visualizer;
   try {
     if (!localStorageHas(KEY) && matchMedia('(prefers-reduced-motion: reduce)').matches) s.reducedMotion = true;
   } catch {

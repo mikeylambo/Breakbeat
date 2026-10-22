@@ -12,9 +12,9 @@ so build them together. Upload Your Own Beat builds on that same plumbing.
 
 - [x] **Stem analysers**: a per-stem analyser tap and a shared `AudioFeatures` frame (band energy, onset, beat
       phase from BeatClock). Computed once per frame and read by every view.
-- [ ] **Visualizers**: 3 to 4 presets that react to the stems (the kick pulses the wall, the bass drives the
-      world, the lead traces the blade wake). Used in Listen mode, on the title backdrop, and as an optional
-      layer in Zen. Respect strobe-free, reduced motion and flash intensity.
+- [x] **Visualizers**: 4 presets (Horizon, Rings, Scope, Shatter) driven by the stems and the mix. They play
+      behind the menus and, optionally, behind the wall in Zen. Strobe-free, reduced motion and flash
+      intensity are respected. Listen mode runs them at full strength when it lands.
 - [ ] **Listen mode (Jukebox)**: unlocked tracks play as full mixes inside their movement worlds. A stem mixer
       (solo or mute each stem), A/B/C section scrub, and a sleep timer. It's the soundtrack reward for clearing a
       movement, and it gives the $14.99 tier something to show off.
