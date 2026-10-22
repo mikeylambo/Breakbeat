@@ -10,7 +10,7 @@ stems (`stemsReady: false` everywhere). The plan below runs in order. The music 
 Listen mode and visualizers share one piece of plumbing (an `AnalyserNode` per stem on the StemPlayer bus),
 so build them together. Upload Your Own Beat builds on that same plumbing.
 
-- [ ] **Stem analysers**: a per-stem analyser tap and a shared `AudioFeatures` frame (band energy, onset, beat
+- [x] **Stem analysers**: a per-stem analyser tap and a shared `AudioFeatures` frame (band energy, onset, beat
       phase from BeatClock). Computed once per frame and read by every view.
 - [ ] **Visualizers**: 3 to 4 presets that react to the stems (the kick pulses the wall, the bass drives the
       world, the lead traces the blade wake). Used in Listen mode, on the title backdrop, and as an optional

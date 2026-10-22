@@ -2,7 +2,8 @@
  * AudioEngine — one AudioContext, its buses and master compressor, and visibility handling.
  * The AudioContext clock is the game's only clock (BeatClock reads `now`).
  *
- * Graph:  stems (2 decks x 5 gains) -> musicBus -> musicFilter (danger LPF) -> master
+ * Graph:  stems (2 decks x 5 gains) -> stemBus[5] -> musicBus -> musicFilter (danger LPF) -> master
+ *         stemBus[i] -> stemAnalyser[i];  musicFilter -> mixAnalyser   (AudioFeatures taps)
  *         sfx one-shots -> sfxBus -> master;  master -> compressor -> out -> destination
  *                                                                        \-> record tap (share clips)
  * All long-lived nodes, including the only oscillator/filter outside placeholder/, are built in
@@ -21,6 +22,11 @@ export class AudioEngine {
   readonly out: GainNode;
   /** [deck][stem] gain nodes. Two decks so movements can crossfade. */
   readonly stemGains: GainNode[][];
+  /** One bus per stem, summing both decks, so a stem reads as one signal through a crossfade. */
+  readonly stemBuses: GainNode[];
+  /** Post-gain taps per stem and on the mix (after the danger low-pass). Read by AudioFeatures. */
+  readonly stemAnalysers: AnalyserNode[];
+  readonly mixAnalyser: AnalyserNode;
   outputLatencySec = 0;
   private recordDest: MediaStreamAudioDestinationNode | null = null;
   private suspendedByApp = false;
@@ -53,11 +59,29 @@ export class AudioEngine {
     this.sfxBus.connect(this.master);
     this.master.connect(compressor).connect(this.out).connect(ctx.destination);
 
+    this.stemAnalysers = STEM_NAMES.map(() => {
+      const an = ctx.createAnalyser();
+      an.fftSize = 512;
+      return an;
+    });
+    this.stemBuses = STEM_NAMES.map((_, i) => {
+      const bus = ctx.createGain();
+      bus.connect(this.musicBus);
+      bus.connect(this.stemAnalysers[i]!);
+      return bus;
+    });
+    this.mixAnalyser = ctx.createAnalyser();
+    this.mixAnalyser.fftSize = 2048;
+    this.mixAnalyser.smoothingTimeConstant = 0.5;
+    this.mixAnalyser.minDecibels = -90;
+    this.mixAnalyser.maxDecibels = -18;
+    this.musicFilter.connect(this.mixAnalyser);
+
     this.stemGains = [0, 1].map(() =>
-      STEM_NAMES.map(() => {
+      STEM_NAMES.map((_, i) => {
         const g = ctx.createGain();
         g.gain.value = 0;
-        g.connect(this.musicBus);
+        g.connect(this.stemBuses[i]!);
         return g;
       })
     );

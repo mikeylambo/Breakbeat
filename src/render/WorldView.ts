@@ -2,10 +2,13 @@
  * WorldView — the movement's atmosphere around the wall: a pooled, beat-reactive background motif.
  * It lives on the background layer behind the wall panel, so it frames the board without ever
  * crossing the tiles. Nothing is allocated per frame.
+ * While music sounds, the pulse follows the kick stem and the equaliser reads the real mix
+ * spectrum (AudioFeatures); otherwise both fall back to the beat clock.
  */
 
 import { Container, Graphics, Sprite } from 'pixi.js';
 import { TUNING } from '../tuning.js';
+import type { AudioFeatures } from '../audio/AudioFeatures.js';
 import type { TileAtlas } from './TileAtlas.js';
 import type { Motif, World } from './worlds.js';
 
@@ -28,7 +31,10 @@ export class WorldView {
   reducedMotion = false;
   intensity = 1;
 
-  constructor(private readonly atlas: TileAtlas) {
+  constructor(
+    private readonly atlas: TileAtlas,
+    private readonly features: AudioFeatures | null = null
+  ) {
     for (let i = 0; i < N; i++) {
       const s = new Sprite(atlas.softDot);
       s.anchor.set(0.5);
@@ -118,7 +124,10 @@ export class WorldView {
 
   update(nowSec: number, dt: number, beatProgress: number): void {
     this.fade = Math.min(1, this.fade + dt * 0.8);
-    const pulse = (1 - beatProgress) * (1 - beatProgress);
+    const clockPulse = (1 - beatProgress) * (1 - beatProgress);
+    const f = this.features?.live ? this.features : null;
+    // The kick drives the pulse, so half-time, stutters and drops read as they sound
+    const pulse = f ? Math.max(clockPulse * 0.3, f.kick) : clockPulse;
     const k = this.fade * this.intensity;
     const motion = this.reducedMotion ? 0.15 : 1;
     const a = this.accent;
@@ -177,7 +186,10 @@ export class WorldView {
           const left = i < 8;
           const j = i % 8;
           const x = left ? 24 + j * 16 : W - 24 - j * 16;
-          const h = 30 + 140 * Math.abs(Math.sin(nowSec * (1.4 + this.pv[i]!) + this.ph[i]!)) * (0.5 + 0.5 * pulse);
+          // Lows sit next to the wall, highs at the screen edge; both sides mirror the mix
+          const h = f
+            ? 24 + 156 * Math.pow(Math.max(f.bands[(7 - j) * 2]!, f.bands[(7 - j) * 2 + 1]!), 1.4)
+            : 30 + 140 * Math.abs(Math.sin(nowSec * (1.4 + this.pv[i]!) + this.ph[i]!)) * (0.5 + 0.5 * pulse);
           d.position.set(x, H - 30);
           d.anchor.set(0.5, 1);
           d.width = 6;

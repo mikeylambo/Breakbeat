@@ -3,6 +3,8 @@
  *  FRAME_HITCH — 30 s scripted run, random primes every 250 ms: rAF delta p99 <= 20 ms, max <= 60 ms
  *  NETWORK     — zero non-same-origin requests during a full Overture + 1 movement run
  *  SCREENS     — every screen/state captured into artifacts/screens/
+ *  ANALYSER    — stem taps read what is audible (kick + bass in, lead silent at rank 0), the mix
+ *                spectrum is live, and AudioFeatures.update costs p95 <= 0.5 ms a frame
  */
 
 import assert from 'node:assert/strict';
@@ -317,6 +319,47 @@ await gate('SCREENS', async () => {
   return `${files.length} screens in ${OUT}/ (${files.map(f => f.replace('.png', '')).join(', ')}).`;
 });
 
+// ---------------------------------------------------------------- ANALYSER
+await gate('ANALYSER', async () => {
+  const { ctx, page, errors } = await newPage(VETERAN, { width: 844, height: 390 }, 1);
+  await page.click('.btn-continue');
+  await page.waitForFunction(() => window.__bb.engine && window.__bb.engine.currentBar >= 2, null, { timeout: 20000 });
+  const r = await page.evaluate(async () => {
+    const a = window.__bb;
+    a.engine.setPressureEnabled(false);
+    const f = a.features;
+    const max = new Float32Array(5);
+    let bands = 0;
+    let live = 0;
+    let n = 0;
+    const end = performance.now() + 4000;
+    await new Promise(done => {
+      const tick = () => {
+        for (let i = 0; i < 5; i++) max[i] = Math.max(max[i], f.env[i]);
+        bands = Math.max(bands, ...f.bands);
+        if (f.live) live++;
+        n++;
+        if (performance.now() < end) requestAnimationFrame(tick);
+        else done();
+      };
+      requestAnimationFrame(tick);
+    });
+    const cost = Array.from(f.costMs).sort((x, y) => x - y);
+    return { max: Array.from(max), bands, live: live / n, layers: a.stems.activeLayers, p95: cost[Math.floor(cost.length * 0.95)], worst: cost[cost.length - 1] };
+  });
+  assert.equal(errors.length, 0, errors.join(' | '));
+  await ctx.close();
+  const [kick, bass, , lead] = r.max;
+  assert.equal(r.layers, 2, `rank 0 plays kick + bass (${r.layers} layers)`);
+  assert.ok(kick > 0.5, `kick tap pumps (env max ${kick.toFixed(2)})`);
+  assert.ok(bass > 0.3, `bass tap reads (env max ${bass.toFixed(2)})`);
+  assert.ok(lead < 0.05, `lead not entered yet reads silent (${lead.toFixed(3)})`);
+  assert.ok(r.bands > 0.2, `mix spectrum live (peak band ${r.bands.toFixed(2)})`);
+  assert.ok(r.live > 0.95, `live while the music plays (${(r.live * 100).toFixed(0)}% of frames)`);
+  assert.ok(r.p95 <= 0.5, `update p95 ${r.p95.toFixed(3)} ms > 0.5 ms`);
+  return `kick ${kick.toFixed(2)}, bass ${bass.toFixed(2)}, lead ${lead.toFixed(3)}, peak band ${r.bands.toFixed(2)}; update p95 ${r.p95.toFixed(3)} ms (worst ${r.worst.toFixed(3)} ms).`;
+});
+
 // ---------------------------------------------------------------- FRAME_HITCH
 await gate('FRAME_HITCH', async () => {
   // DPR 1: this container rasterises WebGL on the CPU (SwiftShader); phones have GPUs
@@ -396,4 +439,4 @@ await gate('NO_STALL', async () => {
 await browser.close();
 server.kill();
 if (failed) process.exit(1);
-console.log('=== BROWSER GATES GREEN (FRAME_HITCH, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');
+console.log('=== BROWSER GATES GREEN (FRAME_HITCH, ANALYSER, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');

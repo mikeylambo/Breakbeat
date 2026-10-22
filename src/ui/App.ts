@@ -18,6 +18,7 @@ import { WorldView } from '../render/WorldView.js';
 import { applyUiTransform } from '../render/layout.js';
 import { worldFor } from '../render/worlds.js';
 import { AudioEngine } from '../audio/AudioEngine.js';
+import { AudioFeatures } from '../audio/AudioFeatures.js';
 import { StemPlayer } from '../audio/StemPlayer.js';
 import { SfxPlayer } from '../audio/SfxPlayer.js';
 import { Scheduler } from '../audio/Scheduler.js';
@@ -105,6 +106,8 @@ export class App {
   private cardTimer: ReturnType<typeof setTimeout> | null = null;
   readonly audio = new AudioEngine();
   readonly stems = new StemPlayer(this.audio);
+  /** One shared frame of stem and spectrum features, updated once per frame before any view. */
+  readonly features = new AudioFeatures(this.audio);
   readonly sfx = new SfxPlayer(this.audio);
   readonly scheduler = new Scheduler(this.sfx, () => this.audio.now);
   readonly clock = new BeatClock(MOVEMENTS[0]!.bpm);
@@ -204,7 +207,7 @@ export class App {
     await yieldFrame();
     this.fx = new FxView(this.stage, this.atlas);
     this.backdrop = new TitleBackdrop(this.stage, this.atlas);
-    this.world = new WorldView(this.atlas);
+    this.world = new WorldView(this.atlas, this.features);
     // Under the wall layers but outside them: the title shows the world without the wall
     this.stage.camera.addChildAt(this.world.root, 0);
     this.card.className = 'movement-card';
@@ -846,6 +849,7 @@ export class App {
     const dt = Math.min(0.05, Math.max(0, wallSec - this.lastFrameSec));
     this.lastFrameSec = wallSec;
     const beat = this.clock.query(this.audio.now, this.beat);
+    this.features.update(this.clock.isRunning ? beat : null);
     const e = this.engine;
     const run = this.run;
     if (run && !run.ended && !this.paused) this.watchFrameBudget(dt * 1000);
