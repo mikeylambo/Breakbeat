@@ -5,7 +5,8 @@
 
 import { TUNING, computeComboMultiplier, type GameMode } from '../tuning.js';
 import { BeatClock, createBeatQuery } from '../pulse/BeatClock.js';
-import { replayOf, simulate, type Replay, type SimResult } from '../pulse/Replay.js';
+import { applyUntil, engineFor, replayOf, simulate, type Replay, type SimResult } from '../pulse/Replay.js';
+import { Ghosts, type GhostRecord } from '../meta/Ghosts.js';
 import { PulseEngine } from '../pulse/PulseEngine.js';
 import type { PulseEvent } from '../pulse/types.js';
 import { GemRules } from '../content/gems/GemRules.js';
@@ -36,7 +37,7 @@ import { haptics } from './haptics.js';
 import { RunHud } from './RunHud.js';
 import { PauseSheet } from './PauseSheet.js';
 import { RotateCard } from './RotateCard.js';
-import { announce, setUiSound, type UiSoundKind } from './dom.js';
+import { announce, fmt, setUiSound, type UiSoundKind } from './dom.js';
 import { SettingsSheet } from './SettingsSheet.js';
 import { CalibrationSheet } from './CalibrationSheet.js';
 import { DeskPanels } from './DeskPanels.js';
@@ -111,6 +112,10 @@ export class App {
   /** One shared frame of stem and spectrum features, updated once per frame before any view. */
   readonly features = new AudioFeatures(this.audio);
   readonly sfx = new SfxPlayer(this.audio);
+  /** Best-run replays per key, raced as pace ghosts */
+  readonly ghosts = new Ghosts();
+  /** The ghost racing this run: its engine re-simulates the best run in lockstep */
+  ghost: { rec: GhostRecord; engine: PulseEngine; next: number; ended: boolean; passed: boolean } | null = null;
   readonly scheduler = new Scheduler(this.sfx, () => this.audio.now);
   readonly clock = new BeatClock(MOVEMENTS[0]!.bpm);
   readonly director = new MusicDirector(this.audio, this.stems, this.scheduler, this.clock);
@@ -341,7 +346,9 @@ export class App {
     const bpmScale = cfg.mode === 'daily' || overture ? 1 : this.settings.bpmScale;
     const bpm = track.bpm * bpmScale;
     const seed = cfg.seed ?? (cfg.mode === 'daily' ? `daily-${todayUtc()}` : `${cfg.mode}-${Date.now().toString(36)}`);
-    await Promise.all([this.stems.load(track), this.sfx.load()]);
+    const ghostKey = App.ghostKey(cfg, index);
+    const [, , ghostRec] = await Promise.all([this.stems.load(track), this.sfx.load(), ghostKey && this.settings.ghost ? this.ghosts.get(ghostKey) : null]);
+    this.ghost = ghostRec && ghostRec.replay.seed !== '' ? { rec: ghostRec, engine: engineFor(ghostRec.replay, new GemRules('brick')), next: 0, ended: false, passed: false } : null;
 
     const engine = new PulseEngine(
       {
@@ -400,6 +407,37 @@ export class App {
     if (cfg.etude) announce(`${cfg.etude.topic ? 'Try it' : 'Etude'}: ${cfg.etude.name}. ${cfg.etude.hint}`);
     else if (cfg.track) announce(`Your beat: ${track.name}. ${Math.round(bpm)} BPM.`);
     else if (!overture) announce(`Movement ${track.number}, ${track.name}. ${Math.round(bpm)} BPM.`);
+  }
+
+  /** The key a run's best (and its ghost) is kept under; null for runs that keep none. */
+  static ghostKey(cfg: RunConfig, movement: number): string | null {
+    if (cfg.etude || cfg.mode === 'overture') return null;
+    if (cfg.track) return cfg.track.id;
+    if (cfg.mode === 'daily') return `daily-${todayUtc()}`;
+    if (cfg.mode === 'odyssey') return MOVEMENTS[movement]!.id;
+    return cfg.mode;
+  }
+
+  /** Steps the ghost to the live engine's step and reports pace, top-out and passing it. */
+  private stepGhost(liveStep: number, liveScore: number): number | null {
+    const g = this.ghost;
+    if (!g) return null;
+    const end = g.rec.replay.end.s;
+    if (!g.ended) {
+      g.next = applyUntil(g.engine, g.rec.replay, g.next, Math.min(liveStep, end));
+      if (liveStep >= end || g.engine.gameOver) {
+        g.ended = true;
+        this.hud.calloutText('GHOST OUT', `BAR ${Math.max(1, g.engine.currentBar)}`);
+        announce(`Your best run ended here, at bar ${g.engine.currentBar}.`);
+      }
+    }
+    const ghostScore = Math.round(g.engine.telemetry.score * g.rec.scale);
+    if (!g.passed && liveScore > g.rec.score) {
+      g.passed = true;
+      this.hud.calloutText('PAST YOUR BEST', `+${fmt(liveScore - g.rec.score)}`);
+      announce('Past your best.');
+    }
+    return liveScore - ghostScore;
   }
 
   /** Which movement's music a run of `mode` plays. */
@@ -556,6 +594,7 @@ export class App {
   abandonRun(): void {
     if (!this.run) return;
     this.run.ended = true;
+    this.ghost = null;
     this.stems.stopAll();
     this.input?.cancelAll();
     this.run = null;
@@ -659,6 +698,9 @@ export class App {
     this.scheduler.queue('over', now + 0.02, 0.9);
     const score = Math.round(engine.telemetry.score * run.bpmScale);
     const replay = run.replayable ? replayOf(engine) : null;
+    const ghostKey = App.ghostKey(run.cfg, run.startMovement);
+    if (replay && ghostKey) void this.ghosts.offer({ key: ghostKey, score, scale: run.bpmScale, replay, at: Date.now() });
+    this.ghost = null;
     const key = run.cfg.track ? run.cfg.track.id : run.mode === 'odyssey' ? MOVEMENTS[run.startMovement]!.id : run.mode;
     let previousBest = 0;
     if (run.mode === 'daily') {
@@ -993,6 +1035,7 @@ export class App {
         bar: e.currentBar,
         risesIn: e.barsUntilNextPush,
         charge: e.charge,
+        ghost: this.stepGhost(e.currentStep, Math.round(e.telemetry.score * run.bpmScale)),
         best: run.cfg.track ? (this.save.best[run.cfg.track.id] ?? 0) : run.mode === 'daily' ? (this.save.daily.date === todayUtc() ? this.save.daily.best : 0) : (this.save.best[run.mode === 'odyssey' ? MOVEMENTS[run.startMovement]!.id : run.mode] ?? 0),
         groups: e.telemetry.groupsCleared,
         credit: run.cfg.track ? `♪ ${run.track.name} · ${Math.round(run.track.bpm)} BPM` : run.mode === 'overture' ? '♪ Overture' : `♪ ${run.track.number} ${run.track.name} · ${run.track.style[0]!.toUpperCase()}${run.track.style.slice(1)}`,

@@ -731,3 +731,10 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .bt-drop b { font: 700 22px/1 var(--display); color: var(--held); }
 .bt-drop small { font: 500 8px/1 var(--mono); letter-spacing: 0.2em; color: var(--secondary); text-transform: uppercase; }
 .beats-screen.dragging .bt-drop { opacity: 1; }
+
+/* ---------- Ghost pace ---------- */
+.hb-bestrow[data-pace] .hb-label { background: linear-gradient(90deg, rgba(124, 242, 196, 0.22), rgba(124, 242, 196, 0.05)); color: var(--mint); }
+.hb-bestrow[data-pace='behind'] .hb-label { background: linear-gradient(90deg, rgba(224, 54, 126, 0.24), rgba(224, 54, 126, 0.05)); color: #ff8dbb; }
+.hb-bestrow[data-pace='ahead'] .hb-best { color: var(--mint); }
+.hb-bestrow[data-pace='behind'] .hb-best { color: #ff8dbb; }
+.hb-callout[data-rank='ghost'] { color: var(--mint); }

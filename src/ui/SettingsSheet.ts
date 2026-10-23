@@ -1,6 +1,6 @@
 /**
  * SettingsSheet — four tabs so each page stays short: Sound (volumes, visualizer), Timing (audio
- * offset, tap test), Display (flash, strobe-free, reduced motion, hide HUD) and Accessibility
+ * offset, tap test), Display (flash, strobe-free, reduced motion, hide HUD, ghost) and Accessibility
  * (tempo, block symbols, colour assist, haptics). ← → or Q / E switch tabs; Esc closes.
  */
 
@@ -85,7 +85,7 @@ export class SettingsSheet {
       row.append(el('span', 'set-label', label), input, val);
       return row;
     };
-    const toggle = (label: string, key: 'strobeFree' | 'reducedMotion' | 'haptics' | 'hapticMetronome' | 'hudHidden' | 'zenVisualizer', note = '', disabled = false): HTMLElement => {
+    const toggle = (label: string, key: 'strobeFree' | 'reducedMotion' | 'haptics' | 'hapticMetronome' | 'hudHidden' | 'zenVisualizer' | 'ghost', note = '', disabled = false): HTMLElement => {
       const row = el('label', `set-row set-toggle${disabled ? ' disabled' : ''}`);
       const input = el('input', '', '', { type: 'checkbox', role: 'switch', 'aria-label': label });
       input.checked = s[key];
@@ -169,7 +169,8 @@ export class SettingsSheet {
         slider('Flash intensity', 'flash'),
         toggle('Strobe-free', 'strobeFree', 'Max 3 flashes a second'),
         toggle('Reduced motion', 'reducedMotion', 'No camera breath or wall slide'),
-        toggle('Hide HUD', 'hudHidden', 'Or press V')
+        toggle('Hide HUD', 'hudHidden', 'Or press V'),
+        toggle('Race your best', 'ghost', 'Pace against your best run on the HUD')
       );
     } else {
       page.append(

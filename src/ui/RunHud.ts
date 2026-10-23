@@ -23,6 +23,8 @@ export interface HudValues {
   charge: number;
   /** Personal best for this run's key (0 = none) */
   best: number;
+  /** Pace against the best run's ghost at this step (null = no ghost: the row shows the best) */
+  ghost: number | null;
   groups: number;
   /** "♪ 04 Phosphor · Synthwave" */
   credit: string;
@@ -32,7 +34,7 @@ export interface HudValues {
   danger: number;
 }
 
-const BLANK: HudValues = { score: -1, chainRank: -1, combo: -1, layers: -1, movement: '', bpm: -1, bar: -1, risesIn: -2, charge: -1, best: -1, groups: -1, credit: '', pulse: -1, danger: -1 };
+const BLANK: HudValues = { score: -1, chainRank: -1, combo: -1, layers: -1, movement: '', bpm: -1, bar: -1, risesIn: -2, charge: -1, best: -1, ghost: null, groups: -1, credit: '', pulse: -1, danger: -1 };
 
 /** Re-triggers a one-shot CSS animation class. */
 function kick(e: Element | null, cls: string): void {
@@ -58,6 +60,7 @@ export class RunHud {
   private readonly riseValue = el('div', 'hb-rise-value');
   private readonly credit = el('div', 'hb-credit');
   private readonly callout = el('div', 'hb-callout', '', { 'aria-hidden': 'true' });
+  private bestRow!: HTMLElement;
   private last: HudValues = { ...BLANK };
   private gainSum = 0;
   private gainAt = 0;
@@ -74,7 +77,7 @@ export class RunHud {
       return w;
     };
     const v = (cls = ''): HTMLElement => el('div', `hb-value ${cls}`);
-    this.vals = { movement: v(), tempo: v(), best: v(), chain: v(), groups: v() };
+    this.vals = { movement: v(), tempo: v(), best: v('hb-best'), chain: v(), groups: v() };
     const scoreBox = el('div', 'hb-value hud-scorebox');
     scoreBox.appendChild(this.score);
     this.scoreRow = row('SCORE', scoreBox, 'hs hb-scorerow', this.gain);
@@ -82,7 +85,7 @@ export class RunHud {
       row('MOVEMENT', this.vals.movement, 'hb-move'),
       row('BAR', this.vals.tempo),
       this.scoreRow,
-      row('HI-SCORE', this.vals.best, 'hs'),
+      (this.bestRow = row('HI-SCORE', this.vals.best, 'hs hb-bestrow')),
       row('CHAIN', this.vals.chain, 'hs hb-chain'),
       row('GROUPS', this.vals.groups, 'hs')
     );
@@ -116,6 +119,13 @@ export class RunHud {
   /** Overture hides score/chain. */
   setOverture(on: boolean): void {
     this.root.classList.toggle('overture', on);
+  }
+
+  /** A big centre callout with a word and a figure (ghost moments). */
+  calloutText(word: string, sub: string): void {
+    this.callout.innerHTML = `<span>${word}</span><b>${sub}</b>`;
+    this.callout.dataset.rank = 'ghost';
+    kick(this.callout, 'go');
   }
 
   /** Chain rank-up: a big centre callout in the rank's colour. */
@@ -183,7 +193,21 @@ export class RunHud {
       l.bpm = v.bpm;
       l.bar = v.bar;
     }
-    if (v.best !== l.best) {
+    if (v.ghost !== null) {
+      // Racing the ghost: the row turns into pace, mint ahead and magenta behind
+      if (v.ghost !== l.ghost) {
+        if (l.ghost === null) setText(this.bestRow.querySelector('.hb-label span') as HTMLElement, 'VS BEST');
+        setText(this.vals.best, `${v.ghost > 0 ? '+' : v.ghost < 0 ? '−' : '±'}${fmt(Math.abs(v.ghost))}`);
+        this.bestRow.dataset.pace = v.ghost > 0 ? 'ahead' : v.ghost < 0 ? 'behind' : 'level';
+        l.ghost = v.ghost;
+        l.best = -1;
+      }
+    } else if (v.best !== l.best || l.ghost !== null) {
+      if (l.ghost !== null) {
+        setText(this.bestRow.querySelector('.hb-label span') as HTMLElement, 'HI-SCORE');
+        delete this.bestRow.dataset.pace;
+        l.ghost = null;
+      }
       setText(this.vals.best, v.best > 0 ? fmt(v.best) : '—');
       l.best = v.best;
     }

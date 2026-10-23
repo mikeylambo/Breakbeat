@@ -15,6 +15,8 @@
  *                on the shelf after a reload; zero network requests throughout
  *  REPLAY      — a run played with real clicks (and a mid-run stall) re-simulates in the page to the
  *                same score, step and wall
+ *  GHOST       — a Daily's ghost replays beside the next Daily: its score matches the first run's
+ *                score step for step, the HUD shows pace, and it tops out where that run ended
  */
 
 import assert from 'node:assert/strict';
@@ -544,6 +546,83 @@ await gate('REPLAY', async () => {
   return `${r.primes} primes, events [${r.kinds}], score ${r.live.score} at step ${r.live.step}: the replay matches score, step and wall.`;
 });
 
+// ---------------------------------------------------------------- GHOST
+await gate('GHOST', async () => {
+  const { ctx, page, errors } = await newPage(VETERAN, { width: 844, height: 390 }, 1);
+  const startDaily = async () => {
+    await page.evaluate(() => window.__bb.startRun({ mode: 'daily', movement: 0 }));
+    await page.waitForFunction(() => window.__bb.engine?.currentBar >= 1, null, { timeout: 20000 });
+  };
+  step = 'first run';
+  await page.evaluate(() => {
+    document.querySelector('.title-screen')?.classList.add('hidden');
+  });
+  await startDaily();
+  await page.evaluate(() => {
+    window.__trace = new Map();
+    const tick = () => {
+      const e = window.__bb.engine;
+      if (e) window.__trace.set(e.currentStep, e.telemetry.score);
+      if (window.__trace) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  let seed = 99;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const end = Date.now() + 8000;
+  while (Date.now() < end) {
+    await page.mouse.click(...cellXY(Math.floor(rnd() * 16), 4 + Math.floor(rnd() * 6)));
+    await page.waitForTimeout(150 + Math.floor(rnd() * 120));
+  }
+  const first = await page.evaluate(async () => {
+    const a = window.__bb;
+    const rp = a.currentReplay();
+    const score = a.engine.telemetry.score;
+    const trace = [...window.__trace.entries()];
+    window.__trace = null;
+    await a.ghosts.offer({ key: `daily-${new Date().toISOString().slice(0, 10)}`, score, scale: 1, replay: rp, at: Date.now() });
+    a.abandonRun();
+    return { endStep: rp.end.s, score, trace };
+  });
+  assert.ok(first.score > 0, 'the first run scored');
+  step = 'second run';
+  await startDaily();
+  await page.waitForFunction(() => window.__bb.ghost !== null, null, { timeout: 5000 }).catch(() => assert.fail('ghost loaded'));
+  // Watch the ghost's score against the first run's trace until it tops out
+  const seen = await page.evaluate(
+    ({ trace, endStep }) =>
+      new Promise(resolve => {
+        const want = new Map(trace);
+        let checked = 0;
+        let bad = null;
+        const tick = () => {
+          const a = window.__bb;
+          const g = a.ghost;
+          const e = a.engine;
+          if (g && e && !g.ended) {
+            const s = g.engine.currentStep;
+            if (want.has(s) && want.get(s) !== g.engine.telemetry.score && bad === null) bad = { s, want: want.get(s), got: g.engine.telemetry.score };
+            if (want.has(s)) checked++;
+          }
+          const label = document.querySelector('.hb-bestrow .hb-label span')?.textContent;
+          if (g?.ended || (e && e.currentStep > endStep + 40)) resolve({ checked, bad, ended: !!g?.ended, label, pace: document.querySelector('.hb-bestrow')?.dataset.pace });
+          else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+    { trace: first.trace, endStep: first.endStep }
+  );
+  await shot(page, 'ghost');
+  assert.equal(seen.bad, null, `ghost score drift: ${JSON.stringify(seen.bad)}`);
+  assert.ok(seen.checked > 20, `compared ${seen.checked} steps`);
+  assert.equal(seen.label, 'VS BEST', 'HUD shows pace');
+  assert.equal(seen.pace, 'behind', 'idle against a scoring ghost reads behind');
+  assert.ok(seen.ended, 'ghost tops out where the first run ended');
+  assert.equal(errors.length, 0, errors.join(' | '));
+  await ctx.close();
+  return `ghost matched the first run's score at ${seen.checked} steps; HUD read VS BEST (behind) and the ghost ended at step ${first.endStep}.`;
+});
+
 // ---------------------------------------------------------------- FRAME_HITCH
 await gate('FRAME_HITCH', async () => {
   // DPR 1: this container rasterises WebGL on the CPU (SwiftShader); phones have GPUs
@@ -623,4 +702,4 @@ await gate('NO_STALL', async () => {
 await browser.close();
 server.kill();
 if (failed) process.exit(1);
-console.log('=== BROWSER GATES GREEN (FRAME_HITCH, ANALYSER, VISUALIZER, LISTEN, BYO, REPLAY, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');
+console.log('=== BROWSER GATES GREEN (FRAME_HITCH, ANALYSER, VISUALIZER, LISTEN, BYO, REPLAY, GHOST, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');

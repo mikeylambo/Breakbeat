@@ -40,7 +40,10 @@ can't be cheated cheap to build, so use it.
 - [x] **Input-log replays**: the engine logs every outside input (primes with their exact time, holds,
       movement changes, pressure switches, stall skips). Seed plus log re-simulates the run exactly
       (REPLAY_DETERMINISM: 200 bot runs; REPLAY browser gate: a clicked run with a stall).
-- [ ] **Ghost race**: your best Daily or movement run plays as a translucent second blade and score ticker.
+- [x] **Ghost race**: your best run for the same movement, mode, day or song re-simulates in lockstep.
+      The HUD's best row becomes VS BEST pace (mint ahead, magenta behind), with callouts when the ghost
+      tops out and when you pass its score. In Daily the wall is identical, so it is a true head-to-head.
+      Kept on the device (IndexedDB); Settings > Display > Race your best.
 - [ ] **Verified Daily leaderboard** (Supabase): the client submits seed + log, and an Edge Function
       re-simulates `PulseEngine` and accepts the server's score only. Show friends, global, and percentile.
 - [ ] **Cloud save, opt-in**: a magic-link account, merging by the save schema version. The game stays fully

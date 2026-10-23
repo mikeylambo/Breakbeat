@@ -13,6 +13,8 @@ export interface Settings {
   reducedMotion: boolean;
   haptics: boolean;
   hapticMetronome: boolean;
+  /** Race a pace ghost of your best run for the same movement, mode or day */
+  ghost: boolean;
   /** Per-colour symbols on the blocks (off by default) */
   symbols: boolean;
   /** Brighter, more saturated blocks with stronger colour edges (and bolder symbols) */
@@ -42,6 +44,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reducedMotion: false,
   haptics: true,
   hapticMetronome: false,
+  ghost: true,
   symbols: false,
   colourAssist: false,
   bpmScale: 1,
