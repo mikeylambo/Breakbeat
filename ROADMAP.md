@@ -44,10 +44,14 @@ can't be cheated cheap to build, so use it.
       The HUD's best row becomes VS BEST pace (mint ahead, magenta behind), with callouts when the ghost
       tops out and when you pass its score. In Daily the wall is identical, so it is a true head-to-head.
       Kept on the device (IndexedDB); Settings > Display > Race your best.
-- [ ] **Verified Daily leaderboard** (Supabase): the client submits seed + log, and an Edge Function
-      re-simulates `PulseEngine` and accepts the server's score only. Show friends, global, and percentile.
+- [x] **Verified Daily leaderboard** (Supabase, shared `leaderboards` project): the `breakbeat-submit` edge
+      function re-simulates each Daily replay with the game's own engine (bundled from src/) and stores only
+      its own score; table `breakbeat_daily` is public-read (player id hidden), server-write only. Opt-in
+      from a Daily result with a name; then each Daily posts itself, with rank, percentile and the top three.
+      Offline submits retry. Later: a friends view, and watching the top run as a ghost (replays are public).
 - [ ] **Cloud save, opt-in**: a magic-link account, merging by the save schema version. The game stays fully
-      playable signed out.
+      playable signed out. Waiting on a decision: Supabase Auth's site URL and redirect list are
+      project-wide, so enabling magic links on the shared `leaderboards` project touches every game on it.
 - [x] **Shareable Etude codes**: Etudes > Create opens an editor (paint the wall, set goal, passes, a
       starting hold, a rising wall). Solving your own puzzle unlocks Share. The link (`#e=`, about 100
       characters) carries the board plus your winning inputs, and every receiver re-simulates them before

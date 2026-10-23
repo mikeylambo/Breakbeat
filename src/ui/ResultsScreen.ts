@@ -5,11 +5,12 @@
  * Any key or tap during the reveal skips to the end. The run's movement keeps playing underneath.
  */
 
-import { mastery } from '../meta/Save.js';
+import { mastery, todayUtc } from '../meta/Save.js';
+import { flush, prefs, savePrefs, submit, top } from '../meta/Leaderboard.js';
 import { recordRun, type CoachAdvice } from '../meta/Coach.js';
 import { ReplayView } from '../render/ReplayView.js';
 import type { App, RunResult } from './App.js';
-import { announce, coveredBySheet, el, fmt, setText, uiSound } from './dom.js';
+import { announce, button, coveredBySheet, el, fmt, setText, uiSound } from './dom.js';
 import { MenuList, type MenuItem } from './MenuList.js';
 import { sharePass } from './share.js';
 
@@ -132,9 +133,12 @@ export class ResultsScreen {
     right.appendChild(
       el('div', 'replay-label', snap ? `BEST PASS <b>+${fmt(snap.points)}</b> · ${snap.groupsDetonated} GROUP${snap.groupsDetonated === 1 ? '' : 'S'}` : 'NO PASS LANDED')
     );
-    const card = el('div', 'practise-card');
-    card.innerHTML = `<div class="practise-label">PRACTISE NEXT</div><div class="practise-text">${advice ? advice.text : 'Finish a run to get a practice target.'}</div>`;
-    right.appendChild(card);
+    if (run.mode === 'daily' && r.replay) right.appendChild(this.boardCard(r));
+    else {
+      const card = el('div', 'practise-card');
+      card.innerHTML = `<div class="practise-label">PRACTISE NEXT</div><div class="practise-text">${advice ? advice.text : 'Finish a run to get a practice target.'}</div>`;
+      right.appendChild(card);
+    }
 
     const items: MenuItem[] = [];
     const item = (id: string, name: string, action: () => void, cls = ''): MenuItem => ({ id, label: name, cls, action, html: `<span class="mi-name">${name}</span>` });
@@ -160,6 +164,63 @@ export class ResultsScreen {
     this.actionsMenu.relayout();
     if (document.documentElement.classList.contains('reduced-motion')) this.skipReveal();
     announce(`Run over. ${movementLabel}. Score ${fmt(score)}. ${pb ? 'New personal best.' : `${fmt(previousBest - score)} to your best.`} ${advice ? advice.text : ''}`);
+  }
+
+  /**
+   * Daily Board: asks once for a name (opt-in), then posts each Daily. The server replays the run
+   * and keeps its own score; the card shows your rank and today's top three.
+   */
+  private boardCard(r: RunResult): HTMLElement {
+    const card = el('div', 'practise-card board-card', '', { 'aria-live': 'polite' });
+    const day = todayUtc();
+    const head = '<div class="practise-label">DAILY BOARD</div>';
+    const optIn = (): void => {
+      const p = prefs();
+      card.innerHTML = `${head}<div class="practise-text">Post today's run? It is checked by replaying it. Only your name and score are shown.</div>`;
+      const row = el('div', 'board-form');
+      const name = el('input', 'ee-name board-name', '', { type: 'text', maxlength: '16', placeholder: 'Your name', 'aria-label': 'Name on the board', spellcheck: 'false' }) as HTMLInputElement;
+      name.value = p.name;
+      // Typing here must not drive the results keys (R is replay)
+      name.addEventListener('keydown', e => {
+        e.stopPropagation();
+        if (e.key === 'Enter') go();
+      });
+      const go = (): void => {
+        if (!name.value.trim()) {
+          name.focus();
+          return;
+        }
+        savePrefs({ ...p, on: true, name: name.value });
+        void post();
+      };
+      row.append(name, button('btn btn-primary board-post', 'Post', 'Post to the Daily board', go));
+      card.appendChild(row);
+    };
+    const post = async (): Promise<void> => {
+      card.innerHTML = `${head}<div class="practise-text">Checking your run…</div>`;
+      try {
+        await flush(day);
+        const res = await submit(day, r.replay!);
+        const rows = await top(day, 3).catch(() => []);
+        const me = prefs();
+        const pct = Math.max(1, Math.round((res.rank / Math.max(1, res.total)) * 100));
+        const list = rows.map((x, i) => `<li class="${x.score === res.best && x.name === me.name ? 'me' : ''}"><i>${i + 1}</i><span>${x.name}</span><b>${fmt(x.score)}</b></li>`).join('');
+        card.innerHTML = `<div class="board-head">${head}</div><div class="board-body"><div class="board-rank"><b>#${res.rank}</b><span>OF ${fmt(res.total)} · TOP ${pct}%</span>${res.best > res.score ? `<span>BEST ${fmt(res.best)}</span>` : ''}</div><ol class="board-list">${list}</ol></div>`;
+        card.querySelector('.board-head')!.appendChild(
+          button('board-off', 'Stop posting', 'Stop posting Daily runs', () => {
+            savePrefs({ ...prefs(), on: false });
+            card.innerHTML = `${head}<div class="practise-text">Posting is off. Your runs stay on this device.</div>`;
+          })
+        );
+        announce(`Daily board: rank ${res.rank} of ${res.total}.`);
+      } catch (err) {
+        const why = err instanceof Error ? err.message : '';
+        card.innerHTML = `${head}<div class="practise-text">${why === 'offline' ? 'No connection. Your run is kept and posts next time.' : "The board couldn't check this run."}</div>`;
+      }
+    };
+    if (prefs().on) void post();
+    else optIn();
+    return card;
   }
 
   hide(): void {

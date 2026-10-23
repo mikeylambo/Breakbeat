@@ -19,6 +19,9 @@
  *                score step for step, the HUD shows pace, and it tops out where that run ended
  *  ETUDE_SHARE — paint an etude, solve it with clicks, share the link; a fresh browser opens the
  *                link, sees it verified solvable, and solves it too
+ *  LEADERBOARD — (board host mocked) a Daily result asks before anything leaves the device; Post
+ *                sends that day's replay with the chosen name and shows rank and the top three;
+ *                the next Daily posts by itself
  */
 
 import assert from 'node:assert/strict';
@@ -683,6 +686,63 @@ await gate('ETUDE_SHARE', async () => {
   return `painted, solved and shared (${url.length - url.indexOf('#e=') - 3}-char code); a fresh browser saw it verified and solved it.`;
 });
 
+// ---------------------------------------------------------------- LEADERBOARD
+await gate('LEADERBOARD', async () => {
+  const { ctx, page, errors } = await newPage(VETERAN, { width: 844, height: 390 }, 2);
+  const BOARD = 'https://iysvarvkltihgosbhtaa.supabase.co';
+  const posted = [];
+  const foreign = [];
+  page.on('request', r => {
+    if (r.url().startsWith(BOARD)) foreign.push(r.url());
+  });
+  await ctx.route(`${BOARD}/functions/v1/breakbeat-submit`, async route => {
+    posted.push(JSON.parse(route.request().postData()));
+    await route.fulfill({ json: { score: 4321, best: 4321, rank: 3, total: 41 } });
+  });
+  await ctx.route(`${BOARD}/rest/v1/breakbeat_daily**`, route =>
+    route.fulfill({ json: [{ name: 'Ada', score: 9000, bars: 40 }, { name: 'Lin', score: 6000, bars: 31 }, { name: 'Gate', score: 4321, bars: 12 }] })
+  );
+  const dailyToResults = async () => {
+    await page.click('.title-screen .menu-item:has-text("Daily")');
+    await page.waitForFunction(() => window.__bb.engine?.currentBar >= 1, null, { timeout: 20000 });
+    for (let i = 0; i < 6; i++) {
+      await page.mouse.click(...cellXY(i * 2, 9));
+      await page.waitForTimeout(120);
+    }
+    await page.evaluate(() => window.__bb.engine.events.push({ type: 'gameover', reason: 'overflow', step: 0, bar: 1, sixteenth: 0 }));
+    await page.waitForSelector('.results:not(.hidden) .board-card', { timeout: 15000 });
+  };
+  step = 'first daily';
+  await dailyToResults();
+  await page.waitForSelector('.board-name');
+  await page.waitForTimeout(1500);
+  assert.equal(foreign.length, 0, `nothing leaves before opt-in (${foreign.join(', ')})`);
+  step = 'post';
+  await page.fill('.board-name', 'Gate');
+  await page.click('.board-post');
+  await page.waitForSelector('.board-rank', { timeout: 10000 });
+  const rank = await page.textContent('.board-rank');
+  assert.ok(rank.includes('#3') && rank.includes('41'), rank);
+  assert.equal(await page.locator('.board-list li').count(), 3);
+  const today = new Date().toISOString().slice(0, 10);
+  assert.equal(posted.length, 1);
+  assert.equal(posted[0].day, today);
+  assert.equal(posted[0].name, 'Gate');
+  assert.equal(posted[0].replay.seed, `daily-${today}`);
+  assert.ok(posted[0].replay.events.length > 0, 'the replay carries the run');
+  await page.waitForTimeout(2500);
+  await shot(page, 'daily-board');
+  step = 'second daily';
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.title-screen:not(.hidden)');
+  await dailyToResults();
+  await page.waitForSelector('.board-rank', { timeout: 10000 });
+  assert.equal(posted.length, 2, 'posts by itself once opted in');
+  assert.equal(errors.length, 0, errors.join(' | '));
+  await ctx.close();
+  return 'no request before opt-in; Post sent the day\'s replay with the name; rank and top three shown; the next Daily posted by itself.';
+});
+
 // ---------------------------------------------------------------- FRAME_HITCH
 await gate('FRAME_HITCH', async () => {
   // DPR 1: this container rasterises WebGL on the CPU (SwiftShader); phones have GPUs
@@ -762,4 +822,4 @@ await gate('NO_STALL', async () => {
 await browser.close();
 server.kill();
 if (failed) process.exit(1);
-console.log('=== BROWSER GATES GREEN (FRAME_HITCH, ANALYSER, VISUALIZER, LISTEN, BYO, REPLAY, GHOST, ETUDE_SHARE, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');
+console.log('=== BROWSER GATES GREEN (FRAME_HITCH, ANALYSER, VISUALIZER, LISTEN, BYO, REPLAY, GHOST, ETUDE_SHARE, LEADERBOARD, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');

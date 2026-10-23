@@ -772,3 +772,20 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .et-shared-copy b { display: block; margin-top: 5px; font: 700 15px/1 var(--display); color: var(--text); }
 .et-shared-copy span { display: block; margin-top: 4px; font: 500 8px/1 var(--mono); letter-spacing: 0.14em; color: var(--secondary); }
 .et-shared .btn-primary { display: inline-flex; align-items: center; gap: 8px; padding: 0 18px; }
+
+/* ---------- Daily board ---------- */
+.board-form { margin-top: 8px; display: flex; gap: 6px; }
+.board-form .board-name { margin-top: 0; font-size: 12px; padding: 6px 8px; }
+.board-post { height: 30px; padding: 0 14px; }
+.board-head { display: flex; justify-content: space-between; align-items: baseline; }
+.board-body { margin-top: 6px; display: grid; grid-template-columns: 92px 1fr; gap: 12px; align-items: start; }
+.board-rank b { display: block; font: 700 22px/1 var(--display); color: var(--mint); }
+.board-rank span { display: block; margin-top: 5px; font: 500 7px/1.2 var(--mono); letter-spacing: 0.14em; color: var(--mint); }
+.board-list { list-style: none; margin: 0; padding: 0; font: 500 9.5px/1.55 var(--body); color: var(--secondary); }
+.board-list li { display: grid; grid-template-columns: 12px 1fr auto; gap: 6px; }
+.board-list i { font: 500 7.5px/2 var(--mono); font-style: normal; color: var(--quiet); }
+.board-list span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board-list b { font: 600 9.5px/1.55 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; }
+.board-list li.me span, .board-list li.me b { color: var(--mint); }
+.board-off { font: 500 7px/1 var(--mono); letter-spacing: 0.14em; color: var(--quiet); text-transform: uppercase; }
+.board-off:hover { color: var(--text); }
