@@ -19,6 +19,7 @@ import type {
   PrimedGroup,
   PulseConfig,
   PulseEvent,
+  ReplayEvent,
   PulseTile
 } from './types.js';
 
@@ -46,6 +47,10 @@ export class PulseEngine {
   readonly groups = new Map<number, PrimedGroup>();
   readonly falling = new Map<number, FallingMotion>();
   readonly events: PulseEvent[] = [];
+  /** Outside inputs in order (primes, holds, skips, reconfigures): with the seed, the whole run. */
+  readonly log: ReplayEvent[] = [];
+  /** The config the run started with (config itself changes on movement morphs). */
+  readonly initial: Readonly<PulseConfig>;
 
   telemetry: RunTelemetry = {
     score: 0,
@@ -101,6 +106,7 @@ export class PulseEngine {
       fixedDeal: config.fixedDeal
     };
     this.pressureEnabled = this.config.pressureEnabled;
+    this.initial = { ...this.config };
 
     this.rng = new SeededRng(this.config.seed);
     this.board = Array.from({ length: rules.rows }, () =>
@@ -222,7 +228,17 @@ export class PulseEngine {
   }
 
   setPressureEnabled(on: boolean): void {
+    if (on !== this.pressureEnabled) this.log.push({ k: 'x', s: this.currentStep, on });
     this.pressureEnabled = on;
+  }
+
+  /** Movement change: takes effect from the next step. Logged, so replays change at the same step. */
+  reconfigure(bpm: number, colorCount: number, riseBars: number): void {
+    const c = this.config as { bpm: number; colorCount: number; riseBars: number };
+    c.bpm = bpm;
+    c.colorCount = colorCount;
+    c.riseBars = riseBars;
+    this.log.push({ k: 'm', s: this.currentStep, bpm, colors: colorCount, rise: riseBars });
   }
 
   private queueUpcomingRow(): void {
@@ -360,6 +376,7 @@ export class PulseEngine {
     };
 
     this.groups.set(group.id, group);
+    this.log.push(atElapsedSec === undefined ? { k: 'p', s: this.currentStep, c: col, r: row } : { k: 'p', s: this.currentStep, c: col, r: row, t: atElapsedSec });
     if (airPrimed) {
       this.telemetry.airPrimesLanded++;
     }
@@ -396,6 +413,7 @@ export class PulseEngine {
 
     group.held = true;
     group.state = 'held';
+    this.log.push({ k: 'h', s: this.currentStep, c: col, r: row });
     // targetBar is untouched: a queued group still waits for its pass before that pass is skipped.
 
     const activeBar = Math.max(1, this.currentBar);
@@ -420,6 +438,7 @@ export class PulseEngine {
   advanceToStep(targetStep: number): void {
     if (this.gameOver) return;
     if (targetStep - this.currentStep > 32) {
+      this.log.push({ k: 'j', s: this.currentStep, to: targetStep });
       this.currentStep = targetStep - 16;
     }
 

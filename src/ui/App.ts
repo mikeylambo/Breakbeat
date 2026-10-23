@@ -5,6 +5,7 @@
 
 import { TUNING, computeComboMultiplier, type GameMode } from '../tuning.js';
 import { BeatClock, createBeatQuery } from '../pulse/BeatClock.js';
+import { replayOf, simulate, type Replay, type SimResult } from '../pulse/Replay.js';
 import { PulseEngine } from '../pulse/PulseEngine.js';
 import type { PulseEvent } from '../pulse/types.js';
 import { GemRules } from '../content/gems/GemRules.js';
@@ -52,12 +53,6 @@ export interface RunConfig {
   track?: TrackDef;
 }
 
-export interface InputLogEntry {
-  step: number;
-  type: 'p' | 'h';
-  col: number;
-  row: number;
-}
 
 export interface RunState {
   cfg: RunConfig;
@@ -70,13 +65,16 @@ export interface RunState {
   seed: string;
   ended: boolean;
   morph: { step: number; index: number; atSec: number } | null;
-  inputLog: InputLogEntry[];
+  /** Started as a real run (not the Overture or an Etude), so its replay can be kept and verified */
+  replayable: boolean;
   bpmScale: number;
   movementsCleared: number;
   startedMs: number;
 }
 
 export interface RunResult {
+  /** The whole run as data (null for the Overture and Etudes) */
+  replay: Replay | null;
   /** Challenge stars earned by this run */
   newStars: string[];
   run: RunState;
@@ -369,7 +367,7 @@ export class App {
       seed,
       ended: false,
       morph: null,
-      inputLog: [],
+      replayable: !overture && !cfg.etude,
       bpmScale,
       movementsCleared: 0,
       startedMs: performance.now()
@@ -544,6 +542,16 @@ export class App {
     else this.sfx.play('slide', t, 0.8);
   }
 
+  /** The running run as a replay so far (null outside a real run). */
+  currentReplay(): Replay | null {
+    return this.engine && this.run?.replayable ? replayOf(this.engine) : null;
+  }
+
+  /** Re-simulates a replay with the game's rules: ghosts, and checking a run before it is shared. */
+  simulateReplay(r: Replay): SimResult {
+    return simulate(r, new GemRules('brick'));
+  }
+
   /** Ends the current run silently (quit / restart). */
   abandonRun(): void {
     if (!this.run) return;
@@ -576,7 +584,6 @@ export class App {
     const row = (cell / TUNING.BOARD_COLS) | 0;
     const g = e.primeAt(col, row, this.beat.visualElapsedSec);
     if (!g) return -1;
-    this.run?.inputLog.push({ step: e.currentStep, type: 'p', col, row });
     this.wall.markDirty();
     this.fx.markGroupsDirty();
     haptics.pulse('prime');
@@ -591,7 +598,6 @@ export class App {
     const col = cell % TUNING.BOARD_COLS;
     const row = (cell / TUNING.BOARD_COLS) | 0;
     if (e.holdAt(col, row)) {
-      this.run?.inputLog.push({ step: e.currentStep, type: 'h', col, row });
       this.wall.markDirty();
       this.fx.markGroupsDirty();
       this.drain();
@@ -652,6 +658,7 @@ export class App {
     this.blade.fadeOut();
     this.scheduler.queue('over', now + 0.02, 0.9);
     const score = Math.round(engine.telemetry.score * run.bpmScale);
+    const replay = run.replayable ? replayOf(engine) : null;
     const key = run.cfg.track ? run.cfg.track.id : run.mode === 'odyssey' ? MOVEMENTS[run.startMovement]!.id : run.mode;
     let previousBest = 0;
     if (run.mode === 'daily') {
@@ -673,7 +680,7 @@ export class App {
     this.persistSave();
     setTimeout(() => {
       this.hud.show(false);
-      this.hooks.onRunEnd?.({ run, engine, score, previousBest, key, newStars });
+      this.hooks.onRunEnd?.({ run, engine, score, previousBest, key, newStars, replay });
     }, 1700);
   }
 
@@ -764,10 +771,7 @@ export class App {
     const track = MOVEMENTS[index]!;
     const bpm = track.bpm * run.bpmScale;
     this.clock.setBpmAtStep(bpm, step);
-    const cfg = e.config as { bpm: number; colorCount: number; riseBars: number };
-    cfg.bpm = bpm;
-    cfg.colorCount = track.colors;
-    cfg.riseBars = track.riseBars;
+    e.reconfigure(bpm, track.colors, track.riseBars);
     run.morph = null;
     run.movement = index;
     run.track = track;

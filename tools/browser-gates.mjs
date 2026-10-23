@@ -13,6 +13,8 @@
  *  BYO         — offline: a generated 126.5 BPM song is read on the device (tempo within 0.2 BPM,
  *                downbeat within 20 ms), its stems build and a run plays on them; the song is still
  *                on the shelf after a reload; zero network requests throughout
+ *  REPLAY      — a run played with real clicks (and a mid-run stall) re-simulates in the page to the
+ *                same score, step and wall
  */
 
 import assert from 'node:assert/strict';
@@ -503,6 +505,45 @@ await gate('BYO', async () => {
   return `read in ${ms} ms offline: ${bpm} BPM (126.5), downbeat ${down} s (0.73); played on its stems; kept after reload; 0 network requests.`;
 });
 
+// ---------------------------------------------------------------- REPLAY
+await gate('REPLAY', async () => {
+  const { ctx, page, errors } = await newPage(VETERAN, { width: 844, height: 390 }, 1);
+  await page.click('.btn-continue');
+  await page.waitForFunction(() => window.__bb.engine && window.__bb.engine.currentBar >= 1);
+  let seed = 4242;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const end = Date.now() + 12000;
+  let stalled = false;
+  while (Date.now() < end) {
+    await page.mouse.click(...cellXY(Math.floor(rnd() * 16), 4 + Math.floor(rnd() * 6)));
+    if (!stalled && Date.now() > end - 6000) {
+      // Block the main thread long enough for the engine's catch-up skip
+      stalled = true;
+      await page.evaluate(() => {
+        const t = performance.now();
+        while (performance.now() - t < 4500);
+      });
+    }
+    await page.waitForTimeout(110 + Math.floor(rnd() * 140));
+  }
+  const r = await page.evaluate(() => {
+    const a = window.__bb;
+    const rp = a.currentReplay();
+    const sim = a.simulateReplay(JSON.parse(JSON.stringify(rp)));
+    const e = a.engine;
+    let h = 0x811c9dc5;
+    for (const row of e.board) for (const t of row) h = Math.imul(h ^ (t ? t.kind + 1 : 0), 0x01000193);
+    return { live: { score: e.telemetry.score, step: e.currentStep, hash: (h >>> 0).toString(16) }, sim, primes: rp.events.filter(x => x.k === 'p').length, kinds: [...new Set(rp.events.map(x => x.k))].join('') };
+  });
+  assert.equal(errors.length, 0, errors.join(' | '));
+  await ctx.close();
+  assert.ok(r.primes >= 5, `played (${r.primes} primes)`);
+  assert.equal(r.sim.score, r.live.score, 'score');
+  assert.equal(r.sim.step, r.live.step, 'step');
+  assert.equal(r.sim.boardHash, r.live.hash, 'wall');
+  return `${r.primes} primes, events [${r.kinds}], score ${r.live.score} at step ${r.live.step}: the replay matches score, step and wall.`;
+});
+
 // ---------------------------------------------------------------- FRAME_HITCH
 await gate('FRAME_HITCH', async () => {
   // DPR 1: this container rasterises WebGL on the CPU (SwiftShader); phones have GPUs
@@ -582,4 +623,4 @@ await gate('NO_STALL', async () => {
 await browser.close();
 server.kill();
 if (failed) process.exit(1);
-console.log('=== BROWSER GATES GREEN (FRAME_HITCH, ANALYSER, VISUALIZER, LISTEN, BYO, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');
+console.log('=== BROWSER GATES GREEN (FRAME_HITCH, ANALYSER, VISUALIZER, LISTEN, BYO, REPLAY, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');

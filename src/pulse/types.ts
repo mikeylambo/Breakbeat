@@ -219,3 +219,19 @@ export interface PulseConfig {
   /** Pressure rows rise only while enabled (Overture enables them at lesson 3). Default true. */
   pressureEnabled?: boolean;
 }
+
+/**
+ * Everything that changes a run from outside the sim, in order. A seed, the starting config and
+ * this log are the whole run: re-simulating them reproduces it exactly (see Replay.ts).
+ *  p  prime at engine step s (t: the exact elapsed time used for the air-prime check)
+ *  h  hold at engine step s
+ *  j  catch-up skip after a stall, from step s to step `to`
+ *  m  movement change at step s (tempo, colours, rise cadence)
+ *  x  pressure switched on or off at step s
+ */
+export type ReplayEvent =
+  | { k: 'p'; s: number; c: number; r: number; t?: number }
+  | { k: 'h'; s: number; c: number; r: number }
+  | { k: 'j'; s: number; to: number }
+  | { k: 'm'; s: number; bpm: number; colors: number; rise: number }
+  | { k: 'x'; s: number; on: boolean };

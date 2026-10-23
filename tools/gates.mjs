@@ -11,6 +11,7 @@
  * 8. SOLVABLE (1,000 seeds x 300 pushes)
  * 9. PERF (10-group Overcharged pass frame budget)
  * 10. NETWORK (zero external runtime network calls)
+ * +   REPLAY_DETERMINISM (seed + input log re-simulates 200 bot runs exactly)
  */
 
 import assert from 'node:assert/strict';
@@ -22,6 +23,7 @@ import { TUNING } from '../build/src/tuning.js';
 import { BeatClock } from '../build/src/pulse/BeatClock.js';
 import { PulseEngine } from '../build/src/pulse/PulseEngine.js';
 import { GemRules } from '../build/src/content/gems/GemRules.js';
+import { replayOf, simulate, boardHash } from '../build/src/pulse/Replay.js';
 
 console.log('=== BREAKBEAT GDD Gate Suite ===');
 
@@ -608,4 +610,37 @@ const put = (eng, col, row, kind) => { eng.board[row][col] = { id: gid++, col, r
   console.log(`PASS [ETUDES]: ${etudes.length} puzzles + ${drills.length} tutorial drills solved by their stored solutions; none win without input.`);
 }
 
-console.log('=== ALL 20 BREAKBEAT GATES GREEN ===');
+// REPLAY_DETERMINISM — 200 bot runs across modes and tempos: taps at fractional times (air-primes),
+// holds, a movement change and a stall skip; each replay re-simulates to the same score, step and wall
+{
+  const t0 = performance.now();
+  let steps = 0;
+  for (let i = 0; i < 200; i++) {
+    const mode = ['endless', 'daily', 'zen', 'odyssey'][i % 4];
+    const e = new PulseEngine({ seed: `gate-replay-${i}`, mode, bpm: 88 + (i % 63), colorCount: 4 + (i % 2), riseBars: 1 + (i % 2) }, new GemRules('brick'));
+    let r = (i + 1) * 2654435761 >>> 0;
+    const rnd = () => ((r = (Math.imul(r, 1103515245) + 12345) >>> 0) / 4294967296);
+    for (let step = 0; step < 900 && !e.gameOver; step++) {
+      if (step === 200) e.reconfigure(e.config.bpm + 7, 5, 1);
+      if (step === 400) {
+        e.advanceToStep(e.currentStep + 40);
+        step = e.currentStep;
+      }
+      e.advanceToStep(step);
+      e.events.length = 0;
+      if (rnd() < 0.6) {
+        const c = Math.floor(rnd() * TUNING.BOARD_COLS);
+        const row = Math.floor(rnd() * TUNING.BOARD_ROWS);
+        if (e.primeAt(c, row, (step + rnd()) * e.sixteenthSec) && rnd() < 0.25) e.holdAt(c, row);
+      }
+    }
+    const sim = simulate(JSON.parse(JSON.stringify(replayOf(e))), new GemRules('brick'));
+    assert.equal(sim.score, e.telemetry.score, `REPLAY_DETERMINISM: score drift on seed ${i}`);
+    assert.equal(sim.boardHash, boardHash(e), `REPLAY_DETERMINISM: wall drift on seed ${i}`);
+    assert.equal(sim.step, e.currentStep, `REPLAY_DETERMINISM: step drift on seed ${i}`);
+    steps += e.currentStep;
+  }
+  console.log(`PASS [REPLAY_DETERMINISM]: 200 bot runs (${steps} steps, air-primes, holds, morphs, stall skips) re-simulate exactly in ${(performance.now() - t0).toFixed(0)} ms.`);
+}
+
+console.log('=== ALL 21 BREAKBEAT GATES GREEN ===');

@@ -37,8 +37,9 @@ so build them together. Upload Your Own Beat builds on that same plumbing.
 The engine is deterministic: a seed plus an input log is a replay. That makes ghosts and leaderboards that
 can't be cheated cheap to build, so use it.
 
-- [ ] **Input-log replays**: record `(pass, sixteenth, cell, action)` per run. Re-simulating the log must
-      reproduce the exact score (REPLAY_DETERMINISM gate).
+- [x] **Input-log replays**: the engine logs every outside input (primes with their exact time, holds,
+      movement changes, pressure switches, stall skips). Seed plus log re-simulates the run exactly
+      (REPLAY_DETERMINISM: 200 bot runs; REPLAY browser gate: a clicked run with a stall).
 - [ ] **Ghost race**: your best Daily or movement run plays as a translucent second blade and score ticker.
 - [ ] **Verified Daily leaderboard** (Supabase): the client submits seed + log, and an Edge Function
       re-simulates `PulseEngine` and accepts the server's score only. Show friends, global, and percentile.
