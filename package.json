@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Breakbeat \u2014 you choose what breaks; the music chooses when.",
   "scripts": {
-    "build": "tsc -p tsconfig.json && node tools/bundle.mjs",
+    "build": "tsc -p tsconfig.json && node tools/bundle.mjs && node tools/build-server.mjs",
     "check": "tsc -p tsconfig.json --noEmit",
     "dev": "npm run build && node tools/serve.mjs",
     "start": "node tools/serve.mjs",

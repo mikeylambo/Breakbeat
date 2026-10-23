@@ -315,7 +315,14 @@ console.log('=== BREAKBEAT GDD Gate Suite ===');
   ];
   const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap(d =>
     d.isDirectory() ? walk(path.join(dir, d.name)) : d.name.endsWith('.ts') ? [path.join(dir, d.name)] : []);
+  // One exception: the opt-in Daily board (src/meta/Leaderboard.ts) may reach exactly its own host
+  const BOARD = path.join('src', 'meta', 'Leaderboard.ts');
+  const board = fs.readFileSync(BOARD, 'utf8');
+  const hosts = new Set(board.match(/https?:\/\/[^'"`/\s]+/g) ?? []);
+  assert.deepEqual([...hosts], ['https://iysvarvkltihgosbhtaa.supabase.co'], `NETWORK gate failed: Leaderboard.ts may only reach the board host (${[...hosts].join(', ')})`);
+  assert.equal(/\bXMLHttpRequest\b|\bWebSocket\b/.test(board), false, 'NETWORK gate failed: Leaderboard.ts uses XHR or sockets');
   for (const rel of walk('src')) {
+    if (rel === BOARD) continue;
     const code = fs.readFileSync(path.resolve(process.cwd(), rel), 'utf8');
     // Only same-origin relative fetches (bundled stems) are allowed; no absolute URLs, XHR or sockets.
     assert.equal(
@@ -326,7 +333,7 @@ console.log('=== BREAKBEAT GDD Gate Suite ===');
   }
   const html = fs.readFileSync('public/index.html', 'utf8') + fs.readFileSync('public/fonts/fonts.css', 'utf8');
   assert.equal(/(src|href)=["']https?:|url\(['"]?https?:/.test(html), false, 'NETWORK gate failed: external asset in index.html or fonts.css');
-  console.log('PASS [NETWORK]: Zero cross-origin requests in source, HTML and font CSS (fonts and audio bundled).');
+  console.log('PASS [NETWORK]: Zero cross-origin requests in source, HTML and font CSS (fonts and audio bundled); only the opt-in Daily board reaches its one host.');
 }
 
 // ---------- v0.6 engine gates ----------
