@@ -24,6 +24,9 @@ export interface TitleActions {
   zen(): void;
   etudes(): void;
   listen(): void;
+  beats(): void;
+  /** Songs on the My Beats shelf (for the row's count) */
+  beatsCount(): number;
   tutorial(): void;
   settings(): void;
   profile(): void;
@@ -110,6 +113,7 @@ export class TitleScreen {
       { id: 'zen', name: 'Zen', meta: save.best.zen ? fmt(save.best.zen) : '—', desc: 'No rising wall, no game over. Just you and the music.', ghost: 'Zen', action: a.zen },
       { id: 'etudes', name: 'Etudes', meta: `${save.etudes.length}/8`, desc: 'Hand-built puzzles: clear the target in a set number of passes.', ghost: 'Etudes', action: a.etudes },
       { id: 'listen', name: 'Listen', meta: `${listenQueue(save).length}/${MOVEMENTS.length + 1}`, desc: 'The soundtrack: every movement you have cleared, full mix, with a stem mixer and visualizer.', ghost: 'Listen', action: a.listen },
+      { id: 'beats', name: 'My Beats', meta: a.beatsCount() ? String(a.beatsCount()) : 'NEW', desc: 'Play the wall to your own songs. They stay on this device.', ghost: 'Yours', cls: a.beatsCount() ? '' : 'fresh', action: a.beats },
       { id: 'tutorial', name: 'Tutorial & Tips', meta: '', desc: 'How every piece of Breakbeat works, one slide at a time.', ghost: 'Learn', cls: 'quiet', action: a.tutorial },
       { id: 'profile', name: 'Profile', meta: '', desc: 'Lifetime stats, challenge stars and the cosmetic locker.', ghost: 'Profile', cls: 'quiet', action: a.profile },
       { id: 'settings', name: 'Settings', meta: '', desc: 'Sound, timing, display and accessibility.', ghost: 'Settings', cls: 'quiet', action: a.settings }

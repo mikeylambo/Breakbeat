@@ -28,6 +28,8 @@ export interface TrackDef {
   riseBars: number;
   /** Commissioned sleeve art under public/ (else a generated stand-in, see render/SleeveArt.ts) */
   sleeve?: string;
+  /** Player-made track (Upload Your Own Beat): band-split stems sum back to the song at unity */
+  flatMix?: boolean;
   /** False until Michael's stems land; the placeholder synth renders the stems instead. */
   stemsReady: boolean;
   stems: Record<StemName, string>;

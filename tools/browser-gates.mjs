@@ -10,12 +10,16 @@
  *  LISTEN      — the soundtrack plays full mixes of unlocked tracks; mute / solo reach the stem taps;
  *                picking a track blends it in; C jumps to section C on a downbeat; Space holds the
  *                clock; leaving restores unity mix and the menu's music
+ *  BYO         — offline: a generated 126.5 BPM song is read on the device (tempo within 0.2 BPM,
+ *                downbeat within 20 ms), its stems build and a run plays on them; the song is still
+ *                on the shelf after a reload; zero network requests throughout
  */
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
+import { songPcm, wav } from './make-song.mjs';
 
 const PORT = 4179;
 const ORIGIN = `http://127.0.0.1:${PORT}`;
@@ -455,6 +459,50 @@ await gate('LISTEN', async () => {
   return 'full mix (6 layers); mute and solo reach the taps; Glasswork blended in; C landed on its downbeat; pause holds the clock; Esc restores the menu.';
 });
 
+// ---------------------------------------------------------------- BYO
+await gate('BYO', async () => {
+  const song = 'artifacts/Test Groove.wav';
+  const { pcm, sr } = songPcm({ bpm: 126.5, seconds: 60, offset: 0.73 });
+  fs.writeFileSync(song, wav(pcm, sr));
+  const { ctx, page, errors } = await newPage(VETERAN, { width: 844, height: 390 }, 2);
+  await page.waitForTimeout(500);
+  step = 'offline';
+  await ctx.setOffline(true);
+  const offlineRequests = [];
+  page.on('request', r => {
+    if (!r.url().startsWith(ORIGIN) && !r.url().startsWith('blob:') && !r.url().startsWith('data:')) offlineRequests.push(r.url());
+  });
+  step = 'add';
+  await page.click('.title-screen .menu-item:has-text("My Beats")');
+  await page.waitForSelector('.beats-screen:not(.hidden)');
+  const t0 = Date.now();
+  await page.setInputFiles('.bt-file', song);
+  await page.waitForSelector('.bt-row', { timeout: 60000 });
+  const ms = Date.now() - t0;
+  const [bpm, down] = await page.evaluate(() => [...document.querySelectorAll('.bt-row b')].map(b => parseFloat(b.textContent)));
+  assert.ok(Math.abs(bpm - 126.5) <= 0.2, `tempo ${bpm}`);
+  assert.ok(Math.abs(down - 0.73) <= 0.02, `downbeat ${down}`);
+  await shot(page, 'beats-tune');
+  step = 'play';
+  await page.click('.bt-actions .sld-play');
+  await page.waitForFunction(() => window.__bb.run?.track?.id?.startsWith('beat-') && window.__bb.engine?.currentBar >= 2, null, { timeout: 60000 });
+  const r = await page.evaluate(() => ({ bpm: window.__bb.clock.bpm, kick: window.__bb.features.env[0], layers: window.__bb.stems.activeLayers }));
+  assert.ok(Math.abs(r.bpm - bpm) < 0.01, 'the run plays at the tuned tempo');
+  assert.equal(r.layers, 2, 'chain rank 0: kick + bass bands');
+  await page.waitForFunction(() => window.__bb.features.env[0] > 0.5, null, { timeout: 5000 }).catch(() => assert.fail('the kick band sounds'));
+  step = 'reload';
+  await page.evaluate(() => window.__bb.abandonRun());
+  await page.reload();
+  await page.waitForFunction(() => document.getElementById('game')?.dataset.ready === '1', null, { timeout: 20000 });
+  await pressStart(page);
+  await page.click('.title-screen .menu-item:has-text("My Beats")');
+  await page.waitForSelector('.beats-screen .menu-item:has-text("Test Groove")', { timeout: 5000 });
+  assert.equal(offlineRequests.length, 0, `network: ${offlineRequests.join(', ')}`);
+  assert.equal(errors.length, 0, errors.join(' | '));
+  await ctx.close();
+  return `read in ${ms} ms offline: ${bpm} BPM (126.5), downbeat ${down} s (0.73); played on its stems; kept after reload; 0 network requests.`;
+});
+
 // ---------------------------------------------------------------- FRAME_HITCH
 await gate('FRAME_HITCH', async () => {
   // DPR 1: this container rasterises WebGL on the CPU (SwiftShader); phones have GPUs
@@ -534,4 +582,4 @@ await gate('NO_STALL', async () => {
 await browser.close();
 server.kill();
 if (failed) process.exit(1);
-console.log('=== BROWSER GATES GREEN (FRAME_HITCH, ANALYSER, VISUALIZER, LISTEN, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');
+console.log('=== BROWSER GATES GREEN (FRAME_HITCH, ANALYSER, VISUALIZER, LISTEN, BYO, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');

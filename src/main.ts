@@ -6,6 +6,7 @@ import { SplashScreen } from './ui/SplashScreen.js';
 import { SetlistScreen } from './ui/SetlistScreen.js';
 import { TutorialScreen } from './ui/TutorialScreen.js';
 import { ListenScreen } from './ui/ListenScreen.js';
+import { BeatsScreen } from './ui/BeatsScreen.js';
 import { ResultsScreen } from './ui/ResultsScreen.js';
 import { ProfileSheet } from './ui/ProfileSheet.js';
 import { EtudeScreen } from './ui/EtudeScreen.js';
@@ -71,6 +72,11 @@ async function main(): Promise<void> {
       title.show(false);
       listen.open(app.save);
     }),
+    beats: w(() => {
+      title.show(false);
+      void beats.open();
+    }),
+    beatsCount: () => beatsCount,
     tutorial: () => {
       title.show(false);
       tutorial.open();
@@ -101,6 +107,19 @@ async function main(): Promise<void> {
     }
   });
   window.addEventListener('keydown', listen.onWindowKey);
+  let beatsCount = 0;
+  const beats = new BeatsScreen(app, {
+    play: track => void play({ mode: 'endless', movement: 0, track }),
+    back: () => {
+      beats.hide();
+      title.render(app.save);
+      title.show(true);
+    }
+  });
+  void beats.shelf.list().then(l => {
+    beatsCount = l.length;
+    if (title.visible) title.render(app.save);
+  });
   const tutorial = new TutorialScreen({
     back: () => {
       tutorial.hide();
@@ -124,7 +143,7 @@ async function main(): Promise<void> {
         });
       })()
   });
-  app.ui.append(splash.root, title.root, setlist.root, listen.root, tutorial.root);
+  app.ui.append(splash.root, title.root, setlist.root, listen.root, beats.root, tutorial.root);
   const place = (): void => applyUiTransform(app.ui, computeLayout());
   place();
   window.addEventListener('resize', place);
@@ -182,12 +201,14 @@ async function main(): Promise<void> {
     title.show(false);
     setlist.hide();
     if (listen.visible) listen.close();
+    if (beats.visible) beats.hide();
     tutorial.hide();
     splash.show(false);
   }
 
   /** Back to the main menu (after a run, or from the title card). */
   function showTitle(fromRun = true): void {
+    void beats.shelf.list().then(l => (beatsCount = l.length));
     etudes.clear();
     if (fromRun) app.abandonRun();
     hideMenus();
@@ -201,7 +222,7 @@ async function main(): Promise<void> {
   async function play(cfg: RunConfig): Promise<void> {
     if (cfg.mode !== 'overture') lastCfg = cfg;
     // Leaving a menu: the music cuts, a blade wipes the screen, the wall deals in behind it
-    if (title.visible || results.visible || setlist.visible || tutorial.visible) {
+    if (title.visible || results.visible || setlist.visible || tutorial.visible || beats.visible) {
       app.stopAttract();
       await bladeWipe();
     }
@@ -298,7 +319,8 @@ async function main(): Promise<void> {
     app.abandonRun();
     app.setWallVisible(false);
     results.show(r);
-    app.attract('odyssey', r.run.movement, 2);
+    if (r.run.cfg.track) void app.attractTo(r.run.cfg.track, 2);
+    else app.attract('odyssey', r.run.movement, 2);
   };
   // Pause → quit: a drill goes back to its tutorial slide, everything else to the main menu
   app.showTitle = () => (etudes.drilling ? etudes.leaveDrill() : showTitle());

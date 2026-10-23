@@ -98,7 +98,7 @@ export class ResultsScreen {
     this.pb = pb && previousBest > 0;
     this.score = score;
     const movementLabel =
-      run.mode === 'odyssey' ? `${run.track.number} · ${run.track.name.toUpperCase()}` : `${run.mode.toUpperCase()} · ${run.track.name.toUpperCase()}`;
+      run.cfg.track ? `MY BEAT · ${run.track.name.toUpperCase()}` : run.mode === 'odyssey' ? `${run.track.number} · ${run.track.name.toUpperCase()}` : `${run.mode.toUpperCase()} · ${run.track.name.toUpperCase()}`;
 
     this.root.innerHTML = '';
     this.root.classList.toggle('is-pb', pb);
@@ -239,7 +239,7 @@ export class ResultsScreen {
         snapshot: snap,
         bpm: this.app.clock.bpm,
         score: r.score,
-        title: r.run.mode === 'odyssey' ? `${track.number} · ${track.name.toUpperCase()}` : r.run.mode.toUpperCase(),
+        title: r.run.cfg.track ? `MY BEAT · ${track.name.toUpperCase()}` : r.run.mode === 'odyssey' ? `${track.number} · ${track.name.toUpperCase()}` : r.run.mode.toUpperCase(),
         audio: this.app.audio.recordStream(),
         startMusic: () => {
           void this.app.stems.start(track, this.app.audio.now + 0.02, 6);
@@ -249,7 +249,10 @@ export class ResultsScreen {
       if (btn) btn.textContent = result === 'downloaded' ? 'Saved' : result === 'shared' ? 'Shared' : 'Share pass';
     } finally {
       this.sharing = false;
-      if (this.visible) this.app.attract('odyssey', r.run.movement, 2);
+      if (this.visible) {
+        if (r.run.cfg.track) void this.app.attractTo(r.run.cfg.track, 2);
+        else this.app.attract('odyssey', r.run.movement, 2);
+      }
     }
   }
 }

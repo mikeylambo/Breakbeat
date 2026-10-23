@@ -48,6 +48,8 @@ export interface RunConfig {
   seed?: string;
   /** Etude puzzle (fixed board, no pressure) */
   etude?: EtudeDef;
+  /** A player's own song (Upload Your Own Beat): played on its own, best kept per song */
+  track?: TrackDef;
 }
 
 export interface InputLogEntry {
@@ -337,7 +339,7 @@ export class App {
     const overture = cfg.mode === 'overture';
     const index = overture ? 0 : Math.max(0, Math.min(MOVEMENTS.length - 1, cfg.movement));
     const trackIndex = App.trackIndex(cfg.mode, cfg.movement);
-    const track = overture ? OVERTURE : MOVEMENTS[trackIndex]!;
+    const track = cfg.track ?? (overture ? OVERTURE : MOVEMENTS[trackIndex]!);
     const bpmScale = cfg.mode === 'daily' || overture ? 1 : this.settings.bpmScale;
     const bpm = track.bpm * bpmScale;
     const seed = cfg.seed ?? (cfg.mode === 'daily' ? `daily-${todayUtc()}` : `${cfg.mode}-${Date.now().toString(36)}`);
@@ -398,6 +400,7 @@ export class App {
     this.save.runs++;
     this.persistSave();
     if (cfg.etude) announce(`${cfg.etude.topic ? 'Try it' : 'Etude'}: ${cfg.etude.name}. ${cfg.etude.hint}`);
+    else if (cfg.track) announce(`Your beat: ${track.name}. ${Math.round(bpm)} BPM.`);
     else if (!overture) announce(`Movement ${track.number}, ${track.name}. ${Math.round(bpm)} BPM.`);
   }
 
@@ -649,7 +652,7 @@ export class App {
     this.blade.fadeOut();
     this.scheduler.queue('over', now + 0.02, 0.9);
     const score = Math.round(engine.telemetry.score * run.bpmScale);
-    const key = run.mode === 'odyssey' ? MOVEMENTS[run.startMovement]!.id : run.mode;
+    const key = run.cfg.track ? run.cfg.track.id : run.mode === 'odyssey' ? MOVEMENTS[run.startMovement]!.id : run.mode;
     let previousBest = 0;
     if (run.mode === 'daily') {
       const today = todayUtc();
@@ -683,7 +686,7 @@ export class App {
     this.blade.setStyle(c.blade, c.accent);
     this.fx.setShardMaterial(c.shard);
     if (!card) return;
-    this.card.innerHTML = `<div class="mc-num">${track.number} · ${track.style.toUpperCase()}</div><div class="mc-name">${track.name}</div>`;
+    this.card.innerHTML = `<div class="mc-num">${track.flatMix ? `MY BEAT · ${Math.round(track.bpm)} BPM` : `${track.number} · ${track.style.toUpperCase()}`}</div><div class="mc-name">${track.name}</div>`;
     this.card.style.setProperty('--accent', `#${c.accent.toString(16).padStart(6, '0')}`);
     this.card.classList.remove('show');
     void this.card.offsetWidth;
@@ -724,7 +727,7 @@ export class App {
     const run = this.run;
     const e = this.engine;
     if (!run || !e || run.ended || run.morph) return;
-    if (run.mode !== 'odyssey' && run.mode !== 'endless' && run.mode !== 'daily') return;
+    if (run.cfg.track || (run.mode !== 'odyssey' && run.mode !== 'endless' && run.mode !== 'daily')) return;
     const earned = e.telemetry.score - run.movementStartScore;
     if (earned < run.track.quota) return;
     if (run.mode === 'odyssey') {
@@ -981,14 +984,14 @@ export class App {
         chainRank: e.chainRank,
         combo: computeComboMultiplier(e.comboPasses),
         layers: this.stems.activeLayers,
-        movement: run.mode === 'etude' ? `${run.cfg.etude?.topic ? 'TRY IT' : 'ETUDE'} · ${run.cfg.etude?.name.toUpperCase() ?? ''}` : run.mode === 'overture' ? 'OVERTURE' : run.mode === 'odyssey' ? `${run.track.number} · ${run.track.name.toUpperCase()}` : `${run.mode.toUpperCase()} · ${run.track.name.toUpperCase()}`,
+        movement: run.cfg.track ? run.track.name.toUpperCase() : run.mode === 'etude' ? `${run.cfg.etude?.topic ? 'TRY IT' : 'ETUDE'} · ${run.cfg.etude?.name.toUpperCase() ?? ''}` : run.mode === 'overture' ? 'OVERTURE' : run.mode === 'odyssey' ? `${run.track.number} · ${run.track.name.toUpperCase()}` : `${run.mode.toUpperCase()} · ${run.track.name.toUpperCase()}`,
         bpm: this.clock.bpm,
         bar: e.currentBar,
         risesIn: e.barsUntilNextPush,
         charge: e.charge,
-        best: run.mode === 'daily' ? (this.save.daily.date === todayUtc() ? this.save.daily.best : 0) : (this.save.best[run.mode === 'odyssey' ? MOVEMENTS[run.startMovement]!.id : run.mode] ?? 0),
+        best: run.cfg.track ? (this.save.best[run.cfg.track.id] ?? 0) : run.mode === 'daily' ? (this.save.daily.date === todayUtc() ? this.save.daily.best : 0) : (this.save.best[run.mode === 'odyssey' ? MOVEMENTS[run.startMovement]!.id : run.mode] ?? 0),
         groups: e.telemetry.groupsCleared,
-        credit: run.mode === 'overture' ? '♪ Overture' : `♪ ${run.track.number} ${run.track.name} · ${run.track.style[0]!.toUpperCase()}${run.track.style.slice(1)}`,
+        credit: run.cfg.track ? `♪ ${run.track.name} · ${Math.round(run.track.bpm)} BPM` : run.mode === 'overture' ? '♪ Overture' : `♪ ${run.track.number} ${run.track.name} · ${run.track.style[0]!.toUpperCase()}${run.track.style.slice(1)}`,
         pulse: this.settings.reducedMotion ? 0 : (1 - beat.beatProgress) * (1 - beat.beatProgress),
         danger: this.wall.dangerLevel
       });

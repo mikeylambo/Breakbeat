@@ -18,17 +18,19 @@ so build them together. Upload Your Own Beat builds on that same plumbing.
 - [x] **Listen mode (Jukebox)**: the Overture plus every cleared movement, full mix, inside its world, with
       the visualizer at full strength. A stem mixer (mute, solo, live meters), an A/B/C section scrub,
       play-through with auto-advance (or Repeat One), a sleep timer, clean view, and media-key support.
-- [ ] **Upload Your Own Beat** (local only; nothing leaves the device):
-  - [ ] Decode the file, then detect BPM and downbeat offline (onset autocorrelation). Fold the tempo into
-        88–150 BPM (halve or double), then confirm or nudge it with a tap-tempo sheet.
-  - [ ] Pseudo-stems: split the mix into the 5 layers with band filters (kick < 120 Hz, bass, keys, lead, top),
-        so chain rank still opens up the mix.
-  - [ ] Detect A/B/C sections by energy (manual override allowed). Seed the board from a file hash, so one
-        song always deals the same wall.
-  - [ ] Cache the analysis plus a "My Beats" shelf in IndexedDB. Keep personal bests per song. Give it its own
-        world palette, taken from the album art if there is any.
-- [ ] Gates: ANALYSER_COST (under 0.5 ms a frame), BEAT_DETECT (fixture songs land within ±1 BPM and on the
-      right downbeat), BYO_OFFLINE (no network).
+- [x] **Upload Your Own Beat** (My Beats; local only, nothing leaves the device):
+  - [x] Decode, then detect tempo (autocorrelation plus a whole-song comb refine), downbeat and key.
+        The tempo folds into the game range (174 plays as 87). A Tune panel nudges tempo (±0.05, ÷2,
+        ×2, tap), the downbeat (a beat or 10 ms) and each section (4 bars), with a click-track preview.
+  - [x] Pseudo-stems: Linkwitz–Riley crossovers split the song into the 5 layers (kick < 110 Hz < bass
+        < 320 Hz < keys < 2.2 kHz < lead < 6.5 kHz < top), so chain rank opens it up from the low end.
+  - [x] A/B/C picked by bar energy on phrase starts (manual override in Tune). Each loop point is
+        crossfaded into the audio before it, so sections loop without a seam. The board seed is per run.
+  - [x] Shelf in IndexedDB with a personal best per song. Sound effects follow the song's key. The world
+        comes from the movement nearest in tempo.
+  - [ ] Later: a world palette from the album art (ID3/MP4 tags), and a fixed seed per song as an option.
+- [x] Gates: ANALYSER (under 0.5 ms a frame), beat detection unit tests (synthetic songs within 0.2 BPM,
+      downbeat within 35 ms), BYO browser gate (offline, zero requests).
 
 ## v0.12: Competitive spine
 

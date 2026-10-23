@@ -21,7 +21,10 @@ const LAYERS: number[][] = [
   [1, 1, 1, 1, 1] // rank 4: full
 ];
 
-type StemSet = Record<StemName, AudioBuffer>;
+export type StemSet = Record<StemName, AudioBuffer>;
+
+/** Flat mix level for player-made tracks (band splits of one master: equal levels keep it whole). */
+const FLAT = 0.85;
 
 export class StemPlayer {
   private readonly cache = new Map<string, Promise<StemSet>>();
@@ -41,6 +44,19 @@ export class StemPlayer {
   section = 0;
 
   constructor(private readonly audio: AudioEngine) {}
+
+  /**
+   * Hands over stems built elsewhere (Upload Your Own Beat). Only the latest player track stays
+   * cached, so a shelf of songs never piles up in memory.
+   */
+  register(track: TrackDef, set: StemSet): void {
+    for (const id of [...this.cache.keys()]) if (id.startsWith('beat-') && id !== track.id && this.track?.id !== id) this.cache.delete(id);
+    this.cache.set(track.id, Promise.resolve(set));
+  }
+
+  private mix(name: StemName, track = this.track): number {
+    return track?.flatMix ? FLAT : MIX[name];
+  }
 
   /** Decodes (or renders placeholders for) a movement's stems once. */
   load(track: TrackDef): Promise<StemSet> {
@@ -119,7 +135,7 @@ export class StemPlayer {
     const levels = LAYERS[this.layers - 1]!;
     STEM_NAMES.forEach((name, i) => {
       const ducked = (name === 'kick' || name === 'top') && this.duckUntil > startSec;
-      rampParam(this.audio.stemGains[this.deck]![i]!.gain, ducked ? 0 : levels[i]! * MIX[name], startSec, endSec);
+      rampParam(this.audio.stemGains[this.deck]![i]!.gain, ducked ? 0 : levels[i]! * this.mix(name), startSec, endSec);
     });
   }
 
@@ -131,7 +147,7 @@ export class StemPlayer {
       const i = STEM_NAMES.indexOf(name);
       const g = this.audio.stemGains[this.deck]![i]!.gain;
       rampParam(g, 0, atSec, atSec + 0.03);
-      rampParam(g, levels[i]! * MIX[name], atSec + beatSec - 0.03, atSec + beatSec);
+      rampParam(g, levels[i]! * this.mix(name), atSec + beatSec - 0.03, atSec + beatSec);
     }
   }
 
@@ -147,7 +163,7 @@ export class StemPlayer {
       rampParam(this.audio.stemGains[from]![i]!.gain, 0, atSec, atSec + barSec);
       const g = this.audio.stemGains[to]![i]!.gain;
       rampParam(g, 0, atSec - 0.01, atSec);
-      rampParam(g, levels[i]! * MIX[name], atSec, atSec + barSec);
+      rampParam(g, levels[i]! * this.mix(name, track), atSec, atSec + barSec);
     });
     this.stopDeck(from, atSec + barSec + 0.05);
     this.deck = to;
