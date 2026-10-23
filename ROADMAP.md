@@ -15,9 +15,9 @@ so build them together. Upload Your Own Beat builds on that same plumbing.
 - [x] **Visualizers**: 4 presets (Horizon, Rings, Scope, Shatter) driven by the stems and the mix. They play
       behind the menus and, optionally, behind the wall in Zen. Strobe-free, reduced motion and flash
       intensity are respected. Listen mode runs them at full strength when it lands.
-- [ ] **Listen mode (Jukebox)**: unlocked tracks play as full mixes inside their movement worlds. A stem mixer
-      (solo or mute each stem), A/B/C section scrub, and a sleep timer. It's the soundtrack reward for clearing a
-      movement, and it gives the $14.99 tier something to show off.
+- [x] **Listen mode (Jukebox)**: the Overture plus every cleared movement, full mix, inside its world, with
+      the visualizer at full strength. A stem mixer (mute, solo, live meters), an A/B/C section scrub,
+      play-through with auto-advance (or Repeat One), a sleep timer, clean view, and media-key support.
 - [ ] **Upload Your Own Beat** (local only; nothing leaves the device):
   - [ ] Decode the file, then detect BPM and downbeat offline (onset autocorrelation). Fold the tempo into
         88–150 BPM (halve or double), then confirm or nudge it with a tap-tempo sheet.

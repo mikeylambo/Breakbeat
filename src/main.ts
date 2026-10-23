@@ -5,6 +5,7 @@ import { TitleScreen } from './ui/TitleScreen.js';
 import { SplashScreen } from './ui/SplashScreen.js';
 import { SetlistScreen } from './ui/SetlistScreen.js';
 import { TutorialScreen } from './ui/TutorialScreen.js';
+import { ListenScreen } from './ui/ListenScreen.js';
 import { ResultsScreen } from './ui/ResultsScreen.js';
 import { ProfileSheet } from './ui/ProfileSheet.js';
 import { EtudeScreen } from './ui/EtudeScreen.js';
@@ -66,6 +67,10 @@ async function main(): Promise<void> {
     daily: w(() => play({ mode: 'daily', movement: 0 })),
     zen: w(() => play({ mode: 'zen', movement: ZEN_INDEX })),
     etudes: w(() => etudes.showList(true)),
+    listen: w(() => {
+      title.show(false);
+      listen.open(app.save);
+    }),
     tutorial: () => {
       title.show(false);
       tutorial.open();
@@ -88,6 +93,14 @@ async function main(): Promise<void> {
       title.show(true);
     }
   });
+  const listen = new ListenScreen(app, {
+    back: () => {
+      listen.close();
+      title.render(app.save);
+      title.show(true);
+    }
+  });
+  window.addEventListener('keydown', listen.onWindowKey);
   const tutorial = new TutorialScreen({
     back: () => {
       tutorial.hide();
@@ -111,7 +124,7 @@ async function main(): Promise<void> {
         });
       })()
   });
-  app.ui.append(splash.root, title.root, setlist.root, tutorial.root);
+  app.ui.append(splash.root, title.root, setlist.root, listen.root, tutorial.root);
   const place = (): void => applyUiTransform(app.ui, computeLayout());
   place();
   window.addEventListener('resize', place);
@@ -168,6 +181,7 @@ async function main(): Promise<void> {
     results.hide();
     title.show(false);
     setlist.hide();
+    if (listen.visible) listen.close();
     tutorial.hide();
     splash.show(false);
   }
@@ -259,6 +273,7 @@ async function main(): Promise<void> {
       announce('Charge full. Long-press a primed group to overcharge it.');
     }
     results.onFrame();
+    listen.onFrame();
     if (title.visible) {
       const t = app.attracting;
       if (t !== nowPlaying) {

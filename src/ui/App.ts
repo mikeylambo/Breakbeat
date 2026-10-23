@@ -255,7 +255,8 @@ export class App {
     checkOrientation();
 
     window.addEventListener('keydown', e => {
-      if (e.key === 'v' || e.key === 'V') {
+      // V hides the HUD in a run (menus use V for themselves, e.g. Listen's visualizer)
+      if ((e.key === 'v' || e.key === 'V') && this.run) {
         this.settings.hudHidden = !this.settings.hudHidden;
         saveSettings(this.settings);
         this.hud.setHidden(this.settings.hudHidden);
@@ -271,7 +272,7 @@ export class App {
     // The first gesture anywhere wakes the title music
     const wake = (): void => {
       void this.audio.unlock().then(() => {
-        if (this.audio.running && !this.attractOn) this.playAttract();
+        if (this.audio.running && !this.attractOn) void this.playAttract();
       });
     };
     window.addEventListener('pointerdown', wake, true);
@@ -417,6 +418,12 @@ export class App {
   private attractMorph: { step: number; bpm: number } | null = null;
   /** True once the attract music is scheduled on the transport */
   attractOn = false;
+  /** Step on which the attract track's bar 1 lands (the latest scheduled start or blend) */
+  attractStartStep = 0;
+  /** Music held by Listen mode's pause */
+  musicHeld = false;
+  /** Visualizer presence forced by a screen (Listen mode), else the settings rule applies */
+  visOverride: number | null = null;
 
   /**
    * Menus play music: the selected run's movement loops behind the title (and the last run's
@@ -425,8 +432,17 @@ export class App {
    */
   attract(mode: GameMode, movement: number, layers = 3): void {
     if (this.run) return;
-    const track = mode === 'overture' ? OVERTURE : MOVEMENTS[App.trackIndex(mode, movement)]!;
-    if (track === this.attractTrack && layers === this.attractLayers) return;
+    void this.attractTo(mode === 'overture' ? OVERTURE : MOVEMENTS[App.trackIndex(mode, movement)]!, layers);
+  }
+
+  /**
+   * Plays `track` behind a menu with `layers` stems (6 = full mix). A running transport blends on
+   * `atStep` when it is at least half a bar away, else on the next downbeat. Resolves to the step
+   * the track's bar 1 lands on, or null when superseded or audio is locked.
+   */
+  attractTo(track: TrackDef, layers = 3, atStep?: number): Promise<number | null> {
+    if (this.run) return Promise.resolve(null);
+    if (track === this.attractTrack && layers === this.attractLayers && atStep === undefined) return Promise.resolve(this.attractOn ? this.attractStartStep : null);
     this.attractTrack = track;
     this.attractLayers = layers;
     const w = this.cosmetics?.(worldFor(track.style)) ?? worldFor(track.style);
@@ -436,32 +452,36 @@ export class App {
     this.wall.setPoolTint(trackTint(track), performance.now() / 1000, 0);
     this.sfx.setTrack(track);
     document.documentElement.style.setProperty('--world', `#${w.accent.toString(16).padStart(6, '0')}`);
-    this.playAttract();
+    return this.playAttract(atStep);
   }
 
-  private playAttract(): void {
+  private playAttract(atStep?: number): Promise<number | null> {
     const track = this.attractTrack;
-    if (!track || this.run) return;
+    if (!track || this.run) return Promise.resolve(null);
     if (!this.audio.running) {
       // Back from a paused run the context is suspended by us: wake it (no-op until a gesture otherwise)
-      if (!document.hidden && !this.blocked) void this.audio.resume().then(() => this.audio.running && this.attractTrack === track && !this.attractOn && this.playAttract());
-      return;
+      if (!document.hidden && !this.blocked && !this.musicHeld) void this.audio.resume().then(() => {
+          if (this.audio.running && this.attractTrack === track && !this.attractOn) void this.playAttract();
+        });
+      return Promise.resolve(null);
     }
     const token = ++this.attractToken;
-    void this.stems.load(track).then(() => {
-      if (token !== this.attractToken || this.run || this.attractTrack !== track) return;
+    return this.stems.load(track).then(() => {
+      if (token !== this.attractToken || this.run || this.attractTrack !== track) return null;
       const now = this.audio.now;
       const bpm = track.bpm;
       if (this.attractOn && this.clock.isRunning && this.stems.track) {
         // Blend on the next downbeat at least half a bar away
         const q = this.clock.query(now);
         const s16 = q.absoluteStep % TUNING.SIXTEENTHS_PER_BAR;
-        const step = (q.bar + (s16 >= 8 ? 1 : 0)) * TUNING.SIXTEENTHS_PER_BAR;
+        let step = (q.bar + (s16 >= 8 ? 1 : 0)) * TUNING.SIXTEENTHS_PER_BAR;
+        if (atStep !== undefined && atStep >= step) step = atStep;
         const atSec = this.clock.stepToAudioSec(step);
         if (this.stems.track !== track) void this.stems.morph(track, atSec, Math.min(1.2, (60 / bpm) * 2));
         this.stems.setLayers(this.attractLayers, atSec, 60 / bpm);
         this.attractMorph = { step, bpm };
-        return;
+        this.attractStartStep = step;
+        return step;
       }
       const t0 = now + 0.08;
       this.stems.rate = 1;
@@ -469,8 +489,25 @@ export class App {
       this.clock.start(t0);
       this.attractMorph = null;
       this.attractOn = true;
+      this.attractStartStep = 0;
       void this.stems.start(track, t0, this.attractLayers);
+      return 0;
     });
+  }
+
+  /**
+   * Holds the music (Listen mode's pause): audio and clock stop together and stay stopped through
+   * visibility and rotation changes until released.
+   */
+  holdMusic(on: boolean): void {
+    if (on === this.musicHeld) return;
+    this.musicHeld = on;
+    if (on) {
+      this.clock.pause(this.audio.now);
+      void this.audio.suspend();
+    } else if (!document.hidden && !this.blocked) {
+      void this.audio.resume().then(() => this.clock.resume(this.audio.now));
+    }
   }
 
   /** Stops the menu music (a run is starting). */
@@ -834,7 +871,7 @@ export class App {
       this.pause.show(true);
       return;
     }
-    if (!this.blocked) void this.audio.resume().then(() => this.clock.resume(this.audio.now));
+    if (!this.blocked && !this.musicHeld) void this.audio.resume().then(() => this.clock.resume(this.audio.now));
   }
 
   private setBlocked(on: boolean): void {
@@ -848,7 +885,7 @@ export class App {
       }
       this.clock.pause(this.audio.now);
       void this.audio.suspend();
-    } else if (!this.paused) {
+    } else if (!this.paused && !this.musicHeld) {
       void this.audio.resume().then(() => this.clock.resume(this.audio.now));
     }
   }
@@ -911,7 +948,7 @@ export class App {
     // Visualizer: behind the menus while their music plays, and behind the wall in Zen when chosen
     const vs = this.settings;
     const inZen = !!e && run?.mode === 'zen' && vs.zenVisualizer && !this.paused;
-    this.vis.setTarget(vs.visualizer === 'off' ? 0 : !e && this.attractOn ? 0.7 : inZen ? 0.55 : 0);
+    this.vis.setTarget(this.visOverride ?? (vs.visualizer === 'off' ? 0 : !e && this.attractOn ? 0.7 : inZen ? 0.55 : 0), this.visOverride !== null);
     this.vis.update(dt);
     this.backdrop.update(wallSec, this.attractOn && this.clock.isRunning ? beat : null, this.clock.barDurationSec);
     if (!e) {

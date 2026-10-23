@@ -136,6 +136,15 @@ export class AudioEngine {
     this.sfxBus.gain.setTargetAtTime(sfx * 0.85, t, 0.02);
   }
 
+  /**
+   * Stem mixer (Listen mode): per-stem bus levels in STEM_NAMES order, ramped over `rampSec`.
+   * 1 everywhere is unity, which every other mode expects.
+   */
+  setStemMix(levels: readonly number[], rampSec = 0.03): void {
+    const t = this.ctx.currentTime;
+    this.stemBuses.forEach((b, i) => rampParam(b.gain, levels[i] ?? 1, t, t + rampSec));
+  }
+
   /** Danger low-pass on the music bus, ramped over one beat ending at `endSec`. */
   setDanger(level: number, endSec: number, beatSec: number): void {
     const hz = level >= 2 ? TUNING.DANGER_LPF_HZ_2 : level === 1 ? TUNING.DANGER_LPF_HZ : 20000;

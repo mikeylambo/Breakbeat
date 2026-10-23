@@ -25,6 +25,8 @@ export interface Settings {
   /** Music visualizer behind the menus (and Zen, when zenVisualizer is on) */
   visualizer: 'off' | VisualizerPreset;
   zenVisualizer: boolean;
+  /** Listen mode's visualizer (always on there; V cycles it) */
+  listenVisualizer: VisualizerPreset;
   /** Tap-to-sync done (or dismissed) */
   calibrated: boolean;
 }
@@ -47,6 +49,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hudHidden: false,
   visualizer: 'horizon',
   zenVisualizer: false,
+  listenVisualizer: 'rings',
   calibrated: false
 };
 
@@ -63,6 +66,7 @@ export function loadSettings(): Settings {
   s.symbols = !!s.symbols;
   s.colourAssist = !!s.colourAssist;
   if (s.visualizer !== 'off' && !VISUALIZER_PRESETS.some(p => p[0] === s.visualizer)) s.visualizer = DEFAULT_SETTINGS.visualizer;
+  if (!VISUALIZER_PRESETS.some(p => p[0] === s.listenVisualizer)) s.listenVisualizer = DEFAULT_SETTINGS.listenVisualizer;
   try {
     if (!localStorageHas(KEY) && matchMedia('(prefers-reduced-motion: reduce)').matches) s.reducedMotion = true;
   } catch {

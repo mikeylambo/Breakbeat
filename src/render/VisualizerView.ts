@@ -49,6 +49,8 @@ export class VisualizerView {
   minEventGapSec = Infinity;
 
   private target = 0;
+  /** Stay up through silence (Listen: a soloed quiet stem should look quiet, not vanish) */
+  private hold = false;
   private costIdx = 0;
   private clock = 0;
   private lastEventSec = -Infinity;
@@ -173,14 +175,15 @@ export class VisualizerView {
   }
 
   /** Target presence: 0 fades out, 1 is full strength (Listen mode); menus and Zen sit lower. */
-  setTarget(v: number): void {
+  setTarget(v: number, holdWhenQuiet = false): void {
     this.target = Math.max(0, Math.min(1, v));
+    this.hold = holdWhenQuiet;
   }
 
   update(dt: number): void {
     const t0 = performance.now();
     const f = this.features;
-    const goal = f.live ? this.target : 0;
+    const goal = f.live || this.hold ? this.target : 0;
     this.presence += (goal - this.presence) * (1 - Math.exp(-dt / 0.35));
     if (goal === 0 && this.presence < 0.004) this.presence = 0;
     this.root.visible = this.presence > 0;

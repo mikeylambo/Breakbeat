@@ -7,6 +7,9 @@
  *                spectrum is live, and AudioFeatures.update costs <= 0.5 ms a frame (mean)
  *  VISUALIZER  — every preset fades in behind the menu music at <= 0.5 ms a frame (mean) (screens
  *                vis-<preset>.png); strobe-free spaces flash events >= 1/3 s; Off fades it out
+ *  LISTEN      — the soundtrack plays full mixes of unlocked tracks; mute / solo reach the stem taps;
+ *                picking a track blends it in; C jumps to section C on a downbeat; Space holds the
+ *                clock; leaving restores unity mix and the menu's music
  */
 
 import assert from 'node:assert/strict';
@@ -195,8 +198,8 @@ await gate('SCREENS', async () => {
   await shot(page, 'setlist');
   await page.keyboard.press('Escape');
   step = 'tutorial';
-  for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('Enter');
+  await page.waitForSelector('.title-screen:not(.hidden)');
+  await page.click('.title-screen .menu-item:has-text("Tutorial")');
   await page.waitForSelector('.tutorial:not(.hidden)');
   for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowDown');
   await page.waitForTimeout(500);
@@ -217,8 +220,8 @@ await gate('SCREENS', async () => {
   await page.keyboard.press('Escape');
   for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowUp');
   step = 'settings';
-  await page.keyboard.press('ArrowUp');
-  await page.keyboard.press('Enter');
+  await page.waitForSelector('.title-screen:not(.hidden)');
+  await page.click('.title-screen .menu-item:has-text("Settings")');
   await page.waitForSelector('.settings-scrim:not(.hidden)');
   await page.waitForTimeout(250);
   await shot(page, 'settings');
@@ -399,6 +402,59 @@ await gate('VISUALIZER', async () => {
   return `${notes.join(', ')}; strobe-free ${sf.events} events, min gap ${sf.gap.toFixed(2)} s; Off hides it.`;
 });
 
+// ---------------------------------------------------------------- LISTEN
+await gate('LISTEN', async () => {
+  const { ctx, page, errors } = await newPage(VETERAN, { width: 844, height: 390 }, 2);
+  await page.waitForFunction(() => window.__bb.attractOn, null, { timeout: 15000 });
+  step = 'open';
+  await page.click('.title-screen .menu-item:has-text("Listen")');
+  await page.waitForSelector('.listen-screen:not(.hidden)');
+  await page.waitForFunction(() => window.__bb.stems.activeLayers === 6 && window.__bb.visOverride === 1, null, { timeout: 10000 });
+  const bus = () => page.evaluate(() => window.__bb.audio.stemBuses.map(g => Math.round(g.gain.value * 100) / 100));
+  step = 'mixer';
+  await page.keyboard.press('Digit2');
+  await page.waitForTimeout(1200);
+  assert.deepEqual(await bus(), [1, 0, 1, 1, 1], 'mute bass');
+  const bassEnv = await page.evaluate(() => window.__bb.features.env[1]);
+  assert.ok(bassEnv < 0.05, `muted bass reads silent at its tap (${bassEnv.toFixed(3)})`);
+  await page.keyboard.press('Shift+Digit1');
+  await page.waitForTimeout(150);
+  assert.deepEqual(await bus(), [1, 0, 0, 0, 0], 'solo kick');
+  await page.keyboard.press('Shift+Digit1');
+  await page.keyboard.press('Digit2');
+  await page.waitForTimeout(150);
+  assert.deepEqual(await bus(), [1, 1, 1, 1, 1], 'unity again');
+  step = 'pick track';
+  await page.click('.listen-screen .menu-item:has-text("Glasswork")');
+  await page.waitForFunction(() => document.querySelector('.listen-screen .sld-name')?.textContent === 'Glasswork', null, { timeout: 15000 });
+  await shot(page, 'listen');
+  step = 'section jump';
+  await page.keyboard.press('KeyC');
+  await page.waitForFunction(() => document.querySelector('.ls-sec.queued span')?.textContent === 'C', null, { timeout: 2000 }).catch(() => assert.fail('C shows as queued until its downbeat'));
+  await page.waitForFunction(() => window.__bb.stems.section === 2 && document.querySelector('.ls-sec.on span')?.textContent === 'C', null, { timeout: 10000 });
+  step = 'pause';
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(300);
+  const t1 = await page.evaluate(() => [window.__bb.audio.ctx.state, window.__bb.audio.now]);
+  await page.waitForTimeout(600);
+  const t2 = await page.evaluate(() => window.__bb.audio.now);
+  assert.equal(t1[0], 'suspended');
+  assert.ok(Math.abs(t2 - t1[1]) < 0.02, 'held clock stands still');
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => window.__bb.audio.ctx.state === 'running', null, { timeout: 5000 });
+  step = 'back';
+  await page.keyboard.press('Digit3');
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.title-screen:not(.hidden)');
+  await page.waitForTimeout(200);
+  assert.deepEqual(await bus(), [1, 1, 1, 1, 1], 'leaving restores unity mix');
+  const st = await page.evaluate(() => ({ o: window.__bb.visOverride, held: window.__bb.musicHeld, on: window.__bb.attractOn }));
+  assert.deepEqual(st, { o: null, held: false, on: true });
+  assert.equal(errors.length, 0, errors.join(' | '));
+  await ctx.close();
+  return 'full mix (6 layers); mute and solo reach the taps; Glasswork blended in; C landed on its downbeat; pause holds the clock; Esc restores the menu.';
+});
+
 // ---------------------------------------------------------------- FRAME_HITCH
 await gate('FRAME_HITCH', async () => {
   // DPR 1: this container rasterises WebGL on the CPU (SwiftShader); phones have GPUs
@@ -478,4 +534,4 @@ await gate('NO_STALL', async () => {
 await browser.close();
 server.kill();
 if (failed) process.exit(1);
-console.log('=== BROWSER GATES GREEN (FRAME_HITCH, ANALYSER, VISUALIZER, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');
+console.log('=== BROWSER GATES GREEN (FRAME_HITCH, ANALYSER, VISUALIZER, LISTEN, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');

@@ -5,6 +5,7 @@
  * Whatever is selected is previewed live: its music and world play behind the menu.
  */
 
+import { listenQueue } from './ListenScreen.js';
 import { MOVEMENTS } from '../audio/tracks.js';
 import { starCount, totalStars } from '../meta/Progress.js';
 import { nextMovementIndex, todayUtc, type SaveData } from '../meta/Save.js';
@@ -22,6 +23,7 @@ export interface TitleActions {
   daily(): void;
   zen(): void;
   etudes(): void;
+  listen(): void;
   tutorial(): void;
   settings(): void;
   profile(): void;
@@ -107,6 +109,7 @@ export class TitleScreen {
       { id: 'daily', name: 'Daily', meta: save.daily.date === today ? fmt(save.daily.best) : 'NEW', desc: "Today's wall: the same deal all day. Your best run of the day is kept.", ghost: 'Daily', cls: save.daily.date === today ? '' : 'fresh', action: a.daily },
       { id: 'zen', name: 'Zen', meta: save.best.zen ? fmt(save.best.zen) : '—', desc: 'No rising wall, no game over. Just you and the music.', ghost: 'Zen', action: a.zen },
       { id: 'etudes', name: 'Etudes', meta: `${save.etudes.length}/8`, desc: 'Hand-built puzzles: clear the target in a set number of passes.', ghost: 'Etudes', action: a.etudes },
+      { id: 'listen', name: 'Listen', meta: `${listenQueue(save).length}/${MOVEMENTS.length + 1}`, desc: 'The soundtrack: every movement you have cleared, full mix, with a stem mixer and visualizer.', ghost: 'Listen', action: a.listen },
       { id: 'tutorial', name: 'Tutorial & Tips', meta: '', desc: 'How every piece of Breakbeat works, one slide at a time.', ghost: 'Learn', cls: 'quiet', action: a.tutorial },
       { id: 'profile', name: 'Profile', meta: '', desc: 'Lifetime stats, challenge stars and the cosmetic locker.', ghost: 'Profile', cls: 'quiet', action: a.profile },
       { id: 'settings', name: 'Settings', meta: '', desc: 'Sound, timing, display and accessibility.', ghost: 'Settings', cls: 'quiet', action: a.settings }

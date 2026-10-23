@@ -33,6 +33,8 @@ export class StemPlayer {
   private layers = 2;
   private duckUntil = 0;
   track: TrackDef | null = null;
+  /** Decoded stems of `track` */
+  private current: StemSet | null = null;
   /** Playback rate (BPM scaling accessibility option). */
   rate = 1;
   /** Current section index (A = 0) of the playing deck */
@@ -76,6 +78,7 @@ export class StemPlayer {
     const set = await this.load(track);
     this.stopAll(atSec);
     this.track = track;
+    this.current = set;
     this.deck = 0;
     this.layers = layers;
     this.section = 0;
@@ -83,18 +86,18 @@ export class StemPlayer {
     this.applyLayers(atSec, atSec + 0.01);
   }
 
-  private launch(deck: number, set: StemSet, track: TrackDef, atSec: number): void {
+  private launch(deck: number, set: StemSet, track: TrackDef, atSec: number, section = 0): void {
     const ctx = this.audio.ctx;
     STEM_NAMES.forEach((name, i) => {
       const src = ctx.createBufferSource();
       src.buffer = set[name];
       src.loop = true;
       src.playbackRate.value = this.rate;
-      const [loStart, loEnd] = sectionRange(track, 0, set[name].duration);
+      const [loStart, loEnd] = sectionRange(track, section, set[name].duration);
       src.loopStart = loStart;
       src.loopEnd = loEnd;
       src.connect(this.audio.stemGains[deck]![i]!);
-      src.start(Math.max(ctx.currentTime, atSec), (track.offsetMs / 1000) % set[name].duration);
+      src.start(Math.max(ctx.currentTime, atSec), (loStart + track.offsetMs / 1000) % set[name].duration);
       src.onended = null;
       this.sources[deck]![i] = src;
     });
@@ -149,6 +152,7 @@ export class StemPlayer {
     this.stopDeck(from, atSec + barSec + 0.05);
     this.deck = to;
     this.track = track;
+    this.current = set;
     this.section = 0;
   }
 
@@ -166,6 +170,19 @@ export class StemPlayer {
       src.loopEnd = hi;
       src.loopStart = lo;
     }
+  }
+
+  /**
+   * Cuts the playing deck to section `index` (back or forward) at `atSec`, a downbeat: the stems
+   * restart sample-aligned at the section's first bar and loop it. Listen mode's section scrub.
+   */
+  jumpSection(index: number, atSec: number): void {
+    const track = this.track;
+    const set = this.current;
+    if (!track || !set || index < 0 || index >= track.sections.length) return;
+    this.stopDeck(this.deck, atSec);
+    this.launch(this.deck, set, track, atSec, index);
+    this.section = index;
   }
 
   private stopDeck(deck: number, atSec: number): void {
