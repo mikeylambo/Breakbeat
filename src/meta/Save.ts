@@ -20,6 +20,10 @@ export interface SaveData {
   equipped: { blade: string; shard: string };
   /** Solved etude ids */
   etudes: string[];
+  /** Unlocked achievement ids */
+  achievements: string[];
+  /** Achievement counters that no other save field keeps (e.g. distinct Daily days) */
+  counters: Record<string, number>;
 }
 
 export interface LifetimeStats {
@@ -51,7 +55,9 @@ export function loadSave(): SaveData {
     stars: d.stars && typeof d.stars === 'object' ? d.stars : {},
     stats: { ...EMPTY_STATS, ...(d.stats ?? {}) },
     equipped: { blade: d.equipped?.blade ?? 'auto', shard: d.equipped?.shard ?? 'auto' },
-    etudes: Array.isArray(d.etudes) ? d.etudes : []
+    etudes: Array.isArray(d.etudes) ? d.etudes : [],
+    achievements: Array.isArray(d.achievements) ? d.achievements : [],
+    counters: d.counters && typeof d.counters === 'object' ? d.counters : {}
   };
 }
 

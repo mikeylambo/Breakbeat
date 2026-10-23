@@ -201,6 +201,7 @@ export class ResultsScreen {
       try {
         await flush(day);
         const res = await submit(day, r.replay!);
+        this.app.achieve('board');
         const rows = await top(day, 3).catch(() => []);
         const me = prefs();
         const pct = Math.max(1, Math.round((res.rank / Math.max(1, res.total)) * 100));

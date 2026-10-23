@@ -22,6 +22,9 @@
  *  LEADERBOARD — (board host mocked) a Daily result asks before anything leaves the device; Post
  *                sends that day's replay with the chosen name and shows rank and the top three;
  *                the next Daily posts by itself
+ *  CONTROLS    — a (simulated) controller starts a run from the menu and primes with the reticle;
+ *                the keyboard does too; a quit run lands in the playtest log and exports as a
+ *                file with frames and replay; achievements unlock with a toast and list in Profile
  */
 
 import assert from 'node:assert/strict';
@@ -133,7 +136,10 @@ async function waitSixteenth(page, lo, hi) {
 let failed = false;
 let step = '';
 const openCtx = new Set();
+/** GATES=NAME,NAME runs only those gates (iteration); default runs all. */
+const ONLY = process.env.GATES ? new Set(process.env.GATES.split(',')) : null;
 const gate = async (name, fn) => {
+  if (ONLY && !ONLY.has(name)) return;
   try {
     step = '';
     const msg = await fn();
@@ -743,6 +749,74 @@ await gate('LEADERBOARD', async () => {
   return 'no request before opt-in; Post sent the day\'s replay with the name; rank and top three shown; the next Daily posted by itself.';
 });
 
+// ---------------------------------------------------------------- CONTROLS
+await gate('CONTROLS', async () => {
+  const { ctx, page, errors } = await newPage(VETERAN, { width: 844, height: 390 }, 1, false);
+  await page.addInitScript(() => {
+    const pad = { id: 'gate pad', index: 0, connected: true, mapping: 'standard', timestamp: 1, axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) };
+    window.__pad = pad;
+    navigator.getGamepads = () => [pad];
+  });
+  await page.reload();
+  await page.waitForFunction(() => document.getElementById('game')?.dataset.ready === '1');
+  await pressStart(page);
+  const tap = async i => {
+    // Long enough to span a few polls on a slow, CPU-rendered frame loop
+    await page.evaluate(i => { window.__pad.buttons[i].pressed = true; window.__pad.timestamp++; }, i);
+    await page.waitForTimeout(220);
+    await page.evaluate(i => { window.__pad.buttons[i].pressed = false; window.__pad.timestamp++; }, i);
+    await page.waitForTimeout(220);
+  };
+  step = 'pad starts a run';
+  await tap(0);
+  await page.waitForFunction(() => window.__bb.engine?.currentBar >= 1, null, { timeout: 20000 });
+  step = 'pad primes';
+  const primed = () => page.evaluate(() => window.__bb.engine.log.filter(x => x.k === 'p').length);
+  for (let i = 0; i < 16 && (await primed()) < 1; i++) {
+    await tap(15);
+    await tap(0);
+  }
+  assert.ok((await primed()) >= 1, 'a controller primed a group');
+  assert.ok(await page.isVisible('.pad-reticle:not(.hidden)'), 'reticle shown');
+  step = 'keyboard primes';
+  const before = await primed();
+  for (let i = 0; i < 16 && (await primed()) === before; i++) {
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(60);
+  }
+  assert.ok((await primed()) > before, 'the keyboard primed a group');
+  await page.waitForTimeout(3000);
+  step = 'quit and export';
+  await page.evaluate(() => {
+    window.__bb.abandonRun();
+    window.__bb.showTitle?.();
+  });
+  await page.waitForSelector('.title-screen:not(.hidden)');
+  await page.click('.title-screen .menu-item:has-text("Profile")');
+  await page.waitForSelector('.pt-row');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.click('.pt-btn:has-text("Export")')]);
+  const file = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
+  const last = file.runs.at(-1);
+  assert.equal(last.ended, 'quit');
+  assert.ok(last.frames.frames > 60, 'frame stats');
+  assert.ok(last.replay?.events.length >= 2, 'replay kept');
+  assert.ok(typeof last.device.outputLatencyMs === 'number');
+  step = 'achievements';
+  const ach = await page.evaluate(() => window.__bb.save.achievements);
+  // The veteran save already meets some on boot (granted quietly); a moment toasts
+  assert.ok(ach.includes('overture') && ach.includes('endless-40k'), `boot catch-up (${ach.join(',')})`);
+  await page.evaluate(() => window.__bb.achieve('board'));
+  await page.waitForSelector('.ach-toast.on:has-text("On the Board")', { timeout: 3000 });
+  await page.click('.profile-sheet .set-tab:has-text("Achievements")');
+  assert.equal(await page.locator('.ach').count(), 41);
+  assert.ok((await page.locator('.ach.got').count()) >= 1);
+  await shot(page, 'achievements');
+  assert.equal(errors.length, 0, errors.join(' | '));
+  await ctx.close();
+  return `controller and keyboard primed via the reticle; export had ${file.runs.length} run(s) with frames (${last.frames.frames}) and replay; ${ach.length} achievement(s) earned and listed.`;
+});
+
 // ---------------------------------------------------------------- FRAME_HITCH
 await gate('FRAME_HITCH', async () => {
   // DPR 1: this container rasterises WebGL on the CPU (SwiftShader); phones have GPUs
@@ -822,4 +896,4 @@ await gate('NO_STALL', async () => {
 await browser.close();
 server.kill();
 if (failed) process.exit(1);
-console.log('=== BROWSER GATES GREEN (FRAME_HITCH, ANALYSER, VISUALIZER, LISTEN, BYO, REPLAY, GHOST, ETUDE_SHARE, LEADERBOARD, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');
+console.log('=== BROWSER GATES GREEN (FRAME_HITCH, ANALYSER, VISUALIZER, LISTEN, BYO, REPLAY, GHOST, ETUDE_SHARE, LEADERBOARD, CONTROLS, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');

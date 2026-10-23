@@ -270,6 +270,7 @@ export class ListenScreen {
     setText(this.hint, '');
     this.lastTime = '';
     this.updateMediaMetadata(t);
+    if (this.jukebox.autoAdvanced) this.app.achieve('listen-full');
     announce(`Now playing: ${t.number} ${t.name}.`);
   }
 

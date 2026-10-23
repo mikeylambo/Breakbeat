@@ -63,8 +63,10 @@ can't be cheated cheap to build, so use it.
   - Steam: Tauri wrapper, Steamworks achievements mapped from the challenge stars, Steam Deck verified.
   - Web demo: Overture + Act I, with an unlock code for the full game.
   - Mobile: a Capacitor wrapper later, with iOS silent-switch and audio-session handling.
-- [ ] **Gamepad + remappable keys** (cursor-snap to groups; triggers prime and hold). This is needed for Deck.
-- [ ] **Achievements** (~40), built from existing telemetry and challenge stars.
+- [x] **Gamepad + keyboard play**: a reticle on the wall (d-pad / stick / arrows / WASD), A / Space primes,
+      held 300 ms overcharges, X / K holds; controllers drive every menu; rumble. Later: remapping.
+- [x] **Achievements** (41): from run telemetry, the save and a few moments; toasts, a Profile tab with
+      progress; stable ids for a later Steam mapping.
 - [ ] **Error reporting**: a tiny `window.onerror` / unhandledrejection beacon, opt-in, no PII.
 - [ ] **Localization scaffold**: string tables, plus EN/ES/PT-BR/JA/DE (JA needs a CJK font subset).
 
@@ -89,6 +91,8 @@ can't be cheated cheap to build, so use it.
 - [ ] Mastering pass across all tracks so the loudness is even.
 
 ## Release candidate
+
+- [x] Playtest log: the last 30 runs (stats, frame timing, device, settings, replay) export from Profile.
 
 - [ ] Real-device QA matrix: iPhone (Safari and PWA), mid-range Android, Steam Deck, and Bluetooth headphones
       (calibration presets for each device class).

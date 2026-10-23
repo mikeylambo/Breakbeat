@@ -7,6 +7,8 @@ import { TUNING, computeComboMultiplier, type GameMode } from '../tuning.js';
 import { BeatClock, createBeatQuery } from '../pulse/BeatClock.js';
 import { applyUntil, engineFor, replayOf, simulate, type Replay, type SimResult } from '../pulse/Replay.js';
 import { Ghosts, type GhostRecord } from '../meta/Ghosts.js';
+import { CursorInput } from './pad.js';
+import { addFrame, newFrameStats, record as recordPlaytest, type FrameStats } from '../meta/Playtest.js';
 import { PulseEngine } from '../pulse/PulseEngine.js';
 import type { PulseEvent } from '../pulse/types.js';
 import { GemRules } from '../content/gems/GemRules.js';
@@ -28,7 +30,8 @@ import { Scheduler } from '../audio/Scheduler.js';
 import { MusicDirector } from '../audio/MusicDirector.js';
 import { MOVEMENTS, OVERTURE, ZEN_INDEX, trackTint, type TrackDef } from '../audio/tracks.js';
 import { installBrowserLifecycle } from '../platform/Lifecycle.js';
-import { loadSave, todayUtc, writeSave, type SaveData } from '../meta/Save.js';
+import { loadSave, mastery, todayUtc, writeSave, type SaveData } from '../meta/Save.js';
+import { evaluate as evaluateAchievements, noteDaily, type AchContext, type AchDef } from '../meta/Achievements.js';
 import { awardChallenges, recordStats } from '../meta/Progress.js';
 import type { EtudeDef } from '../meta/Etude.js';
 import { loadSettings, saveSettings, type Settings } from '../meta/Settings.js';
@@ -37,7 +40,7 @@ import { haptics } from './haptics.js';
 import { RunHud } from './RunHud.js';
 import { PauseSheet } from './PauseSheet.js';
 import { RotateCard } from './RotateCard.js';
-import { announce, fmt, setUiSound, type UiSoundKind } from './dom.js';
+import { announce, el, fmt, setUiSound, type UiSoundKind } from './dom.js';
 import { SettingsSheet } from './SettingsSheet.js';
 import { CalibrationSheet } from './CalibrationSheet.js';
 import { DeskPanels } from './DeskPanels.js';
@@ -138,6 +141,10 @@ export class App {
   private lastFrameSec = 0;
   private lastHapticStep = -1;
   private lastTickBeat = -1;
+  /** Reticle play for keyboard and controllers, and controller menu navigation */
+  cursor!: CursorInput;
+  /** Frame timing of the current run, for the playtest log */
+  private runFrames: FrameStats = newFrameStats();
   /** Adaptive quality: recent frame deltas (ms) while playing */
   private readonly frameMs = new Float32Array(120);
   private frameIdx = 0;
@@ -247,6 +254,21 @@ export class App {
       hover: cell => this.hoverAt(cell),
       hold: cell => this.hold(cell)
     });
+    this.cursor = new CursorInput({
+      playing: () => !!this.run && !this.run.ended && !this.paused && !this.blocked,
+      prime: cell => this.prime(cell),
+      hold: cell => this.hold(cell),
+      groupAt: cell => this.groupAt(cell),
+      canHold: id => {
+        const g = this.engine?.groups.get(id);
+        return !!g && !g.held && !!this.engine?.canHold;
+      },
+      hover: cell => this.hoverAt(cell),
+      cellCentre: (cell, out) => WallView.cellCentre(cell % TUNING.BOARD_COLS, (cell / TUNING.BOARD_COLS) | 0, out),
+      holdRing: (x, y, p) => this.fx.setHoldRing(x, y, p),
+      ui: this.ui
+    });
+    this.cursor.attachRumble(haptics);
 
     installBrowserLifecycle(
       {
@@ -288,6 +310,8 @@ export class App {
     void this.stems.load(this.save.overtureDone ? MOVEMENTS[0]! : OVERTURE).then(() => this.stems.load(MOVEMENTS[0]!));
 
     this.scheduler.start();
+    // Catch up achievements an existing save already meets, quietly
+    this.achieve(undefined, undefined, true);
     requestAnimationFrame(this.frame);
   }
 
@@ -363,6 +387,7 @@ export class App {
       new GemRules('brick')
     );
     this.engine = engine;
+    this.runFrames = newFrameStats();
     if (cfg.etude) engine.charge = cfg.etude.charge ?? 0;
     this.run = {
       cfg,
@@ -434,6 +459,7 @@ export class App {
     const ghostScore = Math.round(g.engine.telemetry.score * g.rec.scale);
     if (!g.passed && liveScore > g.rec.score) {
       g.passed = true;
+      this.achieve('ghost-passed');
       this.hud.calloutText('PAST YOUR BEST', `+${fmt(liveScore - g.rec.score)}`);
       announce('Past your best.');
     }
@@ -590,9 +616,73 @@ export class App {
     return simulate(r, new GemRules('brick'));
   }
 
+  /**
+   * Checks achievements after a run or a moment; new ones are saved and toasted. `quiet` marks
+   * them without toasts (the boot catch-up, so an existing save does not get a burst).
+   */
+  achieve(moment?: AchContext['moment'], run?: AchContext['run'], quiet = false): AchDef[] {
+    const got = evaluateAchievements({ save: this.save, movements: MOVEMENTS, rankOf: sc => mastery(sc).rank, moment, run });
+    if (!got.length) return got;
+    this.persistSave();
+    if (!quiet) for (const a of got) this.toastQueue.push(a);
+    return got;
+  }
+
+  private readonly toastQueue: AchDef[] = [];
+  private readonly toastEl = el('div', 'ach-toast', '', { role: 'status' });
+  private toastUntil = 0;
+
+  /** Shows queued achievement toasts one at a time. */
+  private updateToasts(nowMs: number): void {
+    if (nowMs < this.toastUntil) return;
+    if (this.toastEl.classList.contains('on')) {
+      this.toastEl.classList.remove('on');
+      this.toastUntil = nowMs + 350;
+      return;
+    }
+    const a = this.toastQueue.shift();
+    if (!a) return;
+    if (!this.toastEl.isConnected) this.ui.appendChild(this.toastEl);
+    this.toastEl.innerHTML = `<small>ACHIEVEMENT</small><b>${a.name}</b><span>${a.desc}</span>`;
+    this.toastEl.classList.add('on');
+    this.uiSound('fanfare');
+    announce(`Achievement: ${a.name}. ${a.desc}`);
+    this.toastUntil = nowMs + 3200;
+  }
+
+  /** Adds a finished or quit run to the local playtest log (Profile > Export). */
+  private logPlaytest(run: RunState, engine: PulseEngine, score: number, replay: Replay | null, ended: 'topped-out' | 'quit'): void {
+    if (run.mode === 'overture' || engine.currentStep < 16) return;
+    const s = this.settings;
+    recordPlaytest({
+      at: new Date().toISOString(),
+      mode: run.cfg.etude ? `etude:${run.cfg.etude.id}` : run.mode,
+      track: run.track.id.startsWith('beat-') ? 'my-beat' : run.track.id,
+      score,
+      bars: engine.currentBar,
+      seconds: Math.round((performance.now() - run.startedMs) / 1000),
+      ended,
+      telemetry: { ...engine.telemetry },
+      frames: { ...this.runFrames },
+      device: {
+        dpr: devicePixelRatio,
+        width: innerWidth,
+        height: innerHeight,
+        touch: matchMedia('(pointer: coarse)').matches,
+        bloom: this.stage.bloomEnabled,
+        outputLatencyMs: Math.round(this.audio.outputLatencySec * 1000),
+        sampleRate: this.audio.ctx.sampleRate,
+        ua: navigator.userAgent
+      },
+      settings: { offsetMs: s.offsetMs, bpmScale: s.bpmScale, flash: s.flash, strobeFree: s.strobeFree, reducedMotion: s.reducedMotion, symbols: s.symbols, colourAssist: s.colourAssist, calibrated: s.calibrated },
+      replay
+    });
+  }
+
   /** Ends the current run silently (quit / restart). */
   abandonRun(): void {
     if (!this.run) return;
+    if (this.engine && !this.run.ended) this.logPlaytest(this.run, this.engine, Math.round(this.engine.telemetry.score * this.run.bpmScale), this.run.replayable ? replayOf(this.engine) : null, 'quit');
     this.run.ended = true;
     this.ghost = null;
     this.stems.stopAll();
@@ -712,13 +802,16 @@ export class App {
       if (score > previousBest) this.save.best[key] = score;
     }
     let newStars: string[] = [];
+    this.logPlaytest(run, engine, score, replay, 'topped-out');
     if (run.mode !== 'overture') {
       recordStats(this.save, engine.telemetry, (performance.now() - run.startedMs) / 1000, run.movementsCleared);
+      if (run.mode === 'daily') noteDaily(this.save, todayUtc());
       if (run.mode === 'odyssey') {
         const track = MOVEMENTS[run.startMovement]!;
         newStars = awardChallenges(this.save, track, run.startMovement, { t: engine.telemetry, score, cleared: run.movementsCleared > 0 });
       }
     }
+    this.achieve(undefined, { mode: run.mode, score, bars: engine.currentBar, seconds: (performance.now() - run.startedMs) / 1000, t: engine.telemetry, myBeat: !!run.cfg.track });
     this.persistSave();
     setTimeout(() => {
       this.hud.show(false);
@@ -950,7 +1043,10 @@ export class App {
     this.features.update(this.clock.isRunning ? beat : null);
     const e = this.engine;
     const run = this.run;
-    if (run && !run.ended && !this.paused) this.watchFrameBudget(dt * 1000);
+    if (run && !run.ended && !this.paused) {
+      this.watchFrameBudget(dt * 1000);
+      addFrame(this.runFrames, dt * 1000);
+    }
 
     if (e && run && !this.paused && !this.blocked && this.clock.isRunning) {
       this.applyMorph();
@@ -993,6 +1089,8 @@ export class App {
         this.attractMorph = null;
       }
     }
+    this.cursor?.update();
+    this.updateToasts(performance.now());
     this.hooks.onFrame?.();
     // Visualizer: behind the menus while their music plays, and behind the wall in Zen when chosen
     const vs = this.settings;

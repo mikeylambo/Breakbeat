@@ -26,11 +26,15 @@ export function readJson<T>(key: string, fallback: T): T {
   }
 }
 
-export function writeJson(key: string, value: unknown): void {
+/** True when stored (false in private mode or when over quota: progress simply does not persist). */
+export function writeJson(key: string, value: unknown): boolean {
   try {
-    store()?.setItem(key, JSON.stringify(value));
+    const s = store();
+    if (!s) return false;
+    s.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
-    // Private mode / quota: progress simply does not persist.
+    return false;
   }
 }
 

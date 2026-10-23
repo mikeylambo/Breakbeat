@@ -52,6 +52,8 @@ export class Jukebox {
   sleepMinutes: (typeof SLEEP_MINUTES)[number] = 0;
   /** Set when the sleep timer ended playback (the screen says goodnight) */
   slept = false;
+  /** The current track arrived by playing through the previous one (not picked) */
+  autoAdvanced = false;
   /** The track queued to blend in (null step until its load resolves) */
   pendingTrack: { track: TrackDef; step: number | null } | null = null;
   /** The section the playhead moves to, and the step it lands on */
@@ -69,6 +71,7 @@ export class Jukebox {
 
   /** Plays `track` from bar 1 (blends in on the next downbeat if music is running). */
   play(track: TrackDef): void {
+    this.autoAdvanced = false;
     if (this.paused) this.resume();
     this.slept = false;
     this.schedule(track);
@@ -232,6 +235,7 @@ export class Jukebox {
       this.pendingSection = { index: 0, step: at };
       return;
     }
+    this.autoAdvanced = true;
     this.schedule(nxt, at);
   }
 

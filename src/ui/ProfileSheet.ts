@@ -1,9 +1,11 @@
-/** ProfileSheet — lifetime stats, challenge stars, and the cosmetic locker (blade + debris). */
+/** ProfileSheet — three tabs: Stats (lifetime, challenges, playtest log), Achievements, Locker (blade + debris). ← → switch. */
 
 import { MOVEMENTS } from '../audio/tracks.js';
 import { UNLOCKS, isUnlocked, starCount, totalStars, challengesFor } from '../meta/Progress.js';
-import type { SaveData } from '../meta/Save.js';
-import { button, el, fmt, ICONS } from './dom.js';
+import { mastery, type SaveData } from '../meta/Save.js';
+import { ACHIEVEMENTS, type AchContext } from '../meta/Achievements.js';
+import { button, el, fmt, ICONS, uiSound } from './dom.js';
+import { clear as clearPlaytest, exportFile, runs as playtestRuns } from '../meta/Playtest.js';
 
 export interface ProfileHost {
   save: SaveData;
@@ -19,12 +21,14 @@ function duration(sec: number): string {
 export class ProfileSheet {
   readonly root = el('div', 'sheet-scrim hidden', '', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Profile' });
   private readonly body = el('div', 'profile-body');
+  private readonly tabs = el('div', 'set-tabs', '', { role: 'tablist', 'aria-label': 'Profile' });
+  private tab: 'Stats' | 'Achievements' | 'Locker' = 'Stats';
   open = false;
 
   constructor(private readonly host: ProfileHost) {
     const card = el('div', 'sheet profile-sheet');
     const head = el('div', 'settings-head');
-    head.append(el('div', 'sheet-title', 'PROFILE'), button('icon-btn settings-close', ICONS.close, 'Close profile', () => this.show(false)));
+    head.append(el('div', 'sheet-title', 'PROFILE'), this.tabs, button('icon-btn settings-close', ICONS.close, 'Close profile', () => this.show(false)));
     card.append(head, this.body);
     this.root.appendChild(card);
     this.root.addEventListener('click', e => {
@@ -32,6 +36,12 @@ export class ProfileSheet {
     });
     window.addEventListener('keydown', e => {
       if (this.open && e.key === 'Escape') this.show(false);
+      else if (this.open && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+        const order = ['Stats', 'Achievements', 'Locker'] as const;
+        this.tab = order[(order.indexOf(this.tab) + (e.key === 'ArrowRight' ? 1 : 2)) % 3]!;
+        uiSound('move', order.indexOf(this.tab));
+        this.render();
+      }
     });
   }
 
@@ -47,6 +57,17 @@ export class ProfileSheet {
     const stars = totalStars(save);
     const max = MOVEMENTS.length * 3;
     this.body.innerHTML = '';
+    this.tabs.innerHTML = '';
+    for (const t of ['Stats', 'Achievements', 'Locker'] as const) {
+      const b = button(`set-tab${t === this.tab ? ' on' : ''}`, t === 'Achievements' ? `${t} ${save.achievements.length}/${ACHIEVEMENTS.length}` : t, `${t}`, () => {
+        this.tab = t;
+        this.render();
+      });
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', String(t === this.tab));
+      this.tabs.appendChild(b);
+    }
+    if (this.tab === 'Achievements') return this.renderAchievements();
 
     const left = el('section', 'profile-col');
     left.appendChild(el('div', 'set-group', 'LIFETIME'));
@@ -75,6 +96,23 @@ export class ProfileSheet {
     }
     left.appendChild(ch);
 
+    // Playtest log: recent runs with device timing and replays, exported as a file on request
+    const log = el('div', 'pt-row');
+    const n = playtestRuns().length;
+    log.append(
+      el('div', 'pt-copy', `<b>PLAYTEST LOG</b><span>${n} RUN${n === 1 ? '' : 'S'} · STAYS ON THIS DEVICE</span>`),
+      button('btn bt-btn pt-btn', 'Export', 'Export the playtest log as a file', () => {
+        uiSound('pick');
+        exportFile({ save: { runs: save.runs, cleared: save.cleared, best: save.best, stats: save.stats } });
+      }),
+      button('btn bt-btn pt-btn', 'Clear', 'Clear the playtest log', () => {
+        clearPlaytest();
+        uiSound('back');
+        this.render();
+      })
+    );
+    left.appendChild(log);
+
     const right = el('section', 'profile-col');
     for (const kind of ['blade', 'shard'] as const) {
       right.appendChild(el('div', 'set-group', kind === 'blade' ? 'BLADE' : 'DEBRIS'));
@@ -98,7 +136,25 @@ export class ProfileSheet {
       right.appendChild(row);
     }
     right.appendChild(el('div', 'locker-note', 'Cosmetic only. Earn stars from movement challenges.'));
-    this.body.append(left, right);
+    this.body.classList.remove('ach-body');
+    this.body.append(this.tab === 'Stats' ? left : right);
+  }
+
+  private renderAchievements(): void {
+    const save = this.host.save;
+    const ctx: AchContext = { save, movements: MOVEMENTS, rankOf: sc => mastery(sc).rank };
+    const grid = el('div', 'ach-grid');
+    for (const a of ACHIEVEMENTS) {
+      const got = save.achievements.includes(a.id);
+      const hide = a.secret && !got;
+      const p = !got && a.progress ? a.progress(ctx) : null;
+      const bar = p ? `<i class="ach-bar"><i style="transform:scaleX(${Math.min(1, p[0] / p[1]).toFixed(3)})"></i></i><em>${fmt(Math.min(p[0], p[1]))} / ${fmt(p[1])}</em>` : '';
+      grid.appendChild(
+        el('div', `ach${got ? ' got' : ''}`, `<b>${hide ? 'Secret' : a.name}</b><span>${hide ? 'Keep playing.' : a.desc}</span>${bar}`, { 'aria-label': `${hide ? 'Secret achievement' : a.name}. ${hide ? '' : a.desc} ${got ? 'Earned.' : 'Not yet.'}` })
+      );
+    }
+    this.body.classList.add('ach-body');
+    this.body.appendChild(grid);
   }
 
   private equip(kind: 'blade' | 'shard', id: string): void {

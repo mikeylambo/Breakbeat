@@ -282,6 +282,7 @@ export class EtudeEditor {
         this.setStatus('Link copied. Anyone who opens it gets your etude.');
       }
       uiSound('pick');
+      this.app.achieve('etude-shared');
     } catch {
       this.setStatus(url);
     }
