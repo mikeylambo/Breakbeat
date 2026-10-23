@@ -17,6 +17,8 @@
  *                same score, step and wall
  *  GHOST       — a Daily's ghost replays beside the next Daily: its score matches the first run's
  *                score step for step, the HUD shows pace, and it tops out where that run ended
+ *  ETUDE_SHARE — paint an etude, solve it with clicks, share the link; a fresh browser opens the
+ *                link, sees it verified solvable, and solves it too
  */
 
 import assert from 'node:assert/strict';
@@ -45,6 +47,7 @@ try {
 
 const cellXY = (c, r) => [167 + 15 + c * 32, 34 + 15 + r * 32];
 const FRESH = { v: 1, overtureDone: false, cleared: [], best: {}, daily: { date: '', best: 0 }, runs: 0 };
+const FRESH_DONE = { v: 1, overtureDone: true, cleared: [], best: {}, daily: { date: '', best: 0 }, runs: 1 };
 const VETERAN = { v: 1, overtureDone: true, cleared: ['ignition', 'glasswork'], best: { ignition: 54200, glasswork: 23100, endless: 41800, zen: 12600 }, daily: { date: '', best: 0 }, runs: 14 };
 
 async function newPage(save, viewport = { width: 844, height: 390 }, dpr = 2, enter = true) {
@@ -561,9 +564,10 @@ await gate('GHOST', async () => {
   await page.evaluate(() => {
     window.__trace = new Map();
     const tick = () => {
+      if (!window.__trace) return;
       const e = window.__bb.engine;
       if (e) window.__trace.set(e.currentStep, e.telemetry.score);
-      if (window.__trace) requestAnimationFrame(tick);
+      requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
   });
@@ -621,6 +625,62 @@ await gate('GHOST', async () => {
   assert.equal(errors.length, 0, errors.join(' | '));
   await ctx.close();
   return `ghost matched the first run's score at ${seen.checked} steps; HUD read VS BEST (behind) and the ghost ended at step ${first.endStep}.`;
+});
+
+// ---------------------------------------------------------------- ETUDE_SHARE
+await gate('ETUDE_SHARE', async () => {
+  const { ctx, page, errors } = await newPage(VETERAN, { width: 844, height: 390 }, 2);
+  step = 'editor';
+  await page.click('.title-screen .menu-item:has-text("Etudes")');
+  await page.click('.et-create');
+  await page.waitForSelector('.etude-editor:not(.hidden)');
+  await page.click('.ee-side .bt-actions button:has-text("Clear")');
+  const cell = (c, r) => `.ee-cell:nth-child(${r * 16 + c + 1})`;
+  await page.click('.ee-brush:nth-child(1)');
+  await page.click(cell(6, 9));
+  await page.click(cell(7, 9));
+  await page.click('.ee-brush:nth-child(3)');
+  await page.click(cell(9, 9));
+  await page.click(cell(10, 9));
+  await page.fill('.ee-name:not(.ee-hint)', 'Gate Pair');
+  await shot(page, 'etude-editor');
+  step = 'solve';
+  await page.click('.ee-side .sld-play');
+  await page.waitForFunction(() => window.__bb.engine && window.__bb.run?.mode === 'etude', null, { timeout: 15000 });
+  await page.waitForFunction(() => (window.__bb.engine.currentStep ?? -1) >= 0, null, { timeout: 15000 });
+  await page.mouse.click(...cellXY(6, 9));
+  await page.mouse.click(...cellXY(9, 9));
+  await page.waitForSelector('.etude-banner:not(.hidden) .eb-title:has-text("SOLVED")', { timeout: 20000 });
+  await page.click('.etude-banner button:has-text("Back to editor")');
+  await page.waitForSelector('.etude-editor:not(.hidden)');
+  step = 'share';
+  await page.evaluate(() => {
+    navigator.share = undefined;
+    navigator.clipboard.writeText = () => Promise.reject(new Error('no clipboard'));
+  });
+  await page.click('.ee-side .bt-actions button:has-text("Share")');
+  await page.waitForFunction(() => document.querySelector('.ee-status')?.textContent.includes('#e='), null, { timeout: 5000 });
+  const url = await page.evaluate(() => document.querySelector('.ee-status').textContent);
+  assert.equal(errors.length, 0, errors.join(' | '));
+  await ctx.close();
+  step = 'receive';
+  const fresh = await newPage(FRESH_DONE, { width: 844, height: 390 }, 2, false);
+  await fresh.page.goto(url);
+  // Same document plus a hash is not a navigation: reload so the game boots on the link
+  await fresh.page.reload();
+  await fresh.page.waitForFunction(() => document.getElementById('game')?.dataset.ready === '1');
+  await pressStart(fresh.page);
+  await fresh.page.waitForSelector('.et-shared-copy:has-text("Gate Pair")', { timeout: 5000 });
+  assert.ok((await fresh.page.textContent('.et-shared-copy')).includes('SOLVABLE'), 'verified badge');
+  await shot(fresh.page, 'etude-shared');
+  await fresh.page.click('.et-shared button:has-text("Play")');
+  await fresh.page.waitForFunction(() => (window.__bb.engine?.currentStep ?? -1) >= 0, null, { timeout: 15000 });
+  await fresh.page.mouse.click(...cellXY(6, 9));
+  await fresh.page.mouse.click(...cellXY(9, 9));
+  await fresh.page.waitForSelector('.etude-banner:not(.hidden) .eb-title:has-text("SOLVED")', { timeout: 20000 });
+  assert.equal(fresh.errors.length, 0, fresh.errors.join(' | '));
+  await fresh.ctx.close();
+  return `painted, solved and shared (${url.length - url.indexOf('#e=') - 3}-char code); a fresh browser saw it verified and solved it.`;
 });
 
 // ---------------------------------------------------------------- FRAME_HITCH
@@ -702,4 +762,4 @@ await gate('NO_STALL', async () => {
 await browser.close();
 server.kill();
 if (failed) process.exit(1);
-console.log('=== BROWSER GATES GREEN (FRAME_HITCH, ANALYSER, VISUALIZER, LISTEN, BYO, REPLAY, GHOST, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');
+console.log('=== BROWSER GATES GREEN (FRAME_HITCH, ANALYSER, VISUALIZER, LISTEN, BYO, REPLAY, GHOST, ETUDE_SHARE, SCREENS, NETWORK, NO_STALL, OFFLINE) ===');

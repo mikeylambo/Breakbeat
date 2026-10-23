@@ -48,8 +48,10 @@ can't be cheated cheap to build, so use it.
       re-simulates `PulseEngine` and accepts the server's score only. Show friends, global, and percentile.
 - [ ] **Cloud save, opt-in**: a magic-link account, merging by the save schema version. The game stays fully
       playable signed out.
-- [ ] **Shareable Etude codes**: an Etude editor (it reuses the Etude board format) with URL-encoded boards.
-      That's player-made content with zero moderation, because the board lives in the link.
+- [x] **Shareable Etude codes**: Etudes > Create opens an editor (paint the wall, set goal, passes, a
+      starting hold, a rising wall). Solving your own puzzle unlocks Share. The link (`#e=`, about 100
+      characters) carries the board plus your winning inputs, and every receiver re-simulates them before
+      playing, so a shared Etude is provably solvable. Also opens from a pasted link or code.
 
 ## v0.13: Platform and business
 

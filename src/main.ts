@@ -10,6 +10,7 @@ import { BeatsScreen } from './ui/BeatsScreen.js';
 import { ResultsScreen } from './ui/ResultsScreen.js';
 import { ProfileSheet } from './ui/ProfileSheet.js';
 import { EtudeScreen } from './ui/EtudeScreen.js';
+import { EtudeEditor } from './ui/EtudeEditor.js';
 import { OvertureScreen } from './ui/overture/OvertureScreen.js';
 import { nextMovementIndex } from './meta/Save.js';
 import { ZEN_INDEX } from './audio/tracks.js';
@@ -43,6 +44,45 @@ async function main(): Promise<void> {
     },
     () => showTitle()
   );
+  const editor = new EtudeEditor(app, {
+    test: (def, onWin, back) =>
+      w(async () => {
+        app.stopAttract();
+        await bladeWipe();
+        etudes.playCustom(
+          def,
+          () => {
+            app.abandonRun();
+            hideMenus();
+            app.setWallVisible(false);
+            app.backdrop.show(true);
+            back();
+          },
+          'Back to editor',
+          onWin
+        );
+      })(),
+    back: () => {
+      showTitle(false);
+      etudes.showList(true);
+    }
+  });
+  etudes.onCreate = () => {
+    title.show(false);
+    editor.open();
+  };
+  app.ui.appendChild(editor.root);
+  // A shared etude link (#e=code): verified on arrival, featured in the Etudes list
+  let sharedPending = false;
+  if (location.hash.startsWith('#e=')) {
+    const r = EtudeScreen.open(decodeURIComponent(location.hash.slice(3)));
+    history.replaceState(null, '', location.pathname + location.search);
+    if (typeof r === 'string') announce(r);
+    else {
+      etudes.shared = r;
+      sharedPending = true;
+    }
+  }
   const profile = new ProfileSheet({ save: app.save, persist: () => app.persistSave() });
   app.ui.appendChild(profile.root);
   const preview = (mode: GameMode, movement: number): void => void ready.then(() => app.attract(mode, movement));
@@ -56,6 +96,10 @@ async function main(): Promise<void> {
       await bladeWipe();
       splash.show(false);
       showTitle(false);
+      if (sharedPending) {
+        sharedPending = false;
+        etudes.showList(true);
+      }
     });
   });
   const title = new TitleScreen({
@@ -324,7 +368,7 @@ async function main(): Promise<void> {
   };
   // Pause → quit: a drill goes back to its tutorial slide, everything else to the main menu
   app.showTitle = () => (etudes.drilling ? etudes.leaveDrill() : showTitle());
-  app.quitLabel = () => (etudes.drilling ? 'Back to tutorial' : 'Quit to title');
+  app.quitLabel = () => (etudes.drilling ? etudes.backLabel : 'Quit to title');
   app.replayOverture = () => {
     app.closeSheets();
     void startOverture();

@@ -11,7 +11,10 @@
 
 import { barEnergies, beatGrid, chroma, detectKey, onsets, pickSections, SECTION_BARS } from './beatDetect.js';
 import type { StemSet } from './StemPlayer.js';
+import { cleanName } from '../meta/text.js';
 import { MOVEMENTS, STEM_NAMES, type StemName, type TrackDef } from './tracks.js';
+
+export { cleanName };
 
 export interface BeatMeta {
   id: string;
@@ -58,14 +61,6 @@ export function mono(buf: AudioBuffer): Float32Array {
     for (let i = 0; i < d.length; i++) out[i] = out[i]! + d[i]! / buf.numberOfChannels;
   }
   return out;
-}
-
-/**
- * A display name safe for every text sink: markup characters and controls are dropped, since the
- * name reaches HTML templates (title card, results, HUD).
- */
-export function cleanName(name: string): string {
-  return name.replace(/[<>&"'`\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'My Beat';
 }
 
 /** "02 - Some Song (Extended).mp3" -> "Some Song (Extended)" */
