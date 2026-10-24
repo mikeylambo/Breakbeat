@@ -1,5 +1,6 @@
 /** Player settings (persisted; every access try/catch guarded via platform/Storage). */
 
+import type { Lang } from '../i18n/i18n.js';
 import { readJson, writeJson } from '../platform/Storage.js';
 import { VISUALIZER_PRESETS, type VisualizerPreset } from '../render/visualizerPresets.js';
 
@@ -27,6 +28,8 @@ export interface Settings {
   /** Music visualizer behind the menus (and Zen, when zenVisualizer is on) */
   visualizer: 'off' | VisualizerPreset;
   zenVisualizer: boolean;
+  /** Interface language; absent = follow the device */
+  lang?: Lang;
   /** Listen mode's visualizer (always on there; V cycles it) */
   listenVisualizer: VisualizerPreset;
   /** Tap-to-sync done (or dismissed) */

@@ -1,6 +1,8 @@
 /** BREAKBEAT entry: screens and flow (title card -> main menu -> setlist / tutorial -> run -> results). */
 
+import { pickLang, setLang, t as tr } from './i18n/i18n.js';
 import { App, type RunConfig } from './ui/App.js';
+import { loadSettings } from './meta/Settings.js';
 import { TitleScreen } from './ui/TitleScreen.js';
 import { SplashScreen } from './ui/SplashScreen.js';
 import { SetlistScreen } from './ui/SetlistScreen.js';
@@ -23,6 +25,8 @@ import { applyUiTransform, computeLayout } from './render/layout.js';
 
 const TAUGHT_AIR = 'breakbeat-taught-air';
 const TAUGHT_CHARGE = 'breakbeat-taught-charge';
+// Language first: every screen reads its strings as it is built
+setLang(loadSettings().lang ?? pickLang(navigator.language));
 const app = new App();
 
 async function main(): Promise<void> {
@@ -313,7 +317,7 @@ async function main(): Promise<void> {
       }
       const twoBars = app.clock.barDurationSec * 2;
       app.fx.teach(x, y, far + 24, twoBars);
-      showCoach('Catch it mid-fall · <span>×1.25</span>', twoBars);
+      showCoach(`${tr('hud.airTip')} · <span>×1.25</span>`, twoBars);
       writeFlag(TAUGHT_AIR, true);
       announce('Catch it mid-fall for times one point two five.');
       return;
@@ -333,7 +337,7 @@ async function main(): Promise<void> {
     const run = app.run;
     if (run && !run.ended && run.mode !== 'overture' && app.engine?.canHold && !readFlag(TAUGHT_CHARGE)) {
       writeFlag(TAUGHT_CHARGE, true);
-      showCoach('<span>HOLD READY</span> · long-press a primed group to Overcharge it', app.clock.barDurationSec * 2);
+      showCoach(`<span>${tr('hud.holdReady')}</span> · ${tr('hud.holdReadyTip')}`, app.clock.barDurationSec * 2);
       app.hud.flashCharge();
       announce('Charge full. Long-press a primed group to overcharge it.');
     }
@@ -368,7 +372,7 @@ async function main(): Promise<void> {
   };
   // Pause → quit: a drill goes back to its tutorial slide, everything else to the main menu
   app.showTitle = () => (etudes.drilling ? etudes.leaveDrill() : showTitle());
-  app.quitLabel = () => (etudes.drilling ? etudes.backLabel : 'Quit to title');
+  app.quitLabel = () => (etudes.drilling ? etudes.backLabel : tr('pause.quit'));
   app.replayOverture = () => {
     app.closeSheets();
     void startOverture();

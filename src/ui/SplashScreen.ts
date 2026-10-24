@@ -4,6 +4,7 @@
  * the music lands exactly as the main menu appears.
  */
 
+import { t } from '../i18n/i18n.js';
 import { el } from './dom.js';
 import { LOGO_HTML } from './logo.js';
 
@@ -15,7 +16,7 @@ export class SplashScreen {
   constructor(private readonly onStart: () => void) {
     this.root.innerHTML = SPLASH_HTML;
     this.root.querySelector('.splash-press')!.replaceWith(this.prompt);
-    this.prompt.textContent = matchMedia('(hover: none)').matches ? 'TAP TO START' : 'PRESS ANY KEY';
+    this.prompt.textContent = matchMedia('(hover: none)').matches ? t('splash.tap') : t('splash.key');
     window.addEventListener('keydown', e => {
       if (!this.armed || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
       if (e.key === 'Tab' || e.key === 'Shift' || e.key === 'f' || e.key === 'F') return;

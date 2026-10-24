@@ -6,9 +6,12 @@
  * big callout on every chain rank-up. Danger tints the panel. DOM writes only on change.
  */
 
+import { t, tn } from '../i18n/i18n.js';
 import { button, el, fmt, ICONS, setText } from './dom.js';
 
-export const CHAIN_WORDS = ['STEADY', 'GROOVE', 'DRIVE', 'SURGE', 'RESONANT'] as const;
+const CHAIN_KEYS = ['hud.steady', 'hud.groove', 'hud.drive', 'hud.surge', 'hud.resonant'] as const;
+/** Chain rank names, in the current language */
+export const chainWord = (rank: number): string => t(CHAIN_KEYS[Math.max(0, Math.min(4, rank))]!);
 
 export interface HudValues {
   score: number;
@@ -53,7 +56,7 @@ export class RunHud {
   private readonly gauge = el('div', 'hud-charge hb-gauge', '', { role: 'meter', 'aria-label': 'Charge', 'aria-valuemin': '0', 'aria-valuemax': '100' });
   private readonly fill: SVGCircleElement;
   private readonly spark: HTMLElement;
-  private readonly gaugeLabel = el('div', 'hb-gauge-label', 'CHARGE');
+  private readonly gaugeLabel = el('div', 'hb-gauge-label', t('hud.charge'));
   private readonly pips: HTMLElement[] = [];
   private readonly rise = el('div', 'hb-rise');
   private readonly risePips: HTMLElement[] = [];
@@ -80,14 +83,14 @@ export class RunHud {
     this.vals = { movement: v(), tempo: v(), best: v('hb-best'), chain: v(), groups: v() };
     const scoreBox = el('div', 'hb-value hud-scorebox');
     scoreBox.appendChild(this.score);
-    this.scoreRow = row('SCORE', scoreBox, 'hs hb-scorerow', this.gain);
+    this.scoreRow = row(t('hud.score'), scoreBox, 'hs hb-scorerow', this.gain);
     panel.append(
-      row('MOVEMENT', this.vals.movement, 'hb-move'),
-      row('BAR', this.vals.tempo),
+      row(t('hud.movement'), this.vals.movement, 'hb-move'),
+      row(t('hud.bar'), this.vals.tempo),
       this.scoreRow,
-      (this.bestRow = row('HI-SCORE', this.vals.best, 'hs hb-bestrow')),
-      row('CHAIN', this.vals.chain, 'hs hb-chain'),
-      row('GROUPS', this.vals.groups, 'hs')
+      (this.bestRow = row(t('hud.hiScore'), this.vals.best, 'hs hb-bestrow')),
+      row(t('hud.chain'), this.vals.chain, 'hs hb-chain'),
+      row(t('hud.groups'), this.vals.groups, 'hs')
     );
 
     // Gauge: track, fill, a spark on the leading edge, a spin ring and a shockwave for "ready"
@@ -105,7 +108,7 @@ export class RunHud {
     }
     this.gauge.append(this.gaugeLabel, stems);
 
-    this.rise.append(el('div', 'hb-rise-label', 'NEXT ROW'));
+    this.rise.append(el('div', 'hb-rise-label', t('hud.nextRow')));
     const track = el('div', 'hb-rise-pips');
     for (let i = 0; i < 4; i++) {
       const p = el('i');
@@ -113,7 +116,7 @@ export class RunHud {
       track.appendChild(p);
     }
     this.rise.append(track, this.riseValue);
-    this.root.append(panel, this.gauge, this.rise, this.credit, this.callout, button('hud-pause icon-btn', ICONS.pause, 'Pause', onPause));
+    this.root.append(panel, this.gauge, this.rise, this.credit, this.callout, button('hud-pause icon-btn', ICONS.pause, t('hud.pause'), onPause));
   }
 
   /** Overture hides score/chain. */
@@ -132,7 +135,7 @@ export class RunHud {
   flareChain(): void {
     if (this.root.classList.contains('overture')) return;
     const rank = Math.max(0, Math.min(4, this.last.chainRank));
-    this.callout.innerHTML = `<span>${CHAIN_WORDS[rank]}</span><b>×${this.last.combo.toFixed(1)}</b>`;
+    this.callout.innerHTML = `<span>${chainWord(rank)}</span><b>×${this.last.combo.toFixed(1)}</b>`;
     this.callout.dataset.rank = String(rank);
     kick(this.callout, 'go');
     kick(this.vals.chain, 'flare');
@@ -173,7 +176,7 @@ export class RunHud {
       l.score = v.score;
     }
     if (v.chainRank !== l.chainRank || v.combo !== l.combo) {
-      setText(this.vals.chain, `×${v.combo.toFixed(1)} ${CHAIN_WORDS[Math.max(0, Math.min(4, v.chainRank))]}`);
+      setText(this.vals.chain, `×${v.combo.toFixed(1)} ${chainWord(v.chainRank)}`);
       this.root.dataset.rank = String(v.chainRank);
       l.chainRank = v.chainRank;
       l.combo = v.combo;
@@ -196,7 +199,7 @@ export class RunHud {
     if (v.ghost !== null) {
       // Racing the ghost: the row turns into pace, mint ahead and magenta behind
       if (v.ghost !== l.ghost) {
-        if (l.ghost === null) setText(this.bestRow.querySelector('.hb-label span') as HTMLElement, 'VS BEST');
+        if (l.ghost === null) setText(this.bestRow.querySelector('.hb-label span') as HTMLElement, t('hud.vsBest'));
         setText(this.vals.best, `${v.ghost > 0 ? '+' : v.ghost < 0 ? '−' : '±'}${fmt(Math.abs(v.ghost))}`);
         this.bestRow.dataset.pace = v.ghost > 0 ? 'ahead' : v.ghost < 0 ? 'behind' : 'level';
         l.ghost = v.ghost;
@@ -204,7 +207,7 @@ export class RunHud {
       }
     } else if (v.best !== l.best || l.ghost !== null) {
       if (l.ghost !== null) {
-        setText(this.bestRow.querySelector('.hb-label span') as HTMLElement, 'HI-SCORE');
+        setText(this.bestRow.querySelector('.hb-label span') as HTMLElement, t('hud.hiScore'));
         delete this.bestRow.dataset.pace;
         l.ghost = null;
       }
@@ -233,7 +236,7 @@ export class RunHud {
       }
       this.gauge.classList.toggle('ready', ready);
       this.gauge.setAttribute('aria-valuenow', String(c));
-      setText(this.gaugeLabel, ready ? 'HOLD' : 'CHARGE');
+      setText(this.gaugeLabel, ready ? t('hud.hold') : t('hud.charge'));
       l.charge = c;
     }
     if (v.risesIn !== l.risesIn) {
@@ -244,7 +247,7 @@ export class RunHud {
           p.classList.toggle('off', i >= this.riseTotal);
           p.classList.toggle('on', i < this.riseTotal - v.risesIn!);
         });
-        setText(this.riseValue, `RISES IN ${v.risesIn} BAR${v.risesIn === 1 ? '' : 'S'}`);
+        setText(this.riseValue, tn('hud.risesIn', v.risesIn));
         this.root.classList.toggle('rise-soon', v.risesIn <= 1);
       }
       l.risesIn = v.risesIn;

@@ -4,6 +4,7 @@
  * (tempo, block symbols, colour assist, haptics). ← → or Q / E switch tabs; Esc closes.
  */
 
+import { getLang, LANGS, t as tr } from '../i18n/i18n.js';
 import { VISUALIZER_PRESETS } from '../render/visualizerPresets.js';
 import type { Settings } from '../meta/Settings.js';
 import { button, el, ICONS, uiSound } from './dom.js';
@@ -16,7 +17,8 @@ export interface SettingsHost {
   onClose(): void;
 }
 
-const TABS = ['Sound', 'Timing', 'Display', 'Accessibility'] as const;
+const TABS = ['Sound', 'Timing', 'Display', 'Accessibility', 'Language'] as const;
+const TAB_KEY = { Sound: 'set.sound', Timing: 'set.timing', Display: 'set.display', Accessibility: 'set.access', Language: 'set.language' } as const;
 type Tab = (typeof TABS)[number];
 
 export class SettingsSheet {
@@ -29,7 +31,7 @@ export class SettingsSheet {
   constructor(private readonly host: SettingsHost) {
     const card = el('div', 'sheet settings-sheet');
     const head = el('div', 'settings-head');
-    head.append(el('div', 'sheet-title', 'SETTINGS'), this.tabs, button('icon-btn settings-close', ICONS.close, 'Close settings', () => this.show(false)));
+    head.append(el('div', 'sheet-title', tr('set.title')), this.tabs, button('icon-btn settings-close', ICONS.close, 'Close settings', () => this.show(false)));
     card.append(head, this.body);
     this.root.appendChild(card);
     this.root.addEventListener('click', e => {
@@ -128,7 +130,7 @@ export class SettingsSheet {
 
     this.tabs.innerHTML = '';
     for (const t of TABS) {
-      const tb = button(`set-tab${t === this.tab ? ' on' : ''}`, t, `${t} settings`, () => this.setTab(t));
+      const tb = button(`set-tab${t === this.tab ? ' on' : ''}`, tr(TAB_KEY[t]), tr(TAB_KEY[t]), () => this.setTab(t));
       tb.setAttribute('role', 'tab');
       tb.setAttribute('aria-selected', String(t === this.tab));
       this.tabs.appendChild(tb);
@@ -137,11 +139,11 @@ export class SettingsSheet {
     const page = el('div', 'set-page');
     if (this.tab === 'Sound') {
       page.append(
-        slider('Volume', 'volume'),
-        slider('Music', 'music'),
-        slider('Effects', 'sfx'),
-        segmented('Visualizer', 'Behind the menus while music plays', [['off', 'Off'], ...VISUALIZER_PRESETS] as const, () => s.visualizer, v => (s.visualizer = v)),
-        toggle('Visualizer in Zen', 'zenVisualizer', 'Behind the wall', s.visualizer === 'off')
+        slider(tr('set.volume'), 'volume'),
+        slider(tr('set.music'), 'music'),
+        slider(tr('set.effects'), 'sfx'),
+        segmented(tr('set.visualizer'), tr('set.visualizerNote'), [['off', tr('set.off')], ...VISUALIZER_PRESETS] as const, () => s.visualizer, v => (s.visualizer = v)),
+        toggle(tr('set.zenVis'), 'zenVisualizer', tr('set.zenVisNote'), s.visualizer === 'off')
       );
     } else if (this.tab === 'Timing') {
       const off = el('div', 'set-row');
@@ -152,33 +154,49 @@ export class SettingsSheet {
         change();
       };
       off.append(
-        el('span', 'set-label', 'Audio offset<small>If the blade looks early, nudge +</small>'),
+        el('span', 'set-label', `${tr('set.offset')}<small>${tr('set.offsetNote')}</small>`),
         button('step-btn', '−', 'Nudge audio offset earlier', () => nudge(-5)),
         offVal,
         button('step-btn', '+', 'Nudge audio offset later', () => nudge(5))
       );
       page.append(
         off,
-        button('btn set-overture', 'Sync timing (tap test)', 'Calibrate audio timing', () => {
+        button('btn set-overture', tr('set.sync'), tr('set.sync'), () => {
           this.show(false);
           this.host.calibrate();
         })
       );
     } else if (this.tab === 'Display') {
       page.append(
-        slider('Flash intensity', 'flash'),
-        toggle('Strobe-free', 'strobeFree', 'Max 3 flashes a second'),
-        toggle('Reduced motion', 'reducedMotion', 'No camera breath or wall slide'),
-        toggle('Hide HUD', 'hudHidden', 'Or press V'),
-        toggle('Race your best', 'ghost', 'Pace against your best run on the HUD')
+        slider(tr('set.flash'), 'flash'),
+        toggle(tr('set.strobe'), 'strobeFree', tr('set.strobeNote')),
+        toggle(tr('set.motion'), 'reducedMotion', tr('set.motionNote')),
+        toggle(tr('set.hud'), 'hudHidden', tr('set.hudNote')),
+        toggle(tr('set.ghost'), 'ghost', tr('set.ghostNote'))
       );
+    } else if (this.tab === 'Language') {
+      const list = el('div', 'lang-list', '', { role: 'radiogroup', 'aria-label': tr('set.language') });
+      const cur = getLang();
+      for (const [code, name] of LANGS) {
+        const b = button(`lang-item${code === cur ? ' on' : ''}`, `<b>${name}</b>`, name, () => {
+          if (code === cur) return;
+          s.lang = code;
+          this.host.apply();
+          // Every screen reads its strings as it is built: restart in the new language
+          setTimeout(() => location.reload(), 120);
+        });
+        b.setAttribute('role', 'radio');
+        b.setAttribute('aria-checked', String(code === cur));
+        list.appendChild(b);
+      }
+      page.append(list, el('div', 'lang-note', tr('set.languageNote')));
     } else {
       page.append(
-        segmented('Tempo', 'Scores are scaled to match', [[0.85, '85%'], [1, '100%']] as const, () => s.bpmScale as 0.85 | 1, v => (s.bpmScale = v)),
-        flag('Block symbols', 'symbols', 'A shape for each colour'),
-        flag('Colour assist', 'colourAssist', 'Brighter blocks with stronger colour edges'),
-        toggle('Haptics', 'haptics', this.host.hapticsSupported ? '' : 'Not supported on this device', !this.host.hapticsSupported),
-        toggle('Haptic metronome', 'hapticMetronome', 'A tick on every beat', !this.host.hapticsSupported)
+        segmented(tr('set.tempo'), tr('set.tempoNote'), [[0.85, '85%'], [1, '100%']] as const, () => s.bpmScale as 0.85 | 1, v => (s.bpmScale = v)),
+        flag(tr('set.symbols'), 'symbols', tr('set.symbolsNote')),
+        flag(tr('set.assist'), 'colourAssist', tr('set.assistNote')),
+        toggle(tr('set.haptics'), 'haptics', this.host.hapticsSupported ? '' : tr('set.hapticsNo'), !this.host.hapticsSupported),
+        toggle(tr('set.metronome'), 'hapticMetronome', tr('set.metronomeNote'), !this.host.hapticsSupported)
       );
     }
     b.appendChild(page);

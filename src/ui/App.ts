@@ -3,6 +3,7 @@
  * One frame loop: query the audio clock once, hand the result to engine, renderer and HUD.
  */
 
+import { t as tr, tx } from '../i18n/i18n.js';
 import { TUNING, computeComboMultiplier, type GameMode } from '../tuning.js';
 import { BeatClock, createBeatQuery } from '../pulse/BeatClock.js';
 import { applyUntil, engineFor, replayOf, simulate, type Replay, type SimResult } from '../pulse/Replay.js';
@@ -154,7 +155,7 @@ export class App {
   /** Returns to the title (set by TitleScreen). */
   showTitle: () => void = () => {};
   /** Label for the pause sheet's quit row (set by main). */
-  quitLabel: () => string = () => 'Quit to title';
+  quitLabel: () => string = () => tr('pause.quit');
   /** Starts the Overture again (Settings). */
   replayOverture: () => void = () => {};
   /** Closes any open sheet (settings/pause). */
@@ -452,7 +453,7 @@ export class App {
       g.next = applyUntil(g.engine, g.rec.replay, g.next, Math.min(liveStep, end));
       if (liveStep >= end || g.engine.gameOver) {
         g.ended = true;
-        this.hud.calloutText('GHOST OUT', `BAR ${Math.max(1, g.engine.currentBar)}`);
+        this.hud.calloutText(tr('hud.ghostOut'), tr('hud.barN', { n: Math.max(1, g.engine.currentBar) }));
         announce(`Your best run ended here, at bar ${g.engine.currentBar}.`);
       }
     }
@@ -460,7 +461,7 @@ export class App {
     if (!g.passed && liveScore > g.rec.score) {
       g.passed = true;
       this.achieve('ghost-passed');
-      this.hud.calloutText('PAST YOUR BEST', `+${fmt(liveScore - g.rec.score)}`);
+      this.hud.calloutText(tr('hud.pastBest'), `+${fmt(liveScore - g.rec.score)}`);
       announce('Past your best.');
     }
     return liveScore - ghostScore;
@@ -643,7 +644,7 @@ export class App {
     const a = this.toastQueue.shift();
     if (!a) return;
     if (!this.toastEl.isConnected) this.ui.appendChild(this.toastEl);
-    this.toastEl.innerHTML = `<small>ACHIEVEMENT</small><b>${a.name}</b><span>${a.desc}</span>`;
+    this.toastEl.innerHTML = `<small>${tr('ach.toast')}</small><b>${tx(`ach.${a.id}.name`, a.name)}</b><span>${tx(`ach.${a.id}.desc`, a.desc)}</span>`;
     this.toastEl.classList.add('on');
     this.uiSound('fanfare');
     announce(`Achievement: ${a.name}. ${a.desc}`);

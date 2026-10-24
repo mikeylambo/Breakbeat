@@ -5,6 +5,7 @@
  * Whatever is selected is previewed live: its music and world play behind the menu.
  */
 
+import { t } from '../i18n/i18n.js';
 import { listenQueue } from './ListenScreen.js';
 import { MOVEMENTS } from '../audio/tracks.js';
 import { starCount, totalStars } from '../meta/Progress.js';
@@ -50,7 +51,7 @@ interface Entry {
 }
 
 export class TitleScreen {
-  readonly root = el('div', 'title-screen hidden', '', { role: 'main', 'aria-label': 'Main menu' });
+  readonly root = el('div', 'title-screen hidden', '', { role: 'main', 'aria-label': t('title.menu') });
   private readonly menu: MenuList;
   private readonly ghost = el('div', 'mm-ghost', '', { 'aria-hidden': 'true' });
   private readonly desc = el('div', 'mm-desc', '', { 'aria-live': 'polite' });
@@ -100,23 +101,23 @@ export class TitleScreen {
     this.entries = [
       {
         id: 'continue',
-        name: first ? 'Begin' : 'Continue',
-        meta: first ? 'OVERTURE · 60 SEC' : `${nm.number} · ${nm.name.toUpperCase()}`,
-        desc: first ? 'Start here: a one-minute lesson that turns into your first movement.' : `Pick the Odyssey up at ${nm.number} ${nm.name}, ${nm.bpm} BPM.`,
-        ghost: first ? 'Begin' : 'Play',
+        name: first ? t('title.begin') : t('title.continue'),
+        meta: first ? t('title.overtureMeta') : `${nm.number} · ${nm.name.toUpperCase()}`,
+        desc: first ? t('title.beginDesc') : t('title.continueDesc', { num: nm.number, name: nm.name, bpm: nm.bpm }),
+        ghost: first ? t('title.begin') : t('title.play'),
         cls: 'btn-continue',
         action: a.continue
       },
-      { id: 'odyssey', name: 'Odyssey', meta: `${cleared}/${MOVEMENTS.length}`, desc: 'Nineteen movements across three acts and a coda. Clear a movement to unlock the next.', ghost: 'Odyssey', action: a.odyssey },
-      { id: 'endless', name: 'Endless', meta: save.best.endless ? fmt(save.best.endless) : '—', desc: 'One wall, every movement in turn. The wall never stops rising.', ghost: 'Endless', action: a.endless },
-      { id: 'daily', name: 'Daily', meta: save.daily.date === today ? fmt(save.daily.best) : 'NEW', desc: "Today's wall: the same deal all day. Your best run of the day is kept.", ghost: 'Daily', cls: save.daily.date === today ? '' : 'fresh', action: a.daily },
-      { id: 'zen', name: 'Zen', meta: save.best.zen ? fmt(save.best.zen) : '—', desc: 'No rising wall, no game over. Just you and the music.', ghost: 'Zen', action: a.zen },
-      { id: 'etudes', name: 'Etudes', meta: `${save.etudes.length}/8`, desc: 'Hand-built puzzles: clear the target in a set number of passes.', ghost: 'Etudes', action: a.etudes },
-      { id: 'listen', name: 'Listen', meta: `${listenQueue(save).length}/${MOVEMENTS.length + 1}`, desc: 'The soundtrack: every movement you have cleared, full mix, with a stem mixer and visualizer.', ghost: 'Listen', action: a.listen },
-      { id: 'beats', name: 'My Beats', meta: a.beatsCount() ? String(a.beatsCount()) : 'NEW', desc: 'Play the wall to your own songs. They stay on this device.', ghost: 'Yours', cls: a.beatsCount() ? '' : 'fresh', action: a.beats },
-      { id: 'tutorial', name: 'Tutorial & Tips', meta: '', desc: 'How every piece of Breakbeat works, one slide at a time.', ghost: 'Learn', cls: 'quiet', action: a.tutorial },
-      { id: 'profile', name: 'Profile', meta: '', desc: 'Lifetime stats, challenge stars and the cosmetic locker.', ghost: 'Profile', cls: 'quiet', action: a.profile },
-      { id: 'settings', name: 'Settings', meta: '', desc: 'Sound, timing, display and accessibility.', ghost: 'Settings', cls: 'quiet', action: a.settings }
+      { id: 'odyssey', name: t('title.odyssey'), meta: `${cleared}/${MOVEMENTS.length}`, desc: t('title.odysseyDesc'), ghost: t('title.odyssey'), action: a.odyssey },
+      { id: 'endless', name: t('title.endless'), meta: save.best.endless ? fmt(save.best.endless) : '—', desc: t('title.endlessDesc'), ghost: t('title.endless'), action: a.endless },
+      { id: 'daily', name: t('title.daily'), meta: save.daily.date === today ? fmt(save.daily.best) : t('title.new'), desc: t('title.dailyDesc'), ghost: t('title.daily'), cls: save.daily.date === today ? '' : 'fresh', action: a.daily },
+      { id: 'zen', name: t('title.zen'), meta: save.best.zen ? fmt(save.best.zen) : '—', desc: t('title.zenDesc'), ghost: t('title.zen'), action: a.zen },
+      { id: 'etudes', name: t('title.etudes'), meta: `${save.etudes.length}/8`, desc: t('title.etudesDesc'), ghost: t('title.etudes'), action: a.etudes },
+      { id: 'listen', name: t('title.listen'), meta: `${listenQueue(save).length}/${MOVEMENTS.length + 1}`, desc: t('title.listenDesc'), ghost: t('title.listen'), action: a.listen },
+      { id: 'beats', name: t('title.beats'), meta: a.beatsCount() ? String(a.beatsCount()) : t('title.new'), desc: t('title.beatsDesc'), ghost: t('title.beatsGhost'), cls: a.beatsCount() ? '' : 'fresh', action: a.beats },
+      { id: 'tutorial', name: t('title.tutorial'), meta: '', desc: t('title.tutorialDesc'), ghost: t('title.tutorialGhost'), cls: 'quiet', action: a.tutorial },
+      { id: 'profile', name: t('title.profile'), meta: '', desc: t('title.profileDesc'), ghost: t('title.profile'), cls: 'quiet', action: a.profile },
+      { id: 'settings', name: t('title.settings'), meta: '', desc: t('title.settingsDesc'), ghost: t('title.settings'), cls: 'quiet', action: a.settings }
     ];
     const items: MenuItem[] = this.entries.map((e, i) => ({
       id: e.id,
@@ -129,11 +130,11 @@ export class TitleScreen {
 
     const pct = Math.round((cleared / MOVEMENTS.length) * 100);
     const stars = totalStars(save);
-    this.stats.innerHTML = `<div class="mm-stat-label">ODYSSEY COMPLETE</div><div class="mm-pct">${pct}<small>%</small></div><div class="mm-stat-row"><span><b>★ ${stars}</b> / ${MOVEMENTS.length * 3}</span><span><b>${fmt(save.runs)}</b> RUNS</span><span><b>${MOVEMENTS.filter(m => starCount(save.stars[m.id]) === 3).length}</b> MASTERED</span></div>`;
+    this.stats.innerHTML = `<div class="mm-stat-label">${t('title.odysseyComplete')}</div><div class="mm-pct">${pct}<small>%</small></div><div class="mm-stat-row"><span><b>★ ${stars}</b> / ${MOVEMENTS.length * 3}</span><span><b>${fmt(save.runs)}</b> ${t('title.runs')}</span><span><b>${MOVEMENTS.filter(m => starCount(save.stars[m.id]) === 3).length}</b> ${t('title.mastered')}</span></div>`;
 
     this.sync.innerHTML = '';
     if (save.overtureDone && !a.calibrated()) {
-      const b = el('button', 'util-btn sync-chip', '<span>Sync timing</span><b>10 SEC</b>', { type: 'button', 'aria-label': 'Sync audio timing' });
+      const b = el('button', 'util-btn sync-chip', `<span>${t('title.syncTiming')}</span><b>${t('title.sec10')}</b>`, { type: 'button', 'aria-label': t('title.syncLabel') });
       b.addEventListener('click', e => {
         e.stopPropagation();
         uiSound('pick');

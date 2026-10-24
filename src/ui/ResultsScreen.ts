@@ -5,6 +5,7 @@
  * Any key or tap during the reveal skips to the end. The run's movement keeps playing underneath.
  */
 
+import { t as tr, tn } from '../i18n/i18n.js';
 import { mastery, todayUtc } from '../meta/Save.js';
 import { flush, prefs, savePrefs, submit, top } from '../meta/Leaderboard.js';
 import { recordRun, type CoachAdvice } from '../meta/Coach.js';
@@ -108,11 +109,11 @@ export class ResultsScreen {
     left.append(el('div', 'results-kicker', `${run.mode === 'odyssey' ? `ACT ${run.track.act} · ` : ''}${movementLabel}`), this.scoreEl);
     const rank = el('div', 'results-rank');
     const pct = Math.round(Math.max(0, Math.min(1, m.progress)) * 100);
-    rank.innerHTML = `<span class="badge badge-${m.rank.toLowerCase()}">${m.rank}</span><span class="rank-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress to ${m.next ?? 'max rank'}"><span style="--p:${pct / 100}"></span></span><span class="rank-next">${m.next ? `${fmt(m.toNext)} TO ${m.next}` : 'TOP RANK'}</span>`;
+    rank.innerHTML = `<span class="badge badge-${m.rank.toLowerCase()}">${m.rank}</span><span class="rank-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress to ${m.next ?? 'max rank'}"><span style="--p:${pct / 100}"></span></span><span class="rank-next">${m.next ? tr('results.toRank', { n: fmt(m.toNext), rank: m.next }) : tr('results.topRank')}</span>`;
     left.appendChild(rank);
     const pbLine = pb
-      ? el('div', 'results-pb new', previousBest > 0 ? `NEW PERSONAL BEST · +${fmt(score - previousBest)}` : 'FIRST CLEAR · NEW PERSONAL BEST')
-      : el('div', 'results-pb', score === 0 ? 'NOTHING LANDED · GO AGAIN' : score === previousBest ? 'LEVEL WITH YOUR BEST' : `${fmt(previousBest - score)} TO YOUR BEST`);
+      ? el('div', 'results-pb new', previousBest > 0 ? tr('results.newPb', { n: fmt(score - previousBest) }) : tr('results.firstClear'))
+      : el('div', 'results-pb', score === 0 ? tr('results.nothing') : score === previousBest ? tr('results.level') : tr('results.toBest', { n: fmt(previousBest - score) }));
     left.appendChild(pbLine);
     const stats = el('div', 'results-stats');
     this.statEls = [];
@@ -124,31 +125,31 @@ export class ResultsScreen {
       s.append(v, el('div', 'stat-label', label));
       return s;
     };
-    stats.append(stat('CHAIN', t.longestCombo, 0), stat('OVERCHARGE', t.overchargesLanded, 1), stat('AIR-PRIMES', t.airPrimesLanded, 2));
+    stats.append(stat(tr('results.chain'), t.longestCombo, 0), stat(tr('results.overcharge'), t.overchargesLanded, 1), stat(tr('results.airPrimes'), t.airPrimesLanded, 2));
     left.appendChild(stats);
     if (r.newStars.length) left.appendChild(el('div', 'results-stars', r.newStars.map(x => `<span>★ ${x}</span>`).join('')));
 
     const right = el('section', 'results-right');
     const snap = engine.bestPassSnapshot;
     right.appendChild(
-      el('div', 'replay-label', snap ? `BEST PASS <b>+${fmt(snap.points)}</b> · ${snap.groupsDetonated} GROUP${snap.groupsDetonated === 1 ? '' : 'S'}` : 'NO PASS LANDED')
+      el('div', 'replay-label', snap ? tn('results.bestPass', snap.groupsDetonated, { pts: fmt(snap.points) }) : tr('results.noPass'))
     );
     if (run.mode === 'daily' && r.replay) right.appendChild(this.boardCard(r));
     else {
       const card = el('div', 'practise-card');
-      card.innerHTML = `<div class="practise-label">PRACTISE NEXT</div><div class="practise-text">${advice ? advice.text : 'Finish a run to get a practice target.'}</div>`;
+      card.innerHTML = `<div class="practise-label">${tr('results.practiseNext')}</div><div class="practise-text">${advice ? advice.text : tr('results.finishRun')}</div>`;
       right.appendChild(card);
     }
 
     const items: MenuItem[] = [];
     const item = (id: string, name: string, action: () => void, cls = ''): MenuItem => ({ id, label: name, cls, action, html: `<span class="mi-name">${name}</span>` });
-    if (run.mode === 'odyssey') items.push(item('next', 'Next movement', this.actions.next, 'btn-primary'), item('replay', 'Replay', this.actions.replay));
-    else items.push(item('replay', 'Play again', this.actions.replay, 'btn-primary'));
-    const share = item('share', 'Share pass', () => void this.share());
+    if (run.mode === 'odyssey') items.push(item('next', tr('results.nextMovement'), this.actions.next, 'btn-primary'), item('replay', tr('results.replay'), this.actions.replay));
+    else items.push(item('replay', tr('results.playAgain'), this.actions.replay, 'btn-primary'));
+    const share = item('share', tr('results.share'), () => void this.share());
     if (!snap) share.locked = true;
-    items.push(share, item('title', 'Title', this.actions.title, 'quiet'));
+    items.push(share, item('title', tr('results.title'), this.actions.title, 'quiet'));
     const foot = el('div', 'results-foot');
-    foot.append(this.actionsMenu.root, el('div', 'results-keys', '<b>ENTER</b>GO<b>R</b>REPLAY<b>ESC</b>TITLE'));
+    foot.append(this.actionsMenu.root, el('div', 'results-keys', tr('results.keys')));
     this.root.append(left, right, foot);
     this.actionsMenu.setItems(items, 0);
 
@@ -173,12 +174,12 @@ export class ResultsScreen {
   private boardCard(r: RunResult): HTMLElement {
     const card = el('div', 'practise-card board-card', '', { 'aria-live': 'polite' });
     const day = todayUtc();
-    const head = '<div class="practise-label">DAILY BOARD</div>';
+    const head = `<div class="practise-label">${tr('board.title')}</div>`;
     const optIn = (): void => {
       const p = prefs();
-      card.innerHTML = `${head}<div class="practise-text">Post today's run? It is checked by replaying it. Only your name and score are shown.</div>`;
+      card.innerHTML = `${head}<div class="practise-text">${tr('board.ask')}</div>`;
       const row = el('div', 'board-form');
-      const name = el('input', 'ee-name board-name', '', { type: 'text', maxlength: '16', placeholder: 'Your name', 'aria-label': 'Name on the board', spellcheck: 'false' }) as HTMLInputElement;
+      const name = el('input', 'ee-name board-name', '', { type: 'text', maxlength: '16', placeholder: tr('board.name'), 'aria-label': 'Name on the board', spellcheck: 'false' }) as HTMLInputElement;
       name.value = p.name;
       // Typing here must not drive the results keys (R is replay)
       name.addEventListener('keydown', e => {
@@ -193,11 +194,11 @@ export class ResultsScreen {
         savePrefs({ ...p, on: true, name: name.value });
         void post();
       };
-      row.append(name, button('btn btn-primary board-post', 'Post', 'Post to the Daily board', go));
+      row.append(name, button('btn btn-primary board-post', tr('board.post'), tr('board.post'), go));
       card.appendChild(row);
     };
     const post = async (): Promise<void> => {
-      card.innerHTML = `${head}<div class="practise-text">Checking your run…</div>`;
+      card.innerHTML = `${head}<div class="practise-text">${tr('board.checking')}</div>`;
       try {
         await flush(day);
         const res = await submit(day, r.replay!);
@@ -206,17 +207,17 @@ export class ResultsScreen {
         const me = prefs();
         const pct = Math.max(1, Math.round((res.rank / Math.max(1, res.total)) * 100));
         const list = rows.map((x, i) => `<li class="${x.score === res.best && x.name === me.name ? 'me' : ''}"><i>${i + 1}</i><span>${x.name}</span><b>${fmt(x.score)}</b></li>`).join('');
-        card.innerHTML = `<div class="board-head">${head}</div><div class="board-body"><div class="board-rank"><b>#${res.rank}</b><span>OF ${fmt(res.total)} · TOP ${pct}%</span>${res.best > res.score ? `<span>BEST ${fmt(res.best)}</span>` : ''}</div><ol class="board-list">${list}</ol></div>`;
+        card.innerHTML = `<div class="board-head">${head}</div><div class="board-body"><div class="board-rank"><b>#${res.rank}</b><span>${tr('board.of', { n: fmt(res.total), pct })}</span>${res.best > res.score ? `<span>${tr('board.best', { n: fmt(res.best) })}</span>` : ''}</div><ol class="board-list">${list}</ol></div>`;
         card.querySelector('.board-head')!.appendChild(
-          button('board-off', 'Stop posting', 'Stop posting Daily runs', () => {
+          button('board-off', tr('board.stop'), tr('board.stop'), () => {
             savePrefs({ ...prefs(), on: false });
-            card.innerHTML = `${head}<div class="practise-text">Posting is off. Your runs stay on this device.</div>`;
+            card.innerHTML = `${head}<div class="practise-text">${tr('board.off')}</div>`;
           })
         );
         announce(`Daily board: rank ${res.rank} of ${res.total}.`);
       } catch (err) {
         const why = err instanceof Error ? err.message : '';
-        card.innerHTML = `${head}<div class="practise-text">${why === 'offline' ? 'No connection. Your run is kept and posts next time.' : "The board couldn't check this run."}</div>`;
+        card.innerHTML = `${head}<div class="practise-text">${why === 'offline' ? tr('board.offline') : tr('board.failed')}</div>`;
       }
     };
     if (prefs().on) void post();
@@ -292,7 +293,7 @@ export class ResultsScreen {
     if (!r || !snap || this.sharing) return;
     this.sharing = true;
     const btn = this.root.querySelector('.results-actions .menu-item:nth-of-type(' + (this.actionsMenu.items.findIndex(i => i.id === 'share') + 1) + ') .mi-name') as HTMLElement | null;
-    if (btn) btn.textContent = 'Recording…';
+    if (btn) btn.textContent = tr('results.recording');
     const track = r.run.track;
     try {
       this.app.stopAttract();
@@ -308,7 +309,7 @@ export class ResultsScreen {
           return () => this.app.stems.stopAll(this.app.audio.now + 0.1);
         }
       });
-      if (btn) btn.textContent = result === 'downloaded' ? 'Saved' : result === 'shared' ? 'Shared' : 'Share pass';
+      if (btn) btn.textContent = result === 'downloaded' ? tr('results.saved') : result === 'shared' ? tr('results.shared') : tr('results.share');
     } finally {
       this.sharing = false;
       if (this.visible) {

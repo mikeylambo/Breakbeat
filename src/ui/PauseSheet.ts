@@ -3,6 +3,7 @@
  * slides in from the left with the movement and score above it. Opening it suspends audio.
  */
 
+import { t } from '../i18n/i18n.js';
 import { el, setText } from './dom.js';
 import { MenuList } from './MenuList.js';
 
@@ -33,12 +34,12 @@ export class PauseSheet {
       html: `<span class="mi-name">${name}</span>`
     });
     this.menu.setItems([
-      row('resume', 'Resume', a.resume, 'btn-primary'),
-      row('restart', 'Restart', a.restart),
-      row('settings', 'Settings', a.settings),
-      row('quit', 'Quit to title', a.quit, 'quiet')
+      row('resume', t('pause.resume'), a.resume, 'btn-primary'),
+      row('restart', t('pause.restart'), a.restart),
+      row('settings', t('pause.settings'), a.settings),
+      row('quit', t('pause.quit'), a.quit, 'quiet')
     ]);
-    card.append(el('div', 'pause-title', 'PAUSED'), this.what, this.score, this.menu.root, el('div', 'pause-keys', '<b>ESC</b>RESUME'));
+    card.append(el('div', 'pause-title', t('pause.title')), this.what, this.score, this.menu.root, el('div', 'pause-keys', `<b>ESC</b>${t('pause.keyResume')}`));
     this.root.appendChild(card);
   }
 

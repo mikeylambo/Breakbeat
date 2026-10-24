@@ -4,6 +4,7 @@
  * tutorial when done.
  */
 
+import { t } from '../i18n/i18n.js';
 import data from '../../content/etudes.json';
 import drillData from '../../content/drills.json';
 import { readFlag, writeFlag } from '../platform/Storage.js';
@@ -55,7 +56,7 @@ export class EtudeScreen {
 
   /** Where the pause sheet's quit row goes while a drill or player-made etude runs. */
   get backLabel(): string {
-    return this.custom?.backLabel ?? 'Back to tutorial';
+    return this.custom?.backLabel ?? t('pause.backTutorial');
   }
 
   /** Pause → back: leave the drill for the tutorial slide it came from. */
