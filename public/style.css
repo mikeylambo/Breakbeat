@@ -835,3 +835,9 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .lang-note { margin-top: 10px; font: 500 8px/1 var(--mono); letter-spacing: 0.14em; color: var(--quiet); text-transform: uppercase; }
 :root[lang='ja'] { --display: 'Unbounded', 'Hiragino Sans', 'Yu Gothic', 'Noto Sans JP', system-ui, sans-serif; --body: 'Manrope', 'Hiragino Sans', 'Yu Gothic', 'Noto Sans JP', system-ui, sans-serif; --mono: 'IBM Plex Mono', 'Hiragino Sans', 'Noto Sans JP', ui-monospace, monospace; }
 :root[lang='ja'] .set-tab, :root[lang='ja'] .hb-label, :root[lang='ja'] .mode-slab .mi-name { letter-spacing: 0.04em; }
+
+/* Tabbed sheets: tabs get their own row so long labels (and five tabs) never push the close button out */
+.settings-scrim .settings-head, .profile-sheet .settings-head { flex-wrap: wrap; row-gap: 4px; margin-bottom: 6px; }
+.settings-scrim .settings-head .settings-close, .profile-sheet .settings-head .settings-close { margin-left: auto; }
+.settings-scrim .set-tabs, .profile-sheet .settings-head .set-tabs { order: 3; flex: 1 0 100%; justify-content: flex-start; flex-wrap: wrap; }
+.settings-scrim .set-tab, .profile-sheet .set-tab { padding: 6px 9px 7px; }

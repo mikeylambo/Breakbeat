@@ -146,7 +146,7 @@ const gate = async (name, fn) => {
     console.log(`PASS [${name}]: ${msg}`);
   } catch (err) {
     failed = true;
-    console.error(`FAIL [${name}] at "${step}": ${err.message.split('\n')[0]}`);
+    console.error(`FAIL [${name}] at "${step}": ${process.env.GATES ? err.message.slice(0, 1500) : err.message.split("\n")[0]}`);
   } finally {
     for (const c of openCtx) await c.close().catch(() => {});
     openCtx.clear();

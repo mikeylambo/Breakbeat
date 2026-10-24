@@ -4,6 +4,7 @@
  * TV latency the browser does not report.
  */
 
+import { t as tr } from '../i18n/i18n.js';
 import type { App } from './App.js';
 import { announce, button, el } from './dom.js';
 
@@ -11,7 +12,7 @@ const BEATS = 12;
 const BPM = 100;
 
 export class CalibrationSheet {
-  readonly root = el('div', 'sheet-scrim calib-scrim hidden', '', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Sync timing' });
+  readonly root = el('div', 'sheet-scrim calib-scrim hidden', '', { role: 'dialog', 'aria-modal': 'true', 'aria-label': tr('calib.title') });
   private readonly ring = el('div', 'calib-ring');
   private readonly dots = el('div', 'calib-dots');
   private readonly status = el('div', 'calib-status', '', { 'aria-live': 'polite' });
@@ -26,15 +27,15 @@ export class CalibrationSheet {
   constructor(private readonly app: App) {
     const card = el('div', 'sheet calib-sheet');
     card.append(
-      el('div', 'sheet-title', 'SYNC TIMING'),
-      el('div', 'calib-copy', 'Tap anywhere on each click. Headphones on, volume up.'),
+      el('div', 'sheet-title', tr('calib.title')),
+      el('div', 'calib-copy', tr('calib.copy')),
       this.ring,
       this.dots,
       this.status
     );
-    this.action = button('btn btn-primary', 'Start', 'Start calibration', () => void this.start());
+    this.action = button('btn btn-primary', tr('calib.start'), tr('calib.start'), () => void this.start());
     const row = el('div', 'calib-actions');
-    row.append(this.action, button('btn btn-quiet', 'Close', 'Close', () => this.show(false)));
+    row.append(this.action, button('btn btn-quiet', tr('calib.close'), tr('calib.close'), () => this.show(false)));
     card.appendChild(row);
     this.root.appendChild(card);
     this.root.addEventListener('pointerdown', e => {
@@ -64,9 +65,9 @@ export class CalibrationSheet {
 
   private reset(): void {
     const ms = this.app.settings.offsetMs;
-    this.status.textContent = `Current offset ${ms > 0 ? '+' : ''}${ms} ms`;
+    this.status.textContent = tr('calib.current', { ms: `${ms > 0 ? '+' : ''}${ms}` });
     this.dots.innerHTML = '<span></span>'.repeat(BEATS);
-    this.action.textContent = 'Start';
+    this.action.textContent = tr('calib.start');
     this.action.disabled = false;
   }
 
@@ -79,7 +80,7 @@ export class CalibrationSheet {
     this.running = true;
     this.action.disabled = true;
     this.action.textContent = 'Listening…';
-    this.status.textContent = 'Tap on each click';
+    this.status.textContent = tr('calib.tap');
     const beat = 60 / BPM;
     const t0 = this.app.audio.now + 0.6;
     for (let i = 0; i < BEATS; i++) {
@@ -127,9 +128,9 @@ export class CalibrationSheet {
     this.running = false;
     const use = this.taps.slice(-8).sort((a, b) => a - b);
     this.action.disabled = false;
-    this.action.textContent = 'Again';
+    this.action.textContent = tr('calib.again');
     if (use.length < 5) {
-      this.status.textContent = 'Not enough taps. Try again.';
+      this.status.textContent = tr('calib.few');
       return;
     }
     const median = use[use.length >> 1]!;
@@ -137,7 +138,7 @@ export class CalibrationSheet {
     this.app.settings.offsetMs = ms;
     this.app.settings.calibrated = true;
     this.app.persistSettings();
-    this.status.textContent = `Offset ${ms > 0 ? '+' : ''}${ms} ms · saved`;
+    this.status.textContent = tr('calib.saved', { ms: `${ms > 0 ? '+' : ''}${ms}` });
     announce(`Timing synced. Offset ${ms} milliseconds.`);
   }
 }

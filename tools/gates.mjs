@@ -650,4 +650,22 @@ const put = (eng, col, row, kind) => { eng.board[row][col] = { id: gid++, col, r
   console.log(`PASS [REPLAY_DETERMINISM]: 200 bot runs (${steps} steps, air-primes, holds, morphs, stall skips) re-simulate exactly in ${(performance.now() - t0).toFixed(0)} ms.`);
 }
 
-console.log('=== ALL 21 BREAKBEAT GATES GREEN ===');
+// I18N — every locale key exists in English, placeholders and markup match, nothing is empty
+{
+  const { EN } = await import('../build/src/i18n/en.js');
+  const marks = s => [...s.matchAll(/\{(\w+)\}|<\/?b>/g)].map(m => m[0]).sort().join(' ');
+  const report = [];
+  for (const f of fs.readdirSync('content/i18n')) {
+    const T = JSON.parse(fs.readFileSync(path.join('content/i18n', f), 'utf8'));
+    for (const [k, v] of Object.entries(T)) {
+      assert.ok(k in EN, `I18N: ${f} has a key English does not: ${k}`);
+      assert.ok(typeof v === 'string' && v.trim(), `I18N: ${f} ${k} is empty`);
+      assert.equal(marks(v), marks(EN[k]), `I18N: ${f} ${k} placeholders or markup differ`);
+      assert.equal(/<(?!\/?b>)/.test(v), false, `I18N: ${f} ${k} has markup beyond <b>`);
+    }
+    report.push(`${f.replace('.json', '')} ${Math.round((Object.keys(T).length / Object.keys(EN).length) * 100)}%`);
+  }
+  console.log(`PASS [I18N]: ${Object.keys(EN).length} English keys; ${report.join(', ')}; placeholders and markup match.`);
+}
+
+console.log('=== ALL 22 BREAKBEAT GATES GREEN ===');

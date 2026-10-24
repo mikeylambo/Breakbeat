@@ -68,7 +68,11 @@ can't be cheated cheap to build, so use it.
 - [x] **Achievements** (41): from run telemetry, the save and a few moments; toasts, a Profile tab with
       progress; stable ids for a later Steam mapping.
 - [ ] **Error reporting**: a tiny `window.onerror` / unhandledrejection beacon, opt-in, no PII.
-- [ ] **Localization scaffold**: string tables, plus EN/ES/PT-BR/JA/DE (JA needs a CJK font subset).
+- [x] **Localization, phase 1**: t() with English fallback; Spanish, Brazilian Portuguese, German, Japanese
+      (system CJK font). Title, title card, HUD, pause, results, Daily board, settings (Language tab),
+      Profile with all achievements, calibration, rotate card. I18N gate checks every table.
+- [ ] **Localization, phase 2**: tutorial slides, Listen, My Beats, Etude editor and list, Odyssey details,
+      challenge labels, coach tips, key hints, screen-reader announcements.
 
 ## v0.14: Depth and replay value
 

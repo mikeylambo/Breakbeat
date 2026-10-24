@@ -4,6 +4,7 @@
  * Updated a few times per second, DOM only on change.
  */
 
+import { t as tr } from '../i18n/i18n.js';
 import { MOVEMENTS } from '../audio/tracks.js';
 import { el, fmt, setText } from './dom.js';
 import type { StageLayout } from '../render/layout.js';
@@ -37,7 +38,7 @@ export class DeskPanels {
 
   constructor(host: HTMLElement) {
     this.top.append(this.label, this.track, this.best);
-    for (const name of ['GROUPS', 'BEST PASS', 'ALL CLEARS', 'OVERCHARGES', 'AIR-PRIMES']) {
+    for (const name of [tr('profile.groups'), tr('profile.bestPass'), tr('profile.allClears'), tr('profile.overcharges'), tr('profile.airPrimes')]) {
       const v = el('span', 'ds-v', '0');
       this.statEls.push(v);
       const s = el('div', 'ds');
@@ -91,7 +92,7 @@ export class DeskPanels {
     }
     const now = this.track.querySelector('.dt-seg.now i') as HTMLElement | null;
     if (now) now.style.transform = `scaleX(${Math.max(0, Math.min(1, v.progress))})`;
-    setText(this.best, v.best > 0 ? `BEST ${fmt(v.best)}` : '');
+    setText(this.best, v.best > 0 ? tr('board.best', { n: fmt(v.best) }) : '');
     const vals = [v.groups, v.bestPass, v.allClears, v.overcharges, v.airPrimes];
     vals.forEach((n, i) => setText(this.statEls[i]!, fmt(n)));
   }
