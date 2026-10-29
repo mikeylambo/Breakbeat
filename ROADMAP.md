@@ -67,7 +67,10 @@ can't be cheated cheap to build, so use it.
       held 300 ms overcharges, X / K holds; controllers drive every menu; rumble. Later: remapping.
 - [x] **Achievements** (41): from run telemetry, the save and a few moments; toasts, a Profile tab with
       progress; stable ids for a later Steam mapping.
-- [ ] **Error reporting**: a tiny `window.onerror` / unhandledrejection beacon, opt-in, no PII.
+- [x] **Error reporting**: an opt-in `window.onerror` / unhandledrejection beacon (Settings > Display, off by
+      default) into `breakbeat_errors` on the shared project: insert-only, unreadable through the API, with length
+      checks on every column. No id, name or save; URLs and e-mails are scrubbed; the device is reported only as browser and OS;
+      five reports a session at most. Read them in the Supabase dashboard (SQL editor or Table Editor).
 - [x] **Localization, phase 1**: t() with English fallback; Spanish, Brazilian Portuguese, German, Japanese
       (system CJK font). Title, title card, HUD, pause, results, Daily board, settings (Language tab),
       Profile with all achievements, calibration, rotate card. I18N gate checks every table.

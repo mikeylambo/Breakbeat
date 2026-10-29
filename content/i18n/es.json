@@ -113,5 +113,6 @@
 "pause.aria":"En pausa",
 "set.sections":"Secciones de ajustes",
 "results.aria":"Resultados",
-"board.nameAria":"Nombre en la tabla"
+"board.nameAria":"Nombre en la tabla",
+"set.errors":"Enviar informes de errores","set.errorsNote":"Datos anónimos de fallos, sin nombres ni partidas"
 }

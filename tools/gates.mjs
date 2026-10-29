@@ -321,8 +321,18 @@ console.log('=== BREAKBEAT GDD Gate Suite ===');
   const hosts = new Set(board.match(/https?:\/\/[^'"`/\s]+/g) ?? []);
   assert.deepEqual([...hosts], ['https://iysvarvkltihgosbhtaa.supabase.co'], `NETWORK gate failed: Leaderboard.ts may only reach the board host (${[...hosts].join(', ')})`);
   assert.equal(/\bXMLHttpRequest\b|\bWebSocket\b/.test(board), false, 'NETWORK gate failed: Leaderboard.ts uses XHR or sockets');
+  // The opt-in error beacon (src/meta/ErrorReport.ts) posts only to the board host, into one table
+  const BEACON = path.join('src', 'meta', 'ErrorReport.ts');
+  const beacon = fs.readFileSync(BEACON, 'utf8');
+  const beaconFetches = beacon.match(/\bfetch\s*\(\s*`[^`]*`/g) ?? [];
+  assert.deepEqual(beaconFetches, ['fetch(`${BOARD_HOST}/rest/v1/breakbeat_errors`'], 'NETWORK gate failed: ErrorReport.ts may only post to the board host');
+  assert.equal(/https?:\/\/[\w.-]+\.[a-z]{2,}|\bXMLHttpRequest\b|\bWebSocket\b|sendBeacon/.test(beacon), false, 'NETWORK gate failed: ErrorReport.ts names another host or transport');
+  const pkgVersion = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
+  assert.ok(beacon.includes(`VERSION = '${pkgVersion}'`), `NETWORK gate failed: ErrorReport VERSION is not ${pkgVersion}`);
+  const { DEFAULT_SETTINGS } = await import('../build/src/meta/Settings.js');
+  assert.equal(DEFAULT_SETTINGS.errorReports, false, 'NETWORK gate failed: error reports must be off by default');
   for (const rel of walk('src')) {
-    if (rel === BOARD) continue;
+    if (rel === BOARD || rel === BEACON) continue;
     const code = fs.readFileSync(path.resolve(process.cwd(), rel), 'utf8');
     // Only same-origin relative fetches (bundled stems) are allowed; no absolute URLs, XHR or sockets.
     assert.equal(
@@ -333,7 +343,7 @@ console.log('=== BREAKBEAT GDD Gate Suite ===');
   }
   const html = fs.readFileSync('public/index.html', 'utf8') + fs.readFileSync('public/fonts/fonts.css', 'utf8');
   assert.equal(/(src|href)=["']https?:|url\(['"]?https?:/.test(html), false, 'NETWORK gate failed: external asset in index.html or fonts.css');
-  console.log('PASS [NETWORK]: Zero cross-origin requests in source, HTML and font CSS (fonts and audio bundled); only the opt-in Daily board reaches its one host.');
+  console.log('PASS [NETWORK]: Zero cross-origin requests in source, HTML and font CSS (fonts and audio bundled); only the opt-in Daily board and the opt-in error beacon reach the board host.');
 }
 
 // ---------- v0.6 engine gates ----------

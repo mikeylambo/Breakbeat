@@ -34,6 +34,8 @@ export interface Settings {
   listenVisualizer: VisualizerPreset;
   /** Tap-to-sync done (or dismissed) */
   calibrated: boolean;
+  /** Opt-in: send uncaught errors (scrubbed, anonymous) to the developer */
+  errorReports: boolean;
 }
 
 const KEY = 'breakbeat-settings-v1';
@@ -56,7 +58,8 @@ export const DEFAULT_SETTINGS: Settings = {
   visualizer: 'horizon',
   zenVisualizer: false,
   listenVisualizer: 'rings',
-  calibrated: false
+  calibrated: false,
+  errorReports: false
 };
 
 export function loadSettings(): Settings {

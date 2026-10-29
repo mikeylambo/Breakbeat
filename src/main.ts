@@ -1,5 +1,6 @@
 /** BREAKBEAT entry: screens and flow (title card -> main menu -> setlist / tutorial -> run -> results). */
 
+import { installErrorReporting } from './meta/ErrorReport.js';
 import { pickLang, setLang, t as tr } from './i18n/i18n.js';
 import { App, type RunConfig } from './ui/App.js';
 import { loadSettings } from './meta/Settings.js';
@@ -28,6 +29,10 @@ const TAUGHT_CHARGE = 'breakbeat-taught-charge';
 // Language first: every screen reads its strings as it is built
 setLang(loadSettings().lang ?? pickLang(navigator.language));
 const app = new App();
+installErrorReporting(
+  () => app.settings.errorReports,
+  () => document.querySelector('[role="main"]:not(.hidden), [role="dialog"]:not(.hidden)')?.className.split(' ')[0] ?? (app.engine ? 'run' : null)
+);
 
 async function main(): Promise<void> {
   // Instant start: the title is live before the renderer, atlas and audio finish booting.

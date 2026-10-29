@@ -146,6 +146,8 @@ export const EN = {
   "set.hapticsNo": "Not supported on this device",
   "set.metronome": "Haptic metronome",
   "set.metronomeNote": "A tick on every beat",
+  "set.errors": "Send error reports",
+  "set.errorsNote": "Anonymous crash details, no names or saves",
   "set.language": "Language",
   "set.languageNote": "Reloads the game",
   "calib.title": "SYNC TIMING",

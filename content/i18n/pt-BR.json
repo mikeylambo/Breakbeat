@@ -113,5 +113,6 @@
 "pause.aria":"Pausado",
 "set.sections":"Seções das configurações",
 "results.aria":"Resultados",
-"board.nameAria":"Nome no placar"
+"board.nameAria":"Nome no placar",
+"set.errors":"Enviar relatórios de erro","set.errorsNote":"Dados anônimos de falhas, sem nomes nem saves"
 }

@@ -113,5 +113,6 @@
 "pause.aria":"Pausiert",
 "set.sections":"Einstellungsbereiche",
 "results.aria":"Ergebnisse",
-"board.nameAria":"Name auf der Rangliste"
+"board.nameAria":"Name auf der Rangliste",
+"set.errors":"Fehlerberichte senden","set.errorsNote":"Anonyme Absturzdaten, ohne Namen oder Spielstände"
 }

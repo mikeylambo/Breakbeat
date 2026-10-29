@@ -113,5 +113,6 @@
 "pause.aria":"ポーズ中",
 "set.sections":"設定の項目",
 "results.aria":"リザルト",
-"board.nameAria":"ボードに表示する名前"
+"board.nameAria":"ボードに表示する名前",
+"set.errors":"エラーレポートを送信","set.errorsNote":"匿名のクラッシュ情報のみ。名前やセーブは送りません"
 }

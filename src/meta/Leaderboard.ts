@@ -13,7 +13,7 @@ import { cleanName } from './text.js';
 
 export const BOARD_HOST = 'https://iysvarvkltihgosbhtaa.supabase.co';
 /** Publishable key: identifies the project to its gateway; grants read-only access to the board. */
-const KEY = 'sb_publishable_7Kxs-F6HGMgZmb86V1b9_A_qtyUerCh';
+export const BOARD_KEY = 'sb_publishable_7Kxs-F6HGMgZmb86V1b9_A_qtyUerCh';
 const PREFS = 'breakbeat-board';
 const PENDING = 'breakbeat-board-pending';
 const TIMEOUT_MS = 8000;
@@ -60,7 +60,7 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
   try {
-    return await fetch(`${BOARD_HOST}${path}`, { ...init, signal: ctl.signal, headers: { apikey: KEY, 'Content-Type': 'application/json', ...(init.headers ?? {}) } });
+    return await fetch(`${BOARD_HOST}${path}`, { ...init, signal: ctl.signal, headers: { apikey: BOARD_KEY, 'Content-Type': 'application/json', ...(init.headers ?? {}) } });
   } finally {
     clearTimeout(timer);
   }

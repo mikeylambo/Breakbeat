@@ -87,7 +87,7 @@ export class SettingsSheet {
       row.append(el('span', 'set-label', label), input, val);
       return row;
     };
-    const toggle = (label: string, key: 'strobeFree' | 'reducedMotion' | 'haptics' | 'hapticMetronome' | 'hudHidden' | 'zenVisualizer' | 'ghost', note = '', disabled = false): HTMLElement => {
+    const toggle = (label: string, key: 'strobeFree' | 'reducedMotion' | 'haptics' | 'hapticMetronome' | 'hudHidden' | 'zenVisualizer' | 'ghost' | 'errorReports', note = '', disabled = false): HTMLElement => {
       const row = el('label', `set-row set-toggle${disabled ? ' disabled' : ''}`);
       const input = el('input', '', '', { type: 'checkbox', role: 'switch', 'aria-label': label });
       input.checked = s[key];
@@ -172,7 +172,8 @@ export class SettingsSheet {
         toggle(tr('set.strobe'), 'strobeFree', tr('set.strobeNote')),
         toggle(tr('set.motion'), 'reducedMotion', tr('set.motionNote')),
         toggle(tr('set.hud'), 'hudHidden', tr('set.hudNote')),
-        toggle(tr('set.ghost'), 'ghost', tr('set.ghostNote'))
+        toggle(tr('set.ghost'), 'ghost', tr('set.ghostNote')),
+        toggle(tr('set.errors'), 'errorReports', tr('set.errorsNote'))
       );
     } else if (this.tab === 'Language') {
       const list = el('div', 'lang-list', '', { role: 'radiogroup', 'aria-label': tr('set.language') });
