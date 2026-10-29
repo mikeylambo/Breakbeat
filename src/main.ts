@@ -62,7 +62,7 @@ async function main(): Promise<void> {
             app.backdrop.show(true);
             back();
           },
-          'Back to editor',
+          tr('ee.backToEditor'),
           onWin
         );
       })(),
@@ -215,7 +215,7 @@ async function main(): Promise<void> {
     () => {
       markOvertureDone();
       app.morphOvertureToMovement();
-      announce('Overture complete. Movement 01, Ignition.');
+      announce(tr('say.overtureDone'));
     }
   );
   const results = new ResultsScreen(app, {
@@ -264,7 +264,7 @@ async function main(): Promise<void> {
     app.backdrop.show(true);
     title.render(app.save);
     title.show(true);
-    announce('Breakbeat. Main menu.');
+    announce(tr('say.menu'));
   }
 
   async function play(cfg: RunConfig): Promise<void> {
@@ -284,7 +284,7 @@ async function main(): Promise<void> {
   async function startOverture(): Promise<void> {
     await play({ mode: 'overture', movement: 0 });
     overture.begin();
-    announce('Overture. Tap the glowing group.');
+    announce(tr('say.overture'));
   }
 
   // In-run air-prime lesson: once ever, Movement 01 or later, time never slows
@@ -319,7 +319,7 @@ async function main(): Promise<void> {
       app.fx.teach(x, y, far + 24, twoBars);
       showCoach(`${tr('hud.airTip')} · <span>×1.25</span>`, twoBars);
       writeFlag(TAUGHT_AIR, true);
-      announce('Catch it mid-fall for times one point two five.');
+      announce(tr('say.air'));
       return;
     }
   }
@@ -339,7 +339,7 @@ async function main(): Promise<void> {
       writeFlag(TAUGHT_CHARGE, true);
       showCoach(`<span>${tr('hud.holdReady')}</span> · ${tr('hud.holdReadyTip')}`, app.clock.barDurationSec * 2);
       app.hud.flashCharge();
-      announce('Charge full. Long-press a primed group to overcharge it.');
+      announce(tr('say.charge'));
     }
     results.onFrame();
     listen.onFrame();

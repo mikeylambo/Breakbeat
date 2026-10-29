@@ -4,11 +4,12 @@
  * tutorial when done.
  */
 
-import { t } from '../i18n/i18n.js';
+import { t, tn, tx } from '../i18n/i18n.js';
 import data from '../../content/etudes.json';
 import drillData from '../../content/drills.json';
 import { readFlag, writeFlag } from '../platform/Storage.js';
-import { EtudeRun, goalText, type EtudeDef } from '../meta/Etude.js';
+import { etudeHint, etudeName, EtudeRun, goalText, type EtudeDef } from '../meta/Etude.js';
+export { etudeName };
 import { decodeEtude, solutionOf, SHARED_SEED, verify, type SharedEtude } from '../meta/EtudeCode.js';
 import { GemRules } from '../content/gems/GemRules.js';
 import type { PulseEvent } from '../pulse/types.js';
@@ -21,8 +22,18 @@ export const DRILLS: readonly EtudeDef[] = (drillData as unknown as { drills: Et
 const drillKey = (d: EtudeDef): string => `breakbeat-${d.id}`;
 export const drillDone = (d: EtudeDef): boolean => readFlag(drillKey(d));
 
+
+/** Decode failures (EtudeCode throws English) in the current language. */
+const CODE_ERRORS: Record<string, string> = {
+  'That etude code is incomplete.': 'et.err.incomplete',
+  'That etude code is damaged.': 'et.err.damaged',
+  'That etude was made by a newer version.': 'et.err.newer',
+  'That etude has impossible rules.': 'et.err.rules',
+  'That etude has no wall.': 'et.err.noWall'
+};
+
 export class EtudeScreen {
-  readonly list = el('div', 'sheet-scrim hidden', '', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Etudes' });
+  readonly list = el('div', 'sheet-scrim hidden', '', { role: 'dialog', 'aria-modal': 'true', 'aria-label': t('title.etudes') });
   readonly caption = el('div', 'etude-caption hidden', '', { 'aria-live': 'polite' });
   readonly banner = el('div', 'etude-banner hidden', '', { role: 'alertdialog' });
   private run: EtudeRun | null = null;
@@ -77,23 +88,23 @@ export class EtudeScreen {
     const card = el('div', 'sheet etude-sheet');
     const head = el('div', 'settings-head');
     head.append(
-      el('div', 'sheet-title', `ETUDES · ${solved.length}/${ETUDES.length}`),
-      button('btn bt-btn et-create', 'Create', 'Make your own etude', () => {
+      el('div', 'sheet-title', `${t('title.etudes').toUpperCase()} · ${solved.length}/${ETUDES.length}`),
+      button('btn bt-btn et-create', t('et.create'), t('et.createAria'), () => {
         this.showList(false);
         this.onCreate?.();
       }),
-      button('icon-btn settings-close', ICONS.close, 'Close etudes', () => this.showList(false))
+      button('icon-btn settings-close', ICONS.close, t('et.close'), () => this.showList(false))
     );
     const sharedRow = el('div', 'et-shared');
     const sh = this.shared;
     if (sh) {
       const d = sh.def;
       sharedRow.append(
-        el('div', 'et-shared-copy', `<small>SHARED WITH YOU · SOLVABLE ✓</small><b>${d.name}</b><span>${goalText(d.goal)} · ${d.passes} PASS${d.passes === 1 ? '' : 'ES'}</span>`),
-        button('btn btn-primary', `${ICONS.play}<span>Play</span>`, `Play ${d.name}`, () => this.playShared(sh))
+        el('div', 'et-shared-copy', `<small>${t('et.sharedTag')}</small><b>${d.name}</b><span>${goalText(d.goal)} · ${tn('et.passes', d.passes)}</span>`),
+        button('btn btn-primary', `${ICONS.play}<span>${t('title.play')}</span>`, t('et.playAria', { name: d.name }), () => this.playShared(sh))
       );
     } else {
-      const input = el('input', 'ee-name et-code', '', { type: 'text', placeholder: 'Paste an etude link or code', 'aria-label': 'Etude link or code', spellcheck: 'false' }) as HTMLInputElement;
+      const input = el('input', 'ee-name et-code', '', { type: 'text', placeholder: t('et.paste'), 'aria-label': t('et.pasteAria'), spellcheck: 'false' }) as HTMLInputElement;
       const note = el('small', 'et-code-note');
       const go = (): void => {
         const raw = input.value.trim();
@@ -110,7 +121,7 @@ export class EtudeScreen {
         if (e.key === 'Enter') go();
         e.stopPropagation();
       });
-      sharedRow.append(input, button('btn bt-btn', 'Open', 'Open the etude', go), note);
+      sharedRow.append(input, button('btn bt-btn', t('et.open'), t('et.openAria'), go), note);
     }
     const grid = el('div', 'etude-grid');
     ETUDES.forEach((et, i) => {
@@ -118,8 +129,8 @@ export class EtudeScreen {
       const open = i === 0 || solved.includes(ETUDES[i - 1]!.id) || done;
       const b = button(
         `etude-item${done ? ' done' : ''}${open ? '' : ' locked'}`,
-        `<span class="et-num">${String(i + 1).padStart(2, '0')}${done ? ' ✓' : ''}</span><span class="et-name">${et.name}</span><small>${goalText(et.goal).toUpperCase()} · ${et.passes} PASS${et.passes === 1 ? '' : 'ES'}</small>`,
-        `${et.name}. ${goalText(et.goal)} in ${et.passes} passes.${done ? ' Solved.' : ''}${open ? '' : ' Locked.'}`,
+        `<span class="et-num">${String(i + 1).padStart(2, '0')}${done ? ' ✓' : ''}</span><span class="et-name">${etudeName(et)}</span><small>${goalText(et.goal).toUpperCase()} · ${tn('et.passes', et.passes).toUpperCase()}</small>`,
+        `${etudeName(et)}. ${goalText(et.goal)} · ${tn('et.passes', et.passes)}.${done ? ` ${t('et.solvedAria')}` : ''}${open ? '' : ` ${t('et.lockedAria')}`}`,
         () => {
           if (open) this.start(i);
         }
@@ -136,9 +147,10 @@ export class EtudeScreen {
   static open(code: string): SharedEtude | string {
     try {
       const e = decodeEtude(code);
-      return verify(e, new GemRules('brick')) ? e : 'That etude could not be verified as solvable.';
+      return verify(e, new GemRules('brick')) ? e : t('et.err.unsolvable');
     } catch (err) {
-      return err instanceof Error ? err.message : 'That is not an etude code.';
+      const key = err instanceof Error ? CODE_ERRORS[err.message] : undefined;
+      return key ? tx(key, key) : t('et.err.notCode');
     }
   }
 
@@ -151,7 +163,7 @@ export class EtudeScreen {
   }
 
   private playShared(sh: SharedEtude): void {
-    this.playCustom(sh.def, () => this.exit(true), 'All etudes');
+    this.playCustom(sh.def, () => this.exit(true), t('et.all'));
   }
 
   start(i: number): void {
@@ -203,7 +215,7 @@ export class EtudeScreen {
     if (left !== this.lastLeft) {
       this.lastLeft = left;
       const d = run.def;
-      this.caption.innerHTML = `<div class="et-cap-main">${this.custom ? 'YOUR ETUDE · ' : this.drill ? 'TRY IT · ' : ''}${d.name} · <span>${goalText(d.goal)}</span></div><div class="et-cap-sub">${left} PASS${left === 1 ? '' : 'ES'} LEFT · ${d.hint}</div>`;
+      this.caption.innerHTML = `<div class="et-cap-main">${this.custom ? `${t('et.yours')} · ` : this.drill ? `${t('tut.tryTag')} · ` : ''}${etudeName(d)} · <span>${goalText(d.goal)}</span></div><div class="et-cap-sub">${tn('et.left', left)} · ${etudeHint(d)}</div>`;
     }
     const state = run.check(e);
     if (state === 'playing') return;
@@ -218,14 +230,14 @@ export class EtudeScreen {
       this.app.persistSave();
     }
     const next = this.index + 1 < ETUDES.length;
-    this.banner.innerHTML = `<div class="eb-title">${won ? 'SOLVED' : 'OUT OF PASSES'}</div>`;
+    this.banner.innerHTML = `<div class="eb-title">${won ? t('et.solved') : t('et.out')}</div>`;
     const row = el('div', 'eb-actions');
-    if (won && next) row.appendChild(button('btn btn-primary', 'Next etude', 'Next etude', () => this.start(this.index + 1)));
-    row.appendChild(button(won ? 'btn' : 'btn btn-primary', 'Retry', 'Retry', () => this.start(this.index)));
-    row.appendChild(button('btn btn-quiet', 'All etudes', 'All etudes', () => this.exit(true)));
+    if (won && next) row.appendChild(button('btn btn-primary', t('et.next'), t('et.next'), () => this.start(this.index + 1)));
+    row.appendChild(button(won ? 'btn' : 'btn btn-primary', t('et.retry'), t('et.retry'), () => this.start(this.index)));
+    row.appendChild(button('btn btn-quiet', t('et.all'), t('et.all'), () => this.exit(true)));
     this.banner.appendChild(row);
     this.banner.classList.remove('hidden');
-    announce(won ? `Solved ${run.def.name}.` : 'Out of passes. Retry?');
+    announce(won ? t('et.saySolved', { name: etudeName(run.def) }) : t('et.sayOut'));
   }
 
   private drillBanner(won: boolean): void {
@@ -238,14 +250,14 @@ export class EtudeScreen {
       this.clear();
       fn?.();
     };
-    this.banner.innerHTML = `<div class="eb-title">${won ? 'NICE' : 'TRY AGAIN'}</div><div class="eb-sub">${won ? 'You\u2019ve got it.' : d.hint}</div>`;
+    this.banner.innerHTML = `<div class="eb-title">${won ? t('et.nice') : t('et.tryAgain')}</div><div class="eb-sub">${won ? t('et.gotIt') : etudeHint(d)}</div>`;
     const row = el('div', 'eb-actions');
-    const primary = won ? button('btn btn-primary', 'Back to tutorial', 'Back to tutorial', back) : button('btn btn-primary', 'Retry', 'Retry', () => this.startDrill(d, this.drillBack!));
-    row.append(primary, won ? button('btn', 'Again', 'Play the drill again', () => this.startDrill(d, this.drillBack!)) : button('btn btn-quiet', 'Back to tutorial', 'Back to tutorial', back));
+    const primary = won ? button('btn btn-primary', t('pause.backTutorial'), t('pause.backTutorial'), back) : button('btn btn-primary', t('et.retry'), t('et.retry'), () => this.startDrill(d, this.drillBack!));
+    row.append(primary, won ? button('btn', t('et.again'), t('et.againDrill'), () => this.startDrill(d, this.drillBack!)) : button('btn btn-quiet', t('pause.backTutorial'), t('pause.backTutorial'), back));
     this.banner.appendChild(row);
     this.banner.classList.remove('hidden');
     primary.focus({ preventScroll: true });
-    announce(won ? `Nice. ${d.name} done.` : `Try again. ${d.hint}`);
+    announce(won ? t('et.sayNice', { name: etudeName(d) }) : `${t('et.tryAgainSay')} ${etudeHint(d)}`);
   }
 
   private customBanner(won: boolean, d: EtudeDef, c: NonNullable<EtudeScreen['custom']>): void {
@@ -255,15 +267,15 @@ export class EtudeScreen {
       this.clear();
       c.back();
     };
-    this.banner.innerHTML = `<div class="eb-title">${won ? 'SOLVED' : 'OUT OF PASSES'}</div><div class="eb-sub">${won ? (c.onWin ? 'Your solve is saved: it can be shared now.' : `${d.name} solved.`) : d.hint}</div>`;
+    this.banner.innerHTML = `<div class="eb-title">${won ? t('et.solved') : t('et.out')}</div><div class="eb-sub">${won ? (c.onWin ? t('et.solveSaved') : t('et.nameSolved', { name: d.name })) : d.hint}</div>`;
     const row = el('div', 'eb-actions');
     const retry = (): void => this.playCustom(d, c.back, c.backLabel, c.onWin);
-    const primary = won ? button('btn btn-primary', c.backLabel, c.backLabel, back) : button('btn btn-primary', 'Retry', 'Retry', retry);
-    row.append(primary, won ? button('btn', 'Again', 'Play it again', retry) : button('btn btn-quiet', c.backLabel, c.backLabel, back));
+    const primary = won ? button('btn btn-primary', c.backLabel, c.backLabel, back) : button('btn btn-primary', t('et.retry'), t('et.retry'), retry);
+    row.append(primary, won ? button('btn', t('et.again'), t('et.againAria'), retry) : button('btn btn-quiet', c.backLabel, c.backLabel, back));
     this.banner.appendChild(row);
     this.banner.classList.remove('hidden');
     primary.focus({ preventScroll: true });
-    announce(won ? `Solved ${d.name}.` : `Out of passes. ${d.hint}`);
+    announce(won ? t('et.saySolved', { name: d.name }) : `${t('et.sayOutShort')} ${d.hint}`);
   }
 
   /** Hides the etude UI without leaving the current screen. */

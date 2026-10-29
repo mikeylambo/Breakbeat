@@ -20,9 +20,9 @@ function duration(sec: number): string {
 }
 
 export class ProfileSheet {
-  readonly root = el('div', 'sheet-scrim hidden', '', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Profile' });
+  readonly root = el('div', 'sheet-scrim hidden', '', { role: 'dialog', 'aria-modal': 'true', 'aria-label': tr('title.profile') });
   private readonly body = el('div', 'profile-body');
-  private readonly tabs = el('div', 'set-tabs', '', { role: 'tablist', 'aria-label': 'Profile' });
+  private readonly tabs = el('div', 'set-tabs', '', { role: 'tablist', 'aria-label': tr('title.profile') });
   private tab: 'Stats' | 'Achievements' | 'Locker' = 'Stats';
   open = false;
 

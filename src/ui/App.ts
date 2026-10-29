@@ -4,6 +4,7 @@
  */
 
 import { t as tr, tx } from '../i18n/i18n.js';
+import { etudeHint, etudeName } from '../meta/Etude.js';
 import { TUNING, computeComboMultiplier, type GameMode } from '../tuning.js';
 import { BeatClock, createBeatQuery } from '../pulse/BeatClock.js';
 import { applyUntil, engineFor, replayOf, simulate, type Replay, type SimResult } from '../pulse/Replay.js';
@@ -430,9 +431,9 @@ export class App {
     this.desk.setRun(true);
     this.save.runs++;
     this.persistSave();
-    if (cfg.etude) announce(`${cfg.etude.topic ? 'Try it' : 'Etude'}: ${cfg.etude.name}. ${cfg.etude.hint}`);
-    else if (cfg.track) announce(`Your beat: ${track.name}. ${Math.round(bpm)} BPM.`);
-    else if (!overture) announce(`Movement ${track.number}, ${track.name}. ${Math.round(bpm)} BPM.`);
+    if (cfg.etude) announce(`${cfg.etude.topic ? tr('tut.try') : tr('say.etude')}: ${etudeName(cfg.etude)}. ${etudeHint(cfg.etude)}`);
+    else if (cfg.track) announce(tr('say.beat', { name: track.name, bpm: Math.round(bpm) }));
+    else if (!overture) announce(tr('say.movementBpm', { num: track.number, name: track.name, bpm: Math.round(bpm) }));
   }
 
   /** The key a run's best (and its ghost) is kept under; null for runs that keep none. */
@@ -454,7 +455,7 @@ export class App {
       if (liveStep >= end || g.engine.gameOver) {
         g.ended = true;
         this.hud.calloutText(tr('hud.ghostOut'), tr('hud.barN', { n: Math.max(1, g.engine.currentBar) }));
-        announce(`Your best run ended here, at bar ${g.engine.currentBar}.`);
+        announce(tr('say.ghostOut', { n: g.engine.currentBar }));
       }
     }
     const ghostScore = Math.round(g.engine.telemetry.score * g.rec.scale);
@@ -462,7 +463,7 @@ export class App {
       g.passed = true;
       this.achieve('ghost-passed');
       this.hud.calloutText(tr('hud.pastBest'), `+${fmt(liveScore - g.rec.score)}`);
-      announce('Past your best.');
+      announce(tr('say.pastBest'));
     }
     return liveScore - ghostScore;
   }
@@ -647,7 +648,7 @@ export class App {
     this.toastEl.innerHTML = `<small>${tr('ach.toast')}</small><b>${tx(`ach.${a.id}.name`, a.name)}</b><span>${tx(`ach.${a.id}.desc`, a.desc)}</span>`;
     this.toastEl.classList.add('on');
     this.uiSound('fanfare');
-    announce(`Achievement: ${a.name}. ${a.desc}`);
+    announce(`${tr('ach.toast')}: ${tx(`ach.${a.id}.name`, a.name)}. ${tx(`ach.${a.id}.desc`, a.desc)}`);
     this.toastUntil = nowMs + 3200;
   }
 
@@ -762,7 +763,7 @@ export class App {
         break;
       case 'allclear':
         haptics.pulse('allclear');
-        announce(`All Clear. Plus ${ev.points}.`);
+        announce(tr('say.allClear', { n: ev.points }));
         break;
       case 'gameover':
         this.endRun();
@@ -917,7 +918,7 @@ export class App {
     this.scheduler.resetHorizon();
     this.wall.setPoolTint(trackTint(track), performance.now() / 1000, this.clock.barDurationSec);
     this.applyWorld(track, true);
-    announce(`Movement ${track.number}, ${track.name}.`);
+    announce(tr('say.movement', { num: track.number, name: track.name }));
   }
 
   /** Overture -> Movement 01 on a downbeat, keeping the board. */
@@ -986,7 +987,7 @@ export class App {
     const tick = (): void => {
       if (i < 4) {
         pips[i]!.classList.add('on');
-        if (i === 0) announce('Resuming in four beats');
+        if (i === 0) announce(tr('say.resuming'));
         i++;
         setTimeout(tick, beatMs);
         return;

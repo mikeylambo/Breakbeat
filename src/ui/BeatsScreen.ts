@@ -11,6 +11,8 @@
 
 import { analyse, buildStems, cleanName, decode, hashBytes, songName, trackFor, type BeatMeta, type Stage } from '../audio/byo.js';
 import { foldBpm, SECTION_BARS, tapTempo } from '../audio/beatDetect.js';
+import type { Key } from '../i18n/en.js';
+import { getLang, t, t as tr, tn, tx } from '../i18n/i18n.js';
 import { MyBeats } from '../meta/MyBeats.js';
 import type { App } from './App.js';
 import { announce, button, el, fmt, ICONS, uiSound } from './dom.js';
@@ -23,22 +25,16 @@ export interface BeatsActions {
 
 const MAX_BYTES = 40 * 1024 * 1024;
 const MAX_SECONDS = 10 * 60;
-const STAGE_TEXT: Record<Stage, string> = {
-  decode: 'Reading the file',
-  tempo: 'Finding the tempo and the downbeat',
-  key: 'Finding the key',
-  sections: 'Choosing the A, B and C sections',
-  stems: 'Building the five stems'
-};
+const stageText = (s: Stage): string => tx(`bt.stage.${s}`, s);
 const ACCEPT = 'audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.opus,.flac,.webm';
 
 export class BeatsScreen {
-  readonly root = el('div', 'setlist-screen beats-screen hidden', '', { role: 'main', 'aria-label': 'My Beats' });
+  readonly root = el('div', 'setlist-screen beats-screen hidden', '', { role: 'main', 'aria-label': t('title.beats') });
   readonly shelf = new MyBeats();
   private readonly list: MenuList;
   private readonly detail = el('section', 'sl-detail bt-detail', '', { 'aria-live': 'polite' });
   private readonly file = el('input', 'bt-file', '', { type: 'file', accept: ACCEPT, 'aria-hidden': 'true', tabindex: '-1' }) as HTMLInputElement;
-  private readonly drop = el('div', 'bt-drop', '<b>Drop to add</b><small>Your song stays on this device</small>', { 'aria-hidden': 'true' });
+  private readonly drop = el('div', 'bt-drop', `<b>${t('bt.drop')}</b><small>${t('bt.dropNote')}</small>`, { 'aria-hidden': 'true' });
   private beats: BeatMeta[] = [];
   private selected: BeatMeta | null = null;
   /** Decoded audio of the song being tuned / previewed (dropped when leaving) */
@@ -63,10 +59,10 @@ export class BeatsScreen {
       onKey: e => this.onKey(e)
     });
     const head = el('div', 'sl-head');
-    head.append(el('h2', 'sl-title', 'My Beats'), el('span', 'bt-private', 'ON THIS DEVICE ONLY'));
+    head.append(el('h2', 'sl-title', t('title.beats')), el('span', 'bt-private', t('bt.private')));
     const left = el('section', 'sl-left');
     left.append(head, this.list.root);
-    const foot = el('div', 'sl-foot', '<b>ENTER</b>PLAY<b>T</b>TUNE<b>DEL</b>REMOVE<b>ESC</b>BACK');
+    const foot = el('div', 'sl-foot', t('bt.keys'));
     this.root.append(el('div', 'sl-panel', '', { 'aria-hidden': 'true' }), left, this.detail, foot, this.drop, this.file);
     this.file.addEventListener('change', () => {
       const f = this.file.files?.[0];
@@ -100,7 +96,7 @@ export class BeatsScreen {
     this.beats = (await this.shelf.list()).map(b => ({ ...b, name: cleanName(b.name) }));
     this.renderList(this.selected?.id);
     this.list.relayout();
-    announce(`My Beats. ${this.beats.length ? `${this.beats.length} songs.` : 'Add a song to play the wall to it.'}`);
+    announce(`${t('title.beats')}. ${this.beats.length ? tn('bt.songs', this.beats.length) : t('bt.sayEmpty')}`);
   }
 
   hide(): void {
@@ -116,16 +112,16 @@ export class BeatsScreen {
     const items: MenuItem[] = [
       {
         id: '+',
-        label: 'Add a song from this device.',
+        label: t('bt.addAria'),
         cls: 'track-row bt-add',
         action: () => this.file.click(),
-        html: '<span class="track-num">+</span><span class="track-name">Add a song<small>MP3 · M4A · WAV · OGG · FLAC</small></span><span></span><span></span>'
+        html: `<span class="track-num">+</span><span class="track-name">${t('bt.add')}<small>MP3 · M4A · WAV · OGG · FLAC</small></span><span></span><span></span>`
       },
       ...this.beats.map(b => {
         const best = this.app.save.best[`beat-${b.id}`] ?? 0;
         return {
           id: b.id,
-          label: `${b.name}. ${Math.round(b.bpm)} BPM, key ${b.key}${b.minor ? ' minor' : ''}.${best ? ` Best ${fmt(best)}.` : ''}`,
+          label: `${b.name}. ${Math.round(b.bpm)} BPM, ${t(b.minor ? 'bt.keyMinor' : 'sl.key', { key: b.key })}.${best ? ` ${t('bt.bestAria', { n: fmt(best) })}` : ''}`,
           cls: 'track-row',
           action: () => void this.play(b),
           html: `<span class="track-num">${Math.round(b.bpm)}</span><span class="track-name">${b.name}<small>${b.key}${b.minor ? 'm' : ''} · ${clock(b.durationSec)}</small></span><span class="bt-best">${best ? fmt(best) : ''}</span><span></span>`
@@ -147,24 +143,24 @@ export class BeatsScreen {
     this.detail.innerHTML = '';
     if (!b) {
       this.detail.innerHTML = `
-        <div class="sld-kicker">UPLOAD YOUR OWN BEAT</div>
-        <div class="sld-name">Your song,<br>your wall</div>
-        <p class="bt-copy">Pick a song and Breakbeat finds its tempo, downbeat and key, cuts three 8-bar sections and splits them into five stems that open up as your chain builds. It never leaves this device.</p>`;
-      this.detail.appendChild(button('btn btn-primary sld-play', '<span>Add a song</span>', 'Add a song', () => this.file.click()));
+        <div class="sld-kicker">${t('bt.kicker')}</div>
+        <div class="sld-name">${t('bt.headline1')}<br>${t('bt.headline2')}</div>
+        <p class="bt-copy">${t('bt.intro')}</p>`;
+      this.detail.appendChild(button('btn btn-primary sld-play', `<span>${t('bt.add')}</span>`, t('bt.add'), () => this.file.click()));
       return;
     }
     const best = this.app.save.best[`beat-${b.id}`] ?? 0;
     this.detail.innerHTML = `
-      <div class="sld-kicker">MY BEAT · ${new Date(b.addedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }).toUpperCase()}</div>
+      <div class="sld-kicker">${t('bt.myBeat')} · ${new Date(b.addedAt).toLocaleDateString(getLang(), { day: 'numeric', month: 'short' }).toUpperCase()}</div>
       <div class="sld-name bt-name">${b.name}</div>
-      <div class="sld-meta"><span>${b.bpm.toFixed(1)} BPM</span><span>KEY ${b.key}${b.minor ? ' MINOR' : ''}</span><span>${clock(b.durationSec)}</span></div>
-      <div class="sld-best"><div><small>BEST</small><b>${best ? fmt(best) : '—'}</b></div></div>
-      ${b.confidence < 0.08 ? '<div class="bt-warn">The beat was hard to read. Tune it before you play.</div>' : ''}`;
+      <div class="sld-meta"><span>${b.bpm.toFixed(1)} BPM</span><span>${t(b.minor ? 'bt.keyMinor' : 'sl.key', { key: b.key }).toUpperCase()}</span><span>${clock(b.durationSec)}</span></div>
+      <div class="sld-best"><div><small>${t('sl.best')}</small><b>${best ? fmt(best) : '—'}</b></div></div>
+      ${b.confidence < 0.08 ? `<div class="bt-warn">${t('bt.warn')}</div>` : ''}`;
     const row = el('div', 'bt-actions');
     row.append(
-      button('btn btn-primary sld-play', `${ICONS.play}<span>Play</span>`, `Play ${b.name}`, () => void this.play(b)),
-      button('btn bt-btn', 'Tune', `Tune ${b.name}`, () => void this.tune(b)),
-      button('btn bt-btn bt-del', 'Remove', `Remove ${b.name}`, () => void this.remove(b))
+      button('btn btn-primary sld-play', `${ICONS.play}<span>${t('title.play')}</span>`, t('et.playAria', { name: b.name }), () => void this.play(b)),
+      button('btn bt-btn', t('bt.tune'), t('bt.tuneAria', { name: b.name }), () => void this.tune(b)),
+      button('btn bt-btn bt-del', t('bt.remove'), t('bt.removeAria', { name: b.name }), () => void this.remove(b))
     );
     this.detail.appendChild(row);
   }
@@ -192,7 +188,7 @@ export class BeatsScreen {
 
   private status(text: string, step = 0, of = 5): void {
     this.detail.innerHTML = `
-      <div class="sld-kicker">READING YOUR SONG</div>
+      <div class="sld-kicker">${t('bt.reading')}</div>
       <div class="sld-name bt-name">${text}</div>
       <div class="bt-progress"><i style="transform:scaleX(${(step / of).toFixed(2)})"></i></div>`;
   }
@@ -200,21 +196,21 @@ export class BeatsScreen {
   private fail(msg: string): void {
     this.busy = false;
     uiSound('deny');
-    this.detail.innerHTML = `<div class="sld-kicker">COULDN'T ADD THAT ONE</div><p class="bt-copy">${msg}</p>`;
-    this.detail.appendChild(button('btn btn-primary sld-play', '<span>Try another</span>', 'Choose another song', () => this.file.click()));
+    this.detail.innerHTML = `<div class="sld-kicker">${t('bt.failed')}</div><p class="bt-copy">${msg}</p>`;
+    this.detail.appendChild(button('btn btn-primary sld-play', `<span>${t('bt.another')}</span>`, t('bt.anotherAria'), () => this.file.click()));
     announce(msg);
   }
 
   async add(f: File): Promise<void> {
     if (this.busy) return;
-    if (f.size > MAX_BYTES) return this.fail('That file is over 40 MB. Try a shorter song or a smaller file.');
+    if (f.size > MAX_BYTES) return this.fail(t('bt.err.size'));
     this.busy = true;
     this.stopPreview();
     this.tuning = null;
     const order: Stage[] = ['decode', 'tempo', 'key', 'sections'];
     const stage = (s: Stage): void => {
-      this.status(`${STAGE_TEXT[s]}…`, order.indexOf(s) + 1, order.length + 1);
-      announce(STAGE_TEXT[s]);
+      this.status(`${stageText(s)}…`, order.indexOf(s) + 1, order.length + 1);
+      announce(stageText(s));
     };
     try {
       stage('decode');
@@ -224,9 +220,9 @@ export class BeatsScreen {
       try {
         buf = await decode(this.app.audio.ctx, bytes);
       } catch {
-        return this.fail("This browser couldn't read that file. Try an MP3, M4A, WAV or OGG without copy protection.");
+        return this.fail(t('bt.err.decode'));
       }
-      if (buf.duration > MAX_SECONDS) return this.fail('That song is over 10 minutes. Try something shorter.');
+      if (buf.duration > MAX_SECONDS) return this.fail(t('bt.err.long'));
       const known = this.beats.find(b => b.id === id);
       const meta = known ?? (await analyse(buf, id, songName(f.name), stage));
       if (!known) await this.shelf.put(meta, bytes);
@@ -236,10 +232,10 @@ export class BeatsScreen {
       this.renderList(id);
       this.selected = this.beats.find(b => b.id === id) ?? meta;
       uiSound('fanfare');
-      announce(`${meta.name}: ${Math.round(meta.bpm)} BPM, key ${meta.key}. Check the beat, then play.`);
+      announce(t('bt.sayAdded', { name: meta.name, bpm: Math.round(meta.bpm), key: meta.key }));
       void this.tune(this.selected);
     } catch (err) {
-      this.fail(err instanceof Error ? err.message : 'Something went wrong reading that song.');
+      this.fail(errText(err, 'bt.err.read'));
     }
   }
 
@@ -248,7 +244,7 @@ export class BeatsScreen {
       this.confirmDelete = true;
       uiSound('tick');
       const del = this.detail.querySelector('.bt-del');
-      if (del) del.textContent = 'Press again to remove';
+      if (del) del.textContent = t('bt.confirm');
       return;
     }
     this.confirmDelete = false;
@@ -259,7 +255,7 @@ export class BeatsScreen {
     this.beats = this.beats.filter(x => x.id !== b.id);
     this.selected = null;
     this.renderList();
-    announce(`${b.name} removed.`);
+    announce(t('bt.sayRemoved', { name: b.name }));
   }
 
   // ---------------------------------------------------------------- play
@@ -267,7 +263,7 @@ export class BeatsScreen {
   private async audioFor(b: BeatMeta): Promise<AudioBuffer> {
     if (this.decoded?.id === b.id) return this.decoded.buf;
     const bytes = await this.shelf.bytes(b.id);
-    if (!bytes) throw new Error('That song is no longer on this device. Add it again.');
+    if (!bytes) throw new Error(t('bt.err.gone'));
     const buf = await decode(this.app.audio.ctx, bytes);
     this.decoded = { id: b.id, buf };
     return buf;
@@ -278,7 +274,7 @@ export class BeatsScreen {
     this.busy = true;
     this.stopPreview();
     try {
-      this.status('Building the five stems…', 4, 5);
+      this.status(`${stageText('stems')}…`, 4, 5);
       const buf = await this.audioFor(b);
       const set = await buildStems(buf, b);
       const track = trackFor(b);
@@ -287,7 +283,7 @@ export class BeatsScreen {
       this.tuning = null;
       this.a.play(track);
     } catch (err) {
-      this.fail(err instanceof Error ? err.message : 'That song could not be prepared.');
+      this.fail(errText(err, 'bt.err.prepare'));
     }
   }
 
@@ -301,7 +297,7 @@ export class BeatsScreen {
     try {
       await this.audioFor(b);
     } catch (err) {
-      this.fail(err instanceof Error ? err.message : 'That song could not be read.');
+      this.fail(errText(err, 'bt.err.unread'));
     }
   }
 
@@ -316,7 +312,7 @@ export class BeatsScreen {
       this.stopPreview();
       this.renderTune();
     };
-    this.detail.innerHTML = `<div class="sld-kicker">TUNE · ${t.name.toUpperCase()}</div>`;
+    this.detail.innerHTML = `<div class="sld-kicker">${tr('bt.tune').toUpperCase()} · ${t.name.toUpperCase()}</div>`;
     const row = (label: string, value: string, ...btns: HTMLButtonElement[]): HTMLElement => {
       const r = el('div', 'bt-row');
       const v = el('div', 'bt-val', `<small>${label}</small><b>${value}</b>`);
@@ -326,24 +322,24 @@ export class BeatsScreen {
       return r;
     };
     const b = (html: string, label: string, fn: () => void): HTMLButtonElement => button('ls-btn', html, label, fn);
-    const tap = b('TAP', 'Tap tempo (Space)', () => this.tap());
+    const tap = b(tr('bt.tap'), tr('bt.tapAria'), () => this.tap());
     this.detail.append(
       row(
-        'TEMPO',
+        tr('bt.tempo'),
         `${t.bpm.toFixed(2)} <s>BPM</s>`,
-        b('−', 'Slower by 0.05', set(m => (m.bpm = Math.max(60, +(m.bpm - 0.05).toFixed(2))))),
-        b('+', 'Faster by 0.05', set(m => (m.bpm = Math.min(180, +(m.bpm + 0.05).toFixed(2))))),
-        b('÷2', 'Half time', set(m => (m.bpm = m.bpm / 2 >= 60 ? m.bpm / 2 : m.bpm))),
-        b('×2', 'Double time', set(m => (m.bpm = m.bpm * 2 <= 180 ? m.bpm * 2 : m.bpm))),
+        b('−', tr('bt.slower'), set(m => (m.bpm = Math.max(60, +(m.bpm - 0.05).toFixed(2))))),
+        b('+', tr('bt.faster'), set(m => (m.bpm = Math.min(180, +(m.bpm + 0.05).toFixed(2))))),
+        b('÷2', tr('bt.half'), set(m => (m.bpm = m.bpm / 2 >= 60 ? m.bpm / 2 : m.bpm))),
+        b('×2', tr('bt.double'), set(m => (m.bpm = m.bpm * 2 <= 180 ? m.bpm * 2 : m.bpm))),
         tap
       ),
       row(
-        'DOWNBEAT',
+        tr('bt.downbeat'),
         `${t.downbeatSec.toFixed(3)} <s>S</s>`,
-        b('◀', 'One beat earlier', set(m => (m.downbeatSec = wrapDownbeat(m.downbeatSec - beat, m.bpm)))),
-        b('−10', '10 ms earlier', set(m => (m.downbeatSec = wrapDownbeat(m.downbeatSec - 0.01, m.bpm)))),
-        b('+10', '10 ms later', set(m => (m.downbeatSec = wrapDownbeat(m.downbeatSec + 0.01, m.bpm)))),
-        b('▶', 'One beat later', set(m => (m.downbeatSec = wrapDownbeat(m.downbeatSec + beat, m.bpm))))
+        b('◀', tr('bt.beatEarlier'), set(m => (m.downbeatSec = wrapDownbeat(m.downbeatSec - beat, m.bpm)))),
+        b('−10', tr('bt.msEarlier'), set(m => (m.downbeatSec = wrapDownbeat(m.downbeatSec - 0.01, m.bpm)))),
+        b('+10', tr('bt.msLater'), set(m => (m.downbeatSec = wrapDownbeat(m.downbeatSec + 0.01, m.bpm)))),
+        b('▶', tr('bt.beatLater'), set(m => (m.downbeatSec = wrapDownbeat(m.downbeatSec + beat, m.bpm))))
       )
     );
     const parts = el('div', 'bt-parts');
@@ -351,19 +347,19 @@ export class BeatsScreen {
       const p = el('div', `bt-part${this.previewSection === k ? ' on' : ''}`);
       p.append(
         el('span', 'bt-part-name', 'ABC'[k]!),
-        el('span', 'bt-part-bar', `BAR ${t.sections[k]! + 1}`),
-        b('◀', `Section ${'ABC'[k]} 4 bars earlier`, set(m => (m.sections[k] = m.sections[k]! - 4))),
-        b('▶', `Section ${'ABC'[k]} 4 bars later`, set(m => (m.sections[k] = m.sections[k]! + 4))),
-        b(ICONS.play, `Preview section ${'ABC'[k]}`, () => this.preview(k))
+        el('span', 'bt-part-bar', tr('hud.barN', { n: t.sections[k]! + 1 })),
+        b('◀', tr('bt.secEarlier', { s: 'ABC'[k]! }), set(m => (m.sections[k] = m.sections[k]! - 4))),
+        b('▶', tr('bt.secLater', { s: 'ABC'[k]! }), set(m => (m.sections[k] = m.sections[k]! + 4))),
+        b(ICONS.play, tr('bt.preview', { s: 'ABC'[k]! }), () => this.preview(k))
       );
       parts.appendChild(p);
     }
     this.detail.appendChild(parts);
     const act = el('div', 'bt-actions');
     act.append(
-      button('btn btn-primary sld-play', `${ICONS.play}<span>Save &amp; play</span>`, 'Save and play', () => void this.saveTune(true)),
-      button('btn bt-btn', 'Save', 'Save', () => void this.saveTune(false)),
-      button('btn bt-btn', 'Cancel', 'Cancel', () => {
+      button('btn btn-primary sld-play', `${ICONS.play}<span>${tr('bt.savePlay')}</span>`, tr('bt.savePlay'), () => void this.saveTune(true)),
+      button('btn bt-btn', tr('bt.save'), tr('bt.save'), () => void this.saveTune(false)),
+      button('btn bt-btn', tr('bt.cancel'), tr('bt.cancel'), () => {
         this.stopPreview();
         this.tuning = null;
         this.renderDetail();
@@ -439,7 +435,7 @@ export class BeatsScreen {
     clicks();
     this.clickTimer = window.setInterval(clicks, 50);
     this.previewTimer = window.setTimeout(() => this.stopPreview(), (beat * 4 * SECTION_BARS + 0.2) * 1000);
-    announce(`Previewing section ${'ABC'[k]} with a click on every beat.`);
+    announce(tr('bt.sayPreview', { s: 'ABC'[k]! }));
   }
 
   private stopPreview(): void {
@@ -476,6 +472,12 @@ export class BeatsScreen {
 function wrapDownbeat(sec: number, bpm: number): number {
   const bar = 240 / bpm;
   return ((sec % bar) + bar) % bar;
+}
+
+/** A thrown message in the current language: known analysis errors are translated, else `fallback`. */
+function errText(err: unknown, fallback: Key): string {
+  const m = err instanceof Error ? err.message : '';
+  return m.startsWith('That song is too short') ? t('bt.err.short') : m || t(fallback);
 }
 
 function clock(sec: number): string {

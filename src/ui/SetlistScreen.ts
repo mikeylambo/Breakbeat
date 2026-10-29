@@ -5,6 +5,7 @@
  */
 
 import { ACTS, MOVEMENTS } from '../audio/tracks.js';
+import { t } from '../i18n/i18n.js';
 import { challengesFor, starCount } from '../meta/Progress.js';
 import { isUnlocked, mastery, nextMovementIndex, type SaveData } from '../meta/Save.js';
 import { hex } from '../render/palette.js';
@@ -19,12 +20,15 @@ export interface SetlistActions {
   back(): void;
 }
 
+/** "Act I" / "Coda" in the current language. */
+export const actName = (a: string): string => (a === 'Coda' ? t('sl.coda') : t('sl.act', { n: a }));
+
 const BADGE_LABEL: Record<string, string> = { BRONZE: 'BRZ', SILVER: 'SLV', GOLD: 'GLD', OBSIDIAN: 'OBS', RESONANT: 'RES' };
 
 export class SetlistScreen {
-  readonly root = el('div', 'setlist-screen hidden', '', { role: 'main', 'aria-label': 'The Odyssey' });
+  readonly root = el('div', 'setlist-screen hidden', '', { role: 'main', 'aria-label': t('sl.title') });
   private readonly list: MenuList;
-  private readonly acts = el('div', 'act-tabs', '', { role: 'tablist', 'aria-label': 'Acts' });
+  private readonly acts = el('div', 'act-tabs', '', { role: 'tablist', 'aria-label': t('sl.acts') });
   private readonly detail = el('section', 'sl-detail', '', { 'aria-live': 'polite' });
   private readonly sleeve = new SleeveLayer();
   private act: string = ACTS[0];
@@ -56,10 +60,10 @@ export class SetlistScreen {
       }
     });
     const head = el('div', 'sl-head');
-    head.append(el('h2', 'sl-title', 'The Odyssey'), this.acts);
+    head.append(el('h2', 'sl-title', t('sl.title')), this.acts);
     const left = el('section', 'sl-left');
     left.append(head, this.list.root);
-    const foot = el('div', 'sl-foot', '<b>↑ ↓</b>MOVEMENT<b>← →</b>ACT<b>ENTER</b>PLAY<b>ESC</b>BACK');
+    const foot = el('div', 'sl-foot', t('sl.keys'));
     const panel = el('div', 'sl-panel', '', { 'aria-hidden': 'true' });
     panel.appendChild(this.sleeve.root);
     this.root.append(panel, el('div', 'sl-ghost', '', { 'aria-hidden': 'true' }), left, this.detail, foot);
@@ -94,7 +98,7 @@ export class SetlistScreen {
     const next = nextMovementIndex(save);
     this.acts.innerHTML = '';
     for (const a of ACTS) {
-      const tab = button(`act-tab${a === this.act ? ' on' : ''}`, a === 'Coda' ? 'CODA' : `ACT ${a}`, a === 'Coda' ? 'Coda' : `Act ${a}`, () => this.setAct(a, 0));
+      const tab = button(`act-tab${a === this.act ? ' on' : ''}`, actName(a).toUpperCase(), actName(a), () => this.setAct(a, 0));
       tab.setAttribute('role', 'tab');
       tab.setAttribute('aria-selected', String(a === this.act));
       this.acts.appendChild(tab);
@@ -108,11 +112,11 @@ export class SetlistScreen {
       const sc = starCount(save.stars[m.id]);
       items.push({
         id: String(i),
-        label: `${m.number} ${m.name}. ${unlocked ? `${m.style}, ${m.bpm} BPM.` : 'Locked.'}`,
+        label: `${m.number} ${m.name}. ${unlocked ? `${m.style}, ${m.bpm} BPM.` : t('sl.locked')}`,
         cls: `track-row${i === next && save.overtureDone ? ' next' : ''}`,
         locked: !unlocked,
         action: () => this.a.play(i),
-        html: `<span class="track-num">${m.number}</span><span class="track-name">${m.name}<small>${unlocked ? m.style.toUpperCase() : 'LOCKED'}</small></span><span class="track-stars" aria-hidden="true">${unlocked ? `${'★'.repeat(sc)}<s>${'★'.repeat(3 - sc)}</s>` : ''}</span>${rank ? `<span class="badge badge-${rank.toLowerCase()}">${BADGE_LABEL[rank]}</span>` : '<span class="badge badge-none"></span>'}<span class="track-lock">${unlocked ? '' : ICONS.lock}</span>`
+        html: `<span class="track-num">${m.number}</span><span class="track-name">${m.name}<small>${unlocked ? m.style.toUpperCase() : t('sl.lockedTag')}</small></span><span class="track-stars" aria-hidden="true">${unlocked ? `${'★'.repeat(sc)}<s>${'★'.repeat(3 - sc)}</s>` : ''}</span>${rank ? `<span class="badge badge-${rank.toLowerCase()}">${BADGE_LABEL[rank]}</span>` : '<span class="badge badge-none"></span>'}<span class="track-lock">${unlocked ? '' : ICONS.lock}</span>`
       });
     });
     this.list.setItems(items, Math.max(0, Math.min(items.length - 1, index)));
@@ -134,17 +138,17 @@ export class SetlistScreen {
       .map((c, k) => `<li class="${mask & (1 << k) ? 'done' : ''}"><i>${mask & (1 << k) ? '★' : '☆'}</i>${c.label}</li>`)
       .join('');
     this.detail.innerHTML = `
-      <div class="sld-kicker">${m.act === 'Coda' ? 'CODA' : `ACT ${m.act}`} · ${m.number}</div>
+      <div class="sld-kicker">${actName(m.act).toUpperCase()} · ${m.number}</div>
       <div class="sld-name">${m.name}</div>
-      <div class="sld-meta"><span>${m.style.toUpperCase()}</span><span>${m.bpm} BPM</span><span>KEY ${m.key.toUpperCase()}</span></div>
+      <div class="sld-meta"><span>${m.style.toUpperCase()}</span><span>${m.bpm} BPM</span><span>${t('sl.key', { key: m.key.toUpperCase() })}</span></div>
       ${
         unlocked
-          ? `<div class="sld-best"><div><small>BEST</small><b>${best ? fmt(best) : '—'}</b></div>${best ? `<span class="badge badge-${ms.rank.toLowerCase()}">${ms.rank}</span>` : ''}</div>
+          ? `<div class="sld-best"><div><small>${t('sl.best')}</small><b>${best ? fmt(best) : '—'}</b></div>${best ? `<span class="badge badge-${ms.rank.toLowerCase()}">${ms.rank}</span>` : ''}</div>
              <ul class="sld-ch">${ch}</ul>`
-          : `<div class="sld-locked">${ICONS.lock}<span>Clear ${MOVEMENTS[i - 1]?.number ?? ''} ${MOVEMENTS[i - 1]?.name ?? ''} to unlock</span></div>`
+          : `<div class="sld-locked">${ICONS.lock}<span>${t('sl.unlock', { num: MOVEMENTS[i - 1]?.number ?? '', name: MOVEMENTS[i - 1]?.name ?? '' })}</span></div>`
       }`;
     if (unlocked) {
-      const play = button('btn btn-primary sld-play', `${ICONS.play}<span>Play</span>`, `Play ${m.name}`, () => {
+      const play = button('btn btn-primary sld-play', `${ICONS.play}<span>${t('title.play')}</span>`, t('et.playAria', { name: m.name }), () => {
         uiSound('pick');
         this.a.play(i);
       });

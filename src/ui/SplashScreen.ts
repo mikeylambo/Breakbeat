@@ -9,7 +9,7 @@ import { el } from './dom.js';
 import { LOGO_HTML } from './logo.js';
 
 export class SplashScreen {
-  readonly root = el('div', 'splash hidden', '', { role: 'main', 'aria-label': 'Breakbeat. Press any key to start.' });
+  readonly root = el('div', 'splash hidden', '', { role: 'main', 'aria-label': t('splash.aria') });
   private readonly prompt = el('div', 'splash-press', '', { 'aria-hidden': 'true' });
   private armed = false;
 

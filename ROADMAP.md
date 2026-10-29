@@ -71,8 +71,10 @@ can't be cheated cheap to build, so use it.
 - [x] **Localization, phase 1**: t() with English fallback; Spanish, Brazilian Portuguese, German, Japanese
       (system CJK font). Title, title card, HUD, pause, results, Daily board, settings (Language tab),
       Profile with all achievements, calibration, rotate card. I18N gate checks every table.
-- [ ] **Localization, phase 2**: tutorial slides, Listen, My Beats, Etude editor and list, Odyssey details,
-      challenge labels, coach tips, key hints, screen-reader announcements.
+- [x] **Localization, phase 2**: tutorial slides and diagrams, Listen, My Beats, Etude editor and list (built-in
+      etude and drill names and hints), Odyssey details, challenge labels, coach tips, Overture captions, key
+      hints, aria labels and screen-reader announcements. Headless modules use `i18n/core.ts` (no tables, so
+      gates run in English); all five languages are at 100%.
 
 ## v0.14: Depth and replay value
 

@@ -17,7 +17,7 @@ export interface PauseActions {
 }
 
 export class PauseSheet {
-  readonly root = el('div', 'sheet-scrim pause-scrim hidden', '', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Paused' });
+  readonly root = el('div', 'sheet-scrim pause-scrim hidden', '', { role: 'dialog', 'aria-modal': 'true', 'aria-label': t('pause.aria') });
   private readonly menu: MenuList;
   private readonly what = el('div', 'pause-what');
   private readonly score = el('div', 'pause-score');

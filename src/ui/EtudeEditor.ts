@@ -6,6 +6,7 @@
  * Any edit after a solve asks for a fresh one. The draft is kept on this device.
  */
 
+import { t, tn, tx } from '../i18n/i18n.js';
 import { encodeEtude, solutionOf, type SharedEtude } from '../meta/EtudeCode.js';
 import { goalText, type EtudeDef, type EtudeGoal } from '../meta/Etude.js';
 import { cleanName } from '../meta/text.js';
@@ -42,7 +43,7 @@ function blank(): Draft {
     cells[ROWS - 1]![c] = seed[c]!;
     cells[ROWS - 2]![c] = seed[(c + 5) % COLS]!;
   }
-  return { name: 'My Etude', hint: '', goal: { type: 'allclear' }, passes: 2, charge: 0, pressure: 0, cells, solved: null };
+  return { name: t('ee.defaultName'), hint: '', goal: { type: 'allclear' }, passes: 2, charge: 0, pressure: 0, cells, solved: null };
 }
 
 export interface EditorActions {
@@ -52,12 +53,12 @@ export interface EditorActions {
 }
 
 export class EtudeEditor {
-  readonly root = el('div', 'etude-editor hidden', '', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Etude editor' });
+  readonly root = el('div', 'etude-editor hidden', '', { role: 'dialog', 'aria-modal': 'true', 'aria-label': t('ee.aria') });
   private draft: Draft;
   private brush = 0;
   private painting = false;
   private readonly cellEls: HTMLElement[] = [];
-  private readonly grid = el('div', 'ee-grid', '', { role: 'grid', 'aria-label': 'Wall' });
+  private readonly grid = el('div', 'ee-grid', '', { role: 'grid', 'aria-label': t('ee.wall') });
   private readonly side = el('section', 'ee-side');
   private readonly status = el('div', 'ee-status', '', { 'aria-live': 'polite' });
 
@@ -68,7 +69,7 @@ export class EtudeEditor {
     this.draft = { ...blank(), ...readJson<Partial<Draft>>(KEY, {}) } as Draft;
     for (let r = 0; r < ROWS; r++)
       for (let c = 0; c < COLS; c++) {
-        const cell = el('button', 'ee-cell', '', { type: 'button', 'aria-label': `Column ${c + 1}, row ${ROWS - r}` });
+        const cell = el('button', 'ee-cell', '', { type: 'button', 'aria-label': t('ee.cell', { c: c + 1, r: ROWS - r }) });
         cell.addEventListener('pointerdown', e => {
           e.preventDefault();
           this.painting = true;
@@ -83,7 +84,7 @@ export class EtudeEditor {
     window.addEventListener('pointerup', () => (this.painting = false));
     window.addEventListener('keydown', this.onKey);
     const left = el('section', 'ee-left');
-    left.append(el('h2', 'sl-title', 'Make an Etude'), this.grid, this.palette());
+    left.append(el('h2', 'sl-title', t('ee.title')), this.grid, this.palette());
     this.root.append(left, this.side);
   }
 
@@ -94,7 +95,7 @@ export class EtudeEditor {
   open(): void {
     this.root.classList.remove('hidden');
     this.render();
-    announce('Etude editor. Paint the wall, set a goal, then solve it to share.');
+    announce(t('ee.sayOpen'));
   }
 
   hide(): void {
@@ -104,10 +105,10 @@ export class EtudeEditor {
   // ---------------------------------------------------------------- wall
 
   private palette(): HTMLElement {
-    const p = el('div', 'ee-palette', '', { role: 'radiogroup', 'aria-label': 'Brush' });
-    const brushes = [...TILE_COLOURS.slice(0, 4).map((t, i) => [i, t.name] as const), [-1, 'Erase'] as const];
+    const p = el('div', 'ee-palette', '', { role: 'radiogroup', 'aria-label': t('ee.brush') });
+    const brushes = [...TILE_COLOURS.slice(0, 4).map((c, i) => [i, tx(`colour.${c.name.toLowerCase()}`, c.name)] as const), [-1, t('ee.erase')] as const];
     for (const [v, name] of brushes) {
-      const b = button(`ee-brush${v === this.brush ? ' on' : ''}`, v < 0 ? '×' : String(v + 1), `${name} brush`, () => this.setBrush(v));
+      const b = button(`ee-brush${v === this.brush ? ' on' : ''}`, v < 0 ? '×' : String(v + 1), t('ee.brushAria', { name }), () => this.setBrush(v));
       if (v >= 0) b.style.setProperty('--c', hex(TILE_COLOURS[v]!.base));
       b.setAttribute('role', 'radio');
       p.appendChild(b);
@@ -153,13 +154,13 @@ export class EtudeEditor {
     this.renderGrid();
     const d = this.draft;
     this.side.innerHTML = '';
-    const name = el('input', 'ee-name', '', { type: 'text', maxlength: '24', 'aria-label': 'Name', spellcheck: 'false' }) as HTMLInputElement;
+    const name = el('input', 'ee-name', '', { type: 'text', maxlength: '24', 'aria-label': t('ee.name'), spellcheck: 'false' }) as HTMLInputElement;
     name.value = d.name;
     name.addEventListener('input', () => {
       d.name = name.value;
       this.edited(false);
     });
-    const hint = el('input', 'ee-name ee-hint', '', { type: 'text', maxlength: '60', placeholder: 'A hint (optional)', 'aria-label': 'Hint', spellcheck: 'false' }) as HTMLInputElement;
+    const hint = el('input', 'ee-name ee-hint', '', { type: 'text', maxlength: '60', placeholder: t('ee.hintPh'), 'aria-label': t('ee.hint'), spellcheck: 'false' }) as HTMLInputElement;
     hint.value = d.hint;
     hint.addEventListener('input', () => {
       d.hint = hint.value;
@@ -181,35 +182,35 @@ export class EtudeEditor {
     const valued = d.goal.type !== 'allclear';
     const step = d.goal.type === 'score' ? 250 : 1;
     this.side.append(
-      el('div', 'sld-kicker', 'YOUR ETUDE'),
+      el('div', 'sld-kicker', t('et.yours')),
       name,
       hint,
       row(
-        'GOAL',
+        t('ee.goal'),
         goalText(d.goal),
-        b('◀', 'Previous goal', () => this.cycleGoal(-1)),
-        b('▶', 'Next goal', () => this.cycleGoal(1)),
-        ...(valued ? [b('−', 'Less', () => (d.goal.value = Math.max(1, (d.goal.value ?? 1) - step))), b('+', 'More', () => (d.goal.value = Math.min(d.goal.type === 'score' ? 60000 : 12, (d.goal.value ?? 1) + step)))] : [])
+        b('◀', t('ee.prevGoal'), () => this.cycleGoal(-1)),
+        b('▶', t('ee.nextGoal'), () => this.cycleGoal(1)),
+        ...(valued ? [b('−', t('ee.less'), () => (d.goal.value = Math.max(1, (d.goal.value ?? 1) - step))), b('+', t('ee.more'), () => (d.goal.value = Math.min(d.goal.type === 'score' ? 60000 : 12, (d.goal.value ?? 1) + step)))] : [])
       ),
-      row('PASSES', String(d.passes), b('−', 'Fewer passes', () => (d.passes = Math.max(1, d.passes - 1))), b('+', 'More passes', () => (d.passes = Math.min(8, d.passes + 1)))),
-      row('START WITH A HOLD', d.charge ? 'YES' : 'NO', b(d.charge ? 'ON' : 'OFF', 'Toggle a starting hold', () => (d.charge = d.charge ? 0 : 1))),
-      row('RISING WALL', d.pressure ? `EVERY ${d.pressure === 1 ? 'BAR' : `${d.pressure} BARS`}` : 'OFF', b(d.pressure ? 'ON' : 'OFF', 'Rising wall', () => (d.pressure = d.pressure === 0 ? 2 : d.pressure === 2 ? 1 : 0)))
+      row(t('ee.passes'), String(d.passes), b('−', t('ee.fewerPasses'), () => (d.passes = Math.max(1, d.passes - 1))), b('+', t('ee.morePasses'), () => (d.passes = Math.min(8, d.passes + 1)))),
+      row(t('ee.startHold'), d.charge ? t('ee.yes') : t('ee.no'), b(d.charge ? t('ee.on') : t('ee.off'), t('ee.holdAria'), () => (d.charge = d.charge ? 0 : 1))),
+      row(t('ee.rising'), d.pressure ? tn('ee.every', d.pressure) : t('ee.off'), b(d.pressure ? t('ee.on') : t('ee.off'), t('ee.risingAria'), () => (d.pressure = d.pressure === 0 ? 2 : d.pressure === 2 ? 1 : 0)))
     );
     const act = el('div', 'bt-actions');
     act.append(
-      button('btn btn-primary sld-play', `${ICONS.play}<span>${d.solved ? 'Solve again' : 'Test & solve'}</span>`, 'Test and solve', () => this.test()),
-      button(`btn bt-btn${d.solved ? ' ee-share-ready' : ''}`, 'Share', d.solved ? 'Share a link' : 'Solve it first to share', () => void this.share()),
-      button('btn bt-btn', 'Clear', 'Clear the wall', () => {
+      button('btn btn-primary sld-play', `${ICONS.play}<span>${d.solved ? t('ee.solveAgain') : t('ee.test')}</span>`, t('ee.test'), () => this.test()),
+      button(`btn bt-btn${d.solved ? ' ee-share-ready' : ''}`, t('ee.share'), d.solved ? t('ee.shareAria') : t('ee.shareLocked'), () => void this.share()),
+      button('btn bt-btn', t('profile.clear'), t('ee.clearAria'), () => {
         d.cells = blank().cells.map(r => r.fill(-1));
         this.edited();
       }),
-      button('btn bt-btn', 'Back', 'Back to the etudes', () => {
+      button('btn bt-btn', t('ee.back'), t('ee.backAria'), () => {
         this.hide();
         this.a.back();
       })
     );
     this.side.append(act, this.status);
-    this.setStatus(d.solved ? 'Solved by you: ready to share.' : 'Solve it once to unlock Share.');
+    this.setStatus(d.solved ? t('ee.ready') : t('ee.unlock'));
   }
 
   private cycleGoal(dir: number): void {
@@ -225,19 +226,19 @@ export class EtudeEditor {
     this.draft.solved = null;
     writeJson(KEY, this.draft);
     if (rerender) this.render();
-    else this.setStatus('Solve it once to unlock Share.');
+    else this.setStatus(t('ee.unlock'));
   }
 
-  private setStatus(t: string): void {
-    this.status.textContent = t;
+  private setStatus(s: string): void {
+    this.status.textContent = s;
   }
 
   def(): EtudeDef {
     const d = this.draft;
     const def: EtudeDef = {
       id: 'draft',
-      name: cleanName(d.name, 'My Etude').slice(0, 24),
-      hint: cleanName(d.hint, '').slice(0, 60) || 'Made by you.',
+      name: cleanName(d.name, t('ee.defaultName')).slice(0, 24),
+      hint: cleanName(d.hint, '').slice(0, 60) || t('ee.madeByYou'),
       goal: d.goal,
       passes: d.passes,
       board: d.cells.map(r => [...r]),
@@ -251,7 +252,7 @@ export class EtudeEditor {
   private test(): void {
     if (!this.draft.cells.some(r => r.some(k => k >= 0))) {
       uiSound('deny');
-      this.setStatus('Paint some blocks first.');
+      this.setStatus(t('ee.paintFirst'));
       return;
     }
     this.hide();
@@ -269,17 +270,17 @@ export class EtudeEditor {
     const d = this.draft;
     if (!d.solved) {
       uiSound('deny');
-      this.setStatus('Solve it once first: the link carries your solve as proof.');
+      this.setStatus(t('ee.solveFirst'));
       return;
     }
     const code = encodeEtude({ def: this.def(), bpm: d.solved.bpm, solution: d.solved.solution });
     const url = `${location.origin}${location.pathname}#e=${code}`;
-    const text = `${this.def().name}: ${goalText(d.goal)} in ${d.passes} pass${d.passes === 1 ? '' : 'es'}. Can you solve my BREAKBEAT etude?`;
+    const text = t('ee.shareText', { name: this.def().name, goal: goalText(d.goal), passes: tn('et.passes', d.passes) });
     try {
-      if (navigator.share) await navigator.share({ title: 'BREAKBEAT etude', text, url });
+      if (navigator.share) await navigator.share({ title: t('ee.shareTitle'), text, url });
       else {
         await navigator.clipboard.writeText(url);
-        this.setStatus('Link copied. Anyone who opens it gets your etude.');
+        this.setStatus(t('ee.copied'));
       }
       uiSound('pick');
       this.app.achieve('etude-shared');

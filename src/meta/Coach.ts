@@ -3,6 +3,7 @@
  * furthest below the player's own recent median, with a concrete target.
  */
 
+import { tx } from '../i18n/core.js';
 import { readJson, writeJson } from '../platform/Storage.js';
 
 export const HISTORY_KEY = 'breakbeat-history-v1';
@@ -27,16 +28,7 @@ function show(metric: CoachMetric, v: number): string {
 /** Fixed copy table. */
 export function adviceText(metric: CoachMetric, current: number, target: number): string {
   const c = show(metric, current);
-  switch (metric) {
-    case 'airPrimesLanded':
-      return `Air-primes: ${c} this run. Aim for ${target} — tap falling tiles before they land.`;
-    case 'overchargesLanded':
-      return `Overcharges: ${c} this run. Aim for ${target} — hold a group to blast everything around it.`;
-    case 'groupsPerPassAvg':
-      return `Groups per pass: ${c} this run. Aim for ${target} — prime more groups ahead of the blade.`;
-    case 'longestCombo':
-      return `Longest chain: ${c} passes this run. Aim for ${target} — set something off every pass.`;
-  }
+  return tx(`coach.${metric}`, metric, { c, target });
 }
 
 export function median(values: readonly number[]): number {

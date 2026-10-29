@@ -11,6 +11,7 @@
 
 import { Jukebox, PASSES, type JukeboxHost } from '../audio/Jukebox.js';
 import { ACTS, MOVEMENTS, OVERTURE, STEM_NAMES, type TrackDef } from '../audio/tracks.js';
+import { t as tr, tn, tx } from '../i18n/i18n.js';
 import type { SaveData } from '../meta/Save.js';
 import { hex, TILE_COLOURS } from '../render/palette.js';
 import { VISUALIZER_PRESETS } from '../render/visualizerPresets.js';
@@ -18,6 +19,7 @@ import { worldFor } from '../render/worlds.js';
 import type { App } from './App.js';
 import { announce, button, el, ICONS, setText, uiSound } from './dom.js';
 import { MenuList, type MenuItem } from './MenuList.js';
+import { actName } from './SetlistScreen.js';
 import { SleeveLayer } from './SleeveLayer.js';
 
 const BAR = 16;
@@ -45,13 +47,13 @@ export interface ListenActions {
 }
 
 export class ListenScreen {
-  readonly root = el('div', 'setlist-screen listen-screen hidden', '', { role: 'main', 'aria-label': 'Listen' });
+  readonly root = el('div', 'setlist-screen listen-screen hidden', '', { role: 'main', 'aria-label': tr('title.listen') });
   readonly jukebox: Jukebox;
   private readonly list: MenuList;
-  private readonly acts = el('div', 'act-tabs', '', { role: 'tablist', 'aria-label': 'Acts' });
+  private readonly acts = el('div', 'act-tabs', '', { role: 'tablist', 'aria-label': tr('sl.acts') });
   private readonly deck = el('section', 'sl-detail ls-deck');
   private readonly hint = el('div', 'ls-hint', '', { 'aria-live': 'polite' });
-  private readonly cleanHint = el('div', 'ls-clean-hint', 'TAP OR PRESS H TO RETURN', { 'aria-hidden': 'true' });
+  private readonly cleanHint = el('div', 'ls-clean-hint', tr('ls.cleanHint'), { 'aria-hidden': 'true' });
   private readonly sleeve = new SleeveLayer();
   private readonly ghost = el('div', 'sl-ghost', '', { 'aria-hidden': 'true' });
   // Deck parts, built once and updated per frame
@@ -61,7 +63,7 @@ export class ListenScreen {
   private readonly dTime = el('div', 'ls-time');
   private readonly secBtns: HTMLButtonElement[] = [];
   private readonly secFill: HTMLElement[] = [];
-  private readonly secRow = el('div', 'ls-sections', '', { role: 'group', 'aria-label': 'Sections' });
+  private readonly secRow = el('div', 'ls-sections', '', { role: 'group', 'aria-label': tr('ls.sections') });
   private readonly meters: HTMLElement[] = [];
   private readonly muteBtns: HTMLButtonElement[] = [];
   private readonly soloBtns: HTMLButtonElement[] = [];
@@ -107,7 +109,7 @@ export class ListenScreen {
       onKey: e => this.onKey(e)
     });
     const head = el('div', 'sl-head');
-    head.append(el('h2', 'sl-title', 'Listen'), this.acts);
+    head.append(el('h2', 'sl-title', tr('title.listen')), this.acts);
     const left = el('section', 'sl-left');
     left.append(head, this.list.root);
     const panel = el('div', 'sl-panel', '', { 'aria-hidden': 'true' });
@@ -116,7 +118,7 @@ export class ListenScreen {
     // Sections
     for (let i = 0; i < 3; i++) {
       const fill = el('i', 'ls-sec-fill');
-      const b = button('ls-sec', `<span>${'ABC'[i]}</span>`, `Section ${'ABC'[i]}`, () => {
+      const b = button('ls-sec', `<span>${'ABC'[i]}</span>`, tr('ls.section', { s: 'ABC'[i]! }), () => {
         uiSound('tick', i);
         this.jukebox.jump(i);
       });
@@ -127,24 +129,25 @@ export class ListenScreen {
     }
 
     // Mixer
-    const mixer = el('div', 'ls-mixer', '', { role: 'group', 'aria-label': 'Stem mixer' });
+    const mixer = el('div', 'ls-mixer', '', { role: 'group', 'aria-label': tr('ls.mixer') });
     STEM_NAMES.forEach((name, i) => {
       const strip = el('div', 'ls-strip');
       strip.style.setProperty('--stem', hex(TILE_COLOURS[i]!.base));
       const meter = el('div', 'ls-meter', '<i></i>', { 'aria-hidden': 'true' });
-      const m = button('ls-ms', 'M', `Mute ${name}`, () => {
+      const label = tx(`stem.${name.toLowerCase()}`, name);
+      const m = button('ls-ms', 'M', tr('ls.mute', { stem: label }), () => {
         this.jukebox.toggleMute(i);
         uiSound('tick', i);
         this.syncMixer();
       });
-      const s = button('ls-ms', 'S', `Solo ${name}`, () => {
+      const s = button('ls-ms', 'S', tr('ls.solo', { stem: label }), () => {
         this.jukebox.toggleSolo(i);
         uiSound('tick', i);
         this.syncMixer();
       });
       const btns = el('div', 'ls-ms-row');
       btns.append(m, s);
-      strip.append(meter, el('span', 'ls-stem', name.toUpperCase()), btns);
+      strip.append(meter, el('span', 'ls-stem', label.toUpperCase()), btns);
       this.meters.push(meter.firstElementChild as HTMLElement);
       this.muteBtns.push(m);
       this.soloBtns.push(s);
@@ -152,23 +155,23 @@ export class ListenScreen {
     });
 
     // Transport
-    const tr = el('div', 'ls-transport');
-    this.playBtn = button('ls-btn ls-play', ICONS.pause, 'Pause', () => this.togglePause());
-    this.repeatBtn = button('ls-btn ls-chip', '', 'Repeat', () => this.cycleRepeat());
-    this.sleepBtn = button('ls-btn ls-chip', '', 'Sleep timer', () => this.cycleSleep());
-    this.visBtn = button('ls-btn ls-chip', '', 'Visualizer', () => this.cycleVis());
-    tr.append(
-      button('ls-btn', ICON.prev, 'Previous track', () => this.skip(-1)),
+    const transport = el('div', 'ls-transport');
+    this.playBtn = button('ls-btn ls-play', ICONS.pause, tr('hud.pause'), () => this.togglePause());
+    this.repeatBtn = button('ls-btn ls-chip', '', tr('ls.repeat'), () => this.cycleRepeat());
+    this.sleepBtn = button('ls-btn ls-chip', '', tr('ls.sleepTimer'), () => this.cycleSleep());
+    this.visBtn = button('ls-btn ls-chip', '', tr('set.visualizer'), () => this.cycleVis());
+    transport.append(
+      button('ls-btn', ICON.prev, tr('ls.prev'), () => this.skip(-1)),
       this.playBtn,
-      button('ls-btn', ICON.next, 'Next track', () => this.skip(1)),
+      button('ls-btn', ICON.next, tr('ls.next'), () => this.skip(1)),
       this.repeatBtn,
       this.sleepBtn,
       this.visBtn,
-      button('ls-btn', ICON.clean, 'Clean view', () => this.setClean(true))
+      button('ls-btn', ICON.clean, tr('ls.clean'), () => this.setClean(true))
     );
 
-    this.deck.append(this.dKicker, this.dName, this.dMeta, this.dTime, this.secRow, mixer, tr);
-    const foot = el('div', 'sl-foot', '<b>ENTER</b>PLAY<b>SPACE</b>PAUSE<b>A B C</b>SECTION<b>1–5</b>MUTE<b>⇧</b>SOLO<b>V</b>VISUAL<b>H</b>CLEAN<b>ESC</b>BACK');
+    this.deck.append(this.dKicker, this.dName, this.dMeta, this.dTime, this.secRow, mixer, transport);
+    const foot = el('div', 'sl-foot', tr('ls.keys'));
     this.root.append(panel, this.ghost, left, this.deck, this.hint, foot, this.cleanHint);
     this.root.addEventListener('pointerdown', () => {
       if (this.clean) this.setClean(false);
@@ -198,9 +201,9 @@ export class ListenScreen {
     this.syncMixer();
     this.deck.classList.toggle('empty', !start);
     if (start) this.jukebox.play(start);
-    else setText(this.hint, 'Clear a movement in the Odyssey to add its music here.');
+    else setText(this.hint, tr('ls.empty'));
     this.installMediaSession();
-    announce(start ? `Listen. ${q.length} tracks unlocked.` : 'Listen. Nothing unlocked yet.');
+    announce(start ? tn('ls.sayOpen', q.length) : tr('ls.sayNone'));
   }
 
   /** Leaves Listen: unity mix, music running, menu visualizer rules back. */
@@ -239,21 +242,21 @@ export class ListenScreen {
     const el = Math.max(0, step - jb.trackStartStep) * sixteenth;
     const total = Jukebox.lengthSteps(t) * sixteenth;
     const sec = t.sections[jb.section]?.name ?? 'A';
-    const time = `${clock(el)} <s>/ ${jb.repeat === 'one' ? '∞' : clock(total)}</s><span>${sec} · PASS ${jb.repeat === 'one' ? pass : `${pass}/${PASSES}`}</span>`;
+    const time = `${clock(el)} <s>/ ${jb.repeat === 'one' ? '∞' : clock(total)}</s><span>${sec} · ${tr('ls.pass', { n: jb.repeat === 'one' ? pass : `${pass}/${PASSES}` })}</span>`;
     if (time !== this.lastTime) {
       this.lastTime = time;
       this.dTime.innerHTML = time;
     }
     const left = jb.sleepLeft;
-    const sl = left > 0 ? `${ICON.moon}<span>${clock(left)}</span>` : `${ICON.moon}<span>${jb.slept ? 'SLEPT' : 'SLEEP'}</span>`;
+    const sl = left > 0 ? `${ICON.moon}<span>${clock(left)}</span>` : `${ICON.moon}<span>${jb.slept ? tr('ls.slept') : tr('ls.sleep')}</span>`;
     if (sl !== this.lastSleep) {
       this.lastSleep = sl;
       this.sleepBtn.innerHTML = sl;
       this.sleepBtn.classList.toggle('on', left > 0);
     }
     this.playBtn.innerHTML = jb.paused ? ICONS.play : ICONS.pause;
-    this.playBtn.setAttribute('aria-label', jb.paused ? 'Play' : 'Pause');
-    if (jb.slept) setText(this.hint, 'Goodnight. Press play to carry on.');
+    this.playBtn.setAttribute('aria-label', jb.paused ? tr('title.play') : tr('hud.pause'));
+    if (jb.slept) setText(this.hint, tr('ls.goodnight'));
   }
 
   private showTrack(t: TrackDef | null): void {
@@ -264,14 +267,14 @@ export class ListenScreen {
     this.sleeve.set(ov ? null : t);
     this.root.style.setProperty('--sel-accent', hex(worldFor(t.style).accent));
     this.ghost.textContent = t.number;
-    setText(this.dKicker, `NOW PLAYING · ${ov ? 'OVERTURE' : t.act === 'Coda' ? 'CODA' : `ACT ${t.act}`} · ${t.number}`);
+    setText(this.dKicker, `${tr('ls.nowPlaying')} · ${(ov ? tr('ls.overture') : actName(t.act)).toUpperCase()} · ${t.number}`);
     setText(this.dName, t.name);
-    this.dMeta.innerHTML = `<span>${t.style.toUpperCase()}</span><span>${t.bpm} BPM</span><span>KEY ${t.key.toUpperCase()}</span>`;
+    this.dMeta.innerHTML = `<span>${t.style.toUpperCase()}</span><span>${t.bpm} BPM</span><span>${tr('sl.key', { key: t.key.toUpperCase() })}</span>`;
     setText(this.hint, '');
     this.lastTime = '';
     this.updateMediaMetadata(t);
     if (this.jukebox.autoAdvanced) this.app.achieve('listen-full');
-    announce(`Now playing: ${t.number} ${t.name}.`);
+    announce(tr('ls.sayPlaying', { num: t.number, name: t.name }));
   }
 
   private renderList(select: TrackDef | null): void {
@@ -279,7 +282,7 @@ export class ListenScreen {
     if (!save) return;
     this.acts.innerHTML = '';
     for (const a of ACTS) {
-      const tab = button(`act-tab${a === this.act ? ' on' : ''}`, a === 'Coda' ? 'CODA' : `ACT ${a}`, a === 'Coda' ? 'Coda' : `Act ${a}`, () => this.setAct(a));
+      const tab = button(`act-tab${a === this.act ? ' on' : ''}`, actName(a).toUpperCase(), actName(a), () => this.setAct(a));
       tab.setAttribute('role', 'tab');
       tab.setAttribute('aria-selected', String(a === this.act));
       this.acts.appendChild(tab);
@@ -290,11 +293,11 @@ export class ListenScreen {
       const open = q.includes(t);
       return {
         id: t.id,
-        label: `${t.number} ${t.name}. ${open ? `${t.style}, ${t.bpm} BPM.` : 'Locked: clear it in the Odyssey.'}`,
+        label: `${t.number} ${t.name}. ${open ? `${t.style}, ${t.bpm} BPM.` : tr('ls.lockedAria')}`,
         cls: `track-row${this.jukebox.track === t ? ' playing' : ''}`,
         locked: !open,
         action: () => this.jukebox.play(t),
-        html: `<span class="track-num">${t.number}</span><span class="track-name">${t.name}<small>${open ? t.style.toUpperCase() : 'CLEAR IT TO UNLOCK'}</small></span><span class="ls-eq" aria-hidden="true"><i></i><i></i><i></i></span><span class="track-lock">${open ? '' : ICONS.lock}</span>`
+        html: `<span class="track-num">${t.number}</span><span class="track-name">${t.name}<small>${open ? t.style.toUpperCase() : tr('ls.lockedTag')}</small></span><span class="ls-eq" aria-hidden="true"><i></i><i></i><i></i></span><span class="track-lock">${open ? '' : ICONS.lock}</span>`
       };
     });
     const at = select ? tracks.indexOf(select) : 0;
@@ -315,7 +318,7 @@ export class ListenScreen {
       return;
     }
     const i = MOVEMENTS.findIndex(m => m.id === it.id);
-    setText(this.hint, i < 0 ? 'Play the Overture to unlock it.' : `Clear ${MOVEMENTS[i]!.number} ${MOVEMENTS[i]!.name} in the Odyssey to unlock it.`);
+    setText(this.hint, i < 0 ? tr('ls.unlockOverture') : tr('ls.unlock', { num: MOVEMENTS[i]!.number, name: MOVEMENTS[i]!.name }));
   }
 
   private onKey(e: KeyboardEvent): boolean {
@@ -402,14 +405,14 @@ export class ListenScreen {
     this.jukebox.cycleRepeat();
     uiSound('tick', 1);
     this.syncChips();
-    announce(this.jukebox.repeat === 'one' ? 'Repeat this section.' : 'Play through the album.');
+    announce(this.jukebox.repeat === 'one' ? tr('ls.sayRepeatOne') : tr('ls.sayRepeatAll'));
   }
 
   private cycleSleep(): void {
     this.jukebox.cycleSleep();
     uiSound('tick', 2);
     this.lastSleep = '';
-    announce(this.jukebox.sleepMinutes ? `Sleep in ${this.jukebox.sleepMinutes} minutes.` : 'Sleep timer off.');
+    announce(this.jukebox.sleepMinutes ? tn('ls.saySleep', this.jukebox.sleepMinutes) : tr('ls.saySleepOff'));
   }
 
   private cycleVis(): void {
@@ -425,14 +428,15 @@ export class ListenScreen {
   private setClean(on: boolean): void {
     this.clean = on;
     this.root.classList.toggle('clean', on);
-    if (on) announce('Clean view. Press H to return.');
+    if (on) announce(tr('ls.sayClean'));
   }
 
   private syncChips(): void {
     const jb = this.jukebox;
-    this.repeatBtn.innerHTML = `${ICON.repeat}<span>${jb.repeat === 'one' ? 'ONE' : 'ALL'}</span>`;
+    this.repeatBtn.innerHTML = `${ICON.repeat}<span>${jb.repeat === 'one' ? tr('ls.one') : tr('ls.all')}</span>`;
     this.repeatBtn.classList.toggle('on', jb.repeat === 'one');
-    const label = VISUALIZER_PRESETS.find(p => p[0] === this.app.settings.listenVisualizer)?.[1] ?? '';
+    const id = this.app.settings.listenVisualizer;
+    const label = tx(`vis.${id}`, VISUALIZER_PRESETS.find(p => p[0] === id)?.[1] ?? '');
     this.visBtn.innerHTML = `${ICON.vis}<span>${label.toUpperCase()}</span>`;
     this.lastSleep = '';
   }
@@ -476,7 +480,7 @@ export class ListenScreen {
       ms.metadata = new MediaMetadata({
         title: t.name,
         artist: 'BREAKBEAT',
-        album: `Vol. 01 · ${t === OVERTURE ? 'Overture' : t.act === 'Coda' ? 'Coda' : `Act ${t.act}`}`,
+        album: `Vol. 01 · ${t === OVERTURE ? tr('ls.overture') : actName(t.act)}`,
         artwork: [{ src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' }]
       });
       this.updatePlaybackState();

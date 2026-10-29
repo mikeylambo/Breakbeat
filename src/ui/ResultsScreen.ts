@@ -5,7 +5,8 @@
  * Any key or tap during the reveal skips to the end. The run's movement keeps playing underneath.
  */
 
-import { t as tr, tn } from '../i18n/i18n.js';
+import { t as tr, tn, tx } from '../i18n/i18n.js';
+import { actName } from './SetlistScreen.js';
 import { mastery, todayUtc } from '../meta/Save.js';
 import { flush, prefs, savePrefs, submit, top } from '../meta/Leaderboard.js';
 import { recordRun, type CoachAdvice } from '../meta/Coach.js';
@@ -30,7 +31,7 @@ const T_STATS = 2.2;
 const T_DONE = 2.9;
 
 export class ResultsScreen {
-  readonly root = el('div', 'results hidden', '', { role: 'main', 'aria-label': 'Results' });
+  readonly root = el('div', 'results hidden', '', { role: 'main', 'aria-label': tr('results.aria') });
   private readonly actionsMenu: MenuList;
   private replay: ReplayView | null = null;
   private t0 = 0;
@@ -100,13 +101,13 @@ export class ResultsScreen {
     this.pb = pb && previousBest > 0;
     this.score = score;
     const movementLabel =
-      run.cfg.track ? `MY BEAT · ${run.track.name.toUpperCase()}` : run.mode === 'odyssey' ? `${run.track.number} · ${run.track.name.toUpperCase()}` : `${run.mode.toUpperCase()} · ${run.track.name.toUpperCase()}`;
+      run.cfg.track ? `${tr('bt.myBeat')} · ${run.track.name.toUpperCase()}` : run.mode === 'odyssey' ? `${run.track.number} · ${run.track.name.toUpperCase()}` : `${tx(`title.${run.mode}`, run.mode).toUpperCase()} · ${run.track.name.toUpperCase()}`;
 
     this.root.innerHTML = '';
     this.root.classList.toggle('is-pb', pb);
     const left = el('section', 'results-left');
-    this.scoreEl = el('div', 'results-score', '0', { 'aria-label': `Score ${fmt(score)}` });
-    left.append(el('div', 'results-kicker', `${run.mode === 'odyssey' ? `ACT ${run.track.act} · ` : ''}${movementLabel}`), this.scoreEl);
+    this.scoreEl = el('div', 'results-score', '0', { 'aria-label': `${tr('say.score')} ${fmt(score)}` });
+    left.append(el('div', 'results-kicker', `${run.mode === 'odyssey' ? `${actName(run.track.act).toUpperCase()} · ` : ''}${movementLabel}`), this.scoreEl);
     const rank = el('div', 'results-rank');
     const pct = Math.round(Math.max(0, Math.min(1, m.progress)) * 100);
     rank.innerHTML = `<span class="badge badge-${m.rank.toLowerCase()}">${m.rank}</span><span class="rank-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress to ${m.next ?? 'max rank'}"><span style="--p:${pct / 100}"></span></span><span class="rank-next">${m.next ? tr('results.toRank', { n: fmt(m.toNext), rank: m.next }) : tr('results.topRank')}</span>`;
@@ -164,7 +165,7 @@ export class ResultsScreen {
     this.root.classList.remove('hidden', 'revealed', 'stamped', 'pb-in', 'stats-in');
     this.actionsMenu.relayout();
     if (document.documentElement.classList.contains('reduced-motion')) this.skipReveal();
-    announce(`Run over. ${movementLabel}. Score ${fmt(score)}. ${pb ? 'New personal best.' : `${fmt(previousBest - score)} to your best.`} ${advice ? advice.text : ''}`);
+    announce(`${tr('say.runOver')} ${movementLabel}. ${tr('say.score')} ${fmt(score)}. ${pb ? tr('say.newPb') : tr('say.toBest', { n: fmt(previousBest - score) })} ${advice ? advice.text : ''}`);
   }
 
   /**
@@ -179,7 +180,7 @@ export class ResultsScreen {
       const p = prefs();
       card.innerHTML = `${head}<div class="practise-text">${tr('board.ask')}</div>`;
       const row = el('div', 'board-form');
-      const name = el('input', 'ee-name board-name', '', { type: 'text', maxlength: '16', placeholder: tr('board.name'), 'aria-label': 'Name on the board', spellcheck: 'false' }) as HTMLInputElement;
+      const name = el('input', 'ee-name board-name', '', { type: 'text', maxlength: '16', placeholder: tr('board.name'), 'aria-label': tr('board.nameAria'), spellcheck: 'false' }) as HTMLInputElement;
       name.value = p.name;
       // Typing here must not drive the results keys (R is replay)
       name.addEventListener('keydown', e => {
@@ -214,7 +215,7 @@ export class ResultsScreen {
             card.innerHTML = `${head}<div class="practise-text">${tr('board.off')}</div>`;
           })
         );
-        announce(`Daily board: rank ${res.rank} of ${res.total}.`);
+        announce(tr('say.boardRank', { rank: res.rank, total: res.total }));
       } catch (err) {
         const why = err instanceof Error ? err.message : '';
         card.innerHTML = `${head}<div class="practise-text">${why === 'offline' ? tr('board.offline') : tr('board.failed')}</div>`;

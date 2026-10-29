@@ -8,14 +8,15 @@ import overtureData from '../../../content/overture.json';
 import { TUNING } from '../../tuning.js';
 import type { App } from '../App.js';
 import { WallView } from '../../render/WallView.js';
+import { t, tx } from '../../i18n/i18n.js';
 import { button, el } from '../dom.js';
 import { OvertureLessons, type OvertureData } from './OvertureLessons.js';
 import type { PulseEvent } from '../../pulse/types.js';
 
-const STEMS = ['KICK', 'BASS', 'KEYS', 'LEAD'];
+const STEMS = ['kick', 'bass', 'keys', 'lead'];
 
 export class OvertureScreen {
-  readonly root = el('div', 'overture hidden', '', { 'aria-label': 'Overture' });
+  readonly root = el('div', 'overture hidden', '', { 'aria-label': t('ls.overture') });
   private readonly chips: HTMLElement[] = [];
   private readonly caption = el('div', 'overture-caption', '', { 'aria-live': 'polite' });
   private lessons: OvertureLessons | null = null;
@@ -28,13 +29,13 @@ export class OvertureScreen {
     private readonly onSkip: () => void,
     private readonly onDone: () => void
   ) {
-    const col = el('div', 'stem-chips', '', { 'aria-label': 'Stems' });
+    const col = el('div', 'stem-chips', '', { 'aria-label': t('ov.stems') });
     STEMS.forEach((s, i) => {
-      const c = el('div', `stem-chip${i === 0 ? ' on' : ''}`, s);
+      const c = el('div', `stem-chip${i === 0 ? ' on' : ''}`, tx(`stem.${s}`, s).toUpperCase());
       this.chips.push(c);
       col.appendChild(c);
     });
-    const skip = button('btn-skip', 'Skip', 'Skip the Overture', () => this.skip());
+    const skip = button('btn-skip', t('ov.skip'), t('ov.skipAria'), () => this.skip());
     this.root.append(col, this.caption, skip);
   }
 
@@ -147,7 +148,8 @@ export class OvertureScreen {
 
     const l = L.current;
     if (l?.caption) {
-      this.caption.innerHTML = `<div class="cap-main">${l.caption}</div>${l.sub ? `<div class="cap-sub">${l.sub}</div>` : ''}`;
+      const sub = l.sub ? tx(`ov.${l.id}.sub`, l.sub) : '';
+      this.caption.innerHTML = `<div class="cap-main">${tx(`ov.${l.id}.caption`, l.caption)}</div>${sub ? `<div class="cap-sub">${sub}</div>` : ''}`;
       this.caption.classList.toggle('lesson-3', l.id === 3);
       this.caption.classList.remove('hidden');
     } else {

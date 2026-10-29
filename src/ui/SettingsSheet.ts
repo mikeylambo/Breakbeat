@@ -22,8 +22,8 @@ const TAB_KEY = { Sound: 'set.sound', Timing: 'set.timing', Display: 'set.displa
 type Tab = (typeof TABS)[number];
 
 export class SettingsSheet {
-  readonly root = el('div', 'sheet-scrim settings-scrim hidden', '', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Settings' });
-  private readonly tabs = el('div', 'set-tabs', '', { role: 'tablist', 'aria-label': 'Settings sections' });
+  readonly root = el('div', 'sheet-scrim settings-scrim hidden', '', { role: 'dialog', 'aria-modal': 'true', 'aria-label': tr('title.settings') });
+  private readonly tabs = el('div', 'set-tabs', '', { role: 'tablist', 'aria-label': tr('set.sections') });
   private readonly body = el('div', 'settings-body', '', { role: 'tabpanel' });
   private tab: Tab = 'Sound';
   open = false;

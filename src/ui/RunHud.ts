@@ -48,12 +48,12 @@ function kick(e: Element | null, cls: string): void {
 }
 
 export class RunHud {
-  readonly root = el('div', 'hud hud-b', '', { role: 'region', 'aria-label': 'Run status' });
-  private readonly score = el('div', 'hud-score', '0', { 'aria-label': 'Score' });
+  readonly root = el('div', 'hud hud-b', '', { role: 'region', 'aria-label': t('hud.aria') });
+  private readonly score = el('div', 'hud-score', '0', { 'aria-label': t('say.score') });
   private readonly scoreRow: HTMLElement;
   private readonly gain = el('b', 'hb-gain', '', { 'aria-hidden': 'true' });
   private readonly vals: Record<'movement' | 'tempo' | 'best' | 'chain' | 'groups', HTMLElement>;
-  private readonly gauge = el('div', 'hud-charge hb-gauge', '', { role: 'meter', 'aria-label': 'Charge', 'aria-valuemin': '0', 'aria-valuemax': '100' });
+  private readonly gauge = el('div', 'hud-charge hb-gauge', '', { role: 'meter', 'aria-label': t('hud.chargeAria'), 'aria-valuemin': '0', 'aria-valuemax': '100' });
   private readonly fill: SVGCircleElement;
   private readonly spark: HTMLElement;
   private readonly gaugeLabel = el('div', 'hb-gauge-label', t('hud.charge'));
@@ -100,7 +100,7 @@ export class RunHud {
     </svg><i class="g-spark" aria-hidden="true"></i>`;
     this.fill = this.gauge.querySelector('.g-fill') as SVGCircleElement;
     this.spark = this.gauge.querySelector('.g-spark') as HTMLElement;
-    const stems = el('div', 'hud-stems hs', '', { 'aria-label': 'Active stems' });
+    const stems = el('div', 'hud-stems hs', '', { 'aria-label': t('hud.stems') });
     for (let i = 0; i < 5; i++) {
       const p = el('span', 'hud-pip');
       this.pips.push(p);

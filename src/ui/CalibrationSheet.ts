@@ -139,6 +139,6 @@ export class CalibrationSheet {
     this.app.settings.calibrated = true;
     this.app.persistSettings();
     this.status.textContent = tr('calib.saved', { ms: `${ms > 0 ? '+' : ''}${ms}` });
-    announce(`Timing synced. Offset ${ms} milliseconds.`);
+    announce(tr('say.synced', { ms }));
   }
 }

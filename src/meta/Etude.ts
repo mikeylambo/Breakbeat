@@ -4,6 +4,7 @@
  * DOM-free so the ETUDES gate can replay every authored solution against the real engine.
  */
 
+import { getLang, t, tx } from '../i18n/core.js';
 import type { PulseEngine } from '../pulse/PulseEngine.js';
 import type { PulseEvent } from '../pulse/types.js';
 
@@ -36,22 +37,27 @@ export interface EtudeDef {
   pressure?: number;
 }
 
+/** A built-in etude or drill's name and hint in the current language (player-made ones as typed). */
+export const etudeName = (d: EtudeDef): string => tx(`etude.${d.id}.name`, d.name);
+export const etudeHint = (d: EtudeDef): string => tx(`etude.${d.id}.hint`, d.hint);
+
 export function goalText(g: EtudeGoal): string {
+  const n = (v: number | undefined): number => v ?? 1;
   switch (g.type) {
     case 'allclear':
-      return 'Clear the wall';
+      return t('goal.allclear');
     case 'groups':
-      return `${g.value} groups in one pass`;
+      return t('goal.groups', { n: n(g.value) });
     case 'air':
-      return `Air-prime ${g.value}`;
+      return t('goal.air', { n: n(g.value) });
     case 'chain':
-      return `Chain ${g.value} passes`;
+      return t('goal.chain', { n: n(g.value) });
     case 'overcharge':
-      return `Overcharge ${g.value ?? 1}`;
+      return t('goal.overcharge', { n: n(g.value) });
     case 'survive':
-      return `Survive ${g.value} rising rows`;
+      return t('goal.survive', { n: n(g.value) });
     default:
-      return `Score ${g.value}`;
+      return t('goal.score', { n: n(g.value).toLocaleString(getLang()) });
   }
 }
 

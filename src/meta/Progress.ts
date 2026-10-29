@@ -4,6 +4,7 @@
  */
 
 import type { TrackDef } from '../audio/tracks.js';
+import { getLang, t } from '../i18n/core.js';
 import type { RunTelemetry } from '../pulse/PulseEngine.js';
 import type { SaveData } from './Save.js';
 
@@ -22,20 +23,20 @@ export interface Challenge {
 
 /** Rotating middle challenge so every movement asks for something a little different. */
 const VERBS: ((t: TrackDef) => Challenge)[] = [
-  () => ({ label: 'Land an All Clear', test: r => r.t.allClears >= 1 }),
-  () => ({ label: 'Overcharge 2 groups', test: r => r.t.overchargesLanded >= 2 }),
-  () => ({ label: 'Air-prime 3 groups', test: r => r.t.airPrimesLanded >= 3 }),
-  () => ({ label: 'Set off 5 groups in one pass', test: r => r.t.bestPassGroups >= 5 }),
-  () => ({ label: 'Chain 8 passes in a row', test: r => r.t.longestCombo >= 8 }),
-  () => ({ label: 'Clear it without a hold', test: r => r.cleared && r.t.overchargesLanded === 0 })
+  () => ({ label: t('ch.allClear'), test: r => r.t.allClears >= 1 }),
+  () => ({ label: t('ch.overcharge'), test: r => r.t.overchargesLanded >= 2 }),
+  () => ({ label: t('ch.air'), test: r => r.t.airPrimesLanded >= 3 }),
+  () => ({ label: t('ch.groups'), test: r => r.t.bestPassGroups >= 5 }),
+  () => ({ label: t('ch.chain'), test: r => r.t.longestCombo >= 8 }),
+  () => ({ label: t('ch.noHold'), test: r => r.cleared && r.t.overchargesLanded === 0 })
 ];
 
 export function challengesFor(track: TrackDef, index: number): Challenge[] {
   const scoreGoal = Math.round((track.quota * 1.6) / 1000) * 1000;
   return [
-    { label: 'Clear the movement', test: r => r.cleared },
+    { label: t('ch.clear'), test: r => r.cleared },
     VERBS[index % VERBS.length]!(track),
-    { label: `Score ${scoreGoal.toLocaleString('en-US')} in one run`, test: r => r.score >= scoreGoal }
+    { label: t('ch.score', { n: scoreGoal.toLocaleString(getLang()) }), test: r => r.score >= scoreGoal }
   ];
 }
 
