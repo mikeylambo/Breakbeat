@@ -15,6 +15,8 @@ await build({
   target: ['es2022', 'safari15'],
   outfile: 'public/app.js',
   minify: process.env.BB_DEV !== '1',
+  // Testing shortcuts (?unlock=…): in local and preview builds only; production strips them as dead code
+  define: { __DEV_TOOLS__: JSON.stringify(process.env.VERCEL_ENV !== 'production') },
   sourcemap: true,
   legalComments: 'none',
   loader: { '.json': 'json' },

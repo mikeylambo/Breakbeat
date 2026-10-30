@@ -1,5 +1,6 @@
 /** BREAKBEAT entry: screens and flow (title card -> main menu -> setlist / tutorial -> run -> results). */
 
+import { applyDevUnlock } from './dev.js';
 import { installErrorReporting } from './meta/ErrorReport.js';
 import { pickLang, setLang, t as tr } from './i18n/i18n.js';
 import { App, type RunConfig } from './ui/App.js';
@@ -30,6 +31,8 @@ const TAUGHT_CHARGE = 'breakbeat-taught-charge';
 // Language first: every screen reads its strings as it is built
 setLang(loadSettings().lang ?? pickLang(navigator.language));
 const app = new App();
+const unlocked = applyDevUnlock(app.save, () => app.persistSave());
+if (unlocked) console.info(`[dev] unlock=${unlocked} applied`);
 installErrorReporting(
   () => app.settings.errorReports,
   () => document.querySelector('[role="main"]:not(.hidden), [role="dialog"]:not(.hidden)')?.className.split(' ')[0] ?? (app.engine ? 'run' : null)
