@@ -91,6 +91,8 @@ export class WallView {
   reducedMotion = false;
   flashScale = 1;
   dangerLevel = 0;
+  /** The wall hangs from the ceiling (B-side Flip): rows push down, the danger line is at the bottom */
+  private flipped = false;
   allClearFlash = 0;
 
   constructor(
@@ -238,7 +240,7 @@ export class WallView {
     t.rot = 0;
     t.a = 1;
     if (this.collapseStart >= 0) {
-      const delay = (ROWS - 1 - r) * 0.07 + ((id * 37) % 7) * 0.012;
+      const delay = (this.flipped ? r : ROWS - 1 - r) * 0.07 + ((id * 37) % 7) * 0.012;
       const e = now - this.collapseStart - delay;
       if (e > 0) {
         if (this.reducedMotion) {
@@ -250,16 +252,24 @@ export class WallView {
         }
       }
     } else if (this.dealStart >= 0) {
-      const delay = (ROWS - 1 - r) * 0.045 + c * 0.008;
+      const delay = (this.flipped ? r : ROWS - 1 - r) * 0.045 + c * 0.008;
       const p = Math.min(1, Math.max(0, (now - this.dealStart - delay) / 0.28));
       if (p >= 1 && now - this.dealStart > 1.2) this.dealStart = -1;
       const e = 1 - (1 - p) * (1 - p) * (1 - p);
-      t.dy = -(1 - e) * 120;
+      t.dy = (this.flipped ? 1 : -1) * (1 - e) * 120;
       t.a = p;
     }
   }
 
-  /** Pressure push: the whole wall slides up one row over 160 ms. */
+  /** Flip (B-sides): moves the danger line and the next-row preview to the other end of the wall. */
+  setFlipped(on: boolean): void {
+    this.flipped = on;
+    this.dangerLine.y = on ? (ROWS - 2 * TUNING.DANGER_ROWS) * PITCH : 0;
+    for (const p of this.preview) p.y = on ? WY - 16 : TUNING.PREVIEW_Y;
+    this.markDirty();
+  }
+
+  /** Pressure push: the whole wall slides one row (up, or down when flipped) over 160 ms. */
   startPush(visualSec: number): void {
     if (!this.reducedMotion) this.pushStartSec = visualSec;
   }
@@ -434,7 +444,7 @@ export class WallView {
     if (this.pushStartSec >= 0) {
       const p = (visualSec - this.pushStartSec) / 0.16;
       if (p >= 1 || p < 0) this.pushStartSec = -1;
-      else push = PITCH * (1 - p) * (1 - p);
+      else push = (this.flipped ? -PITCH : PITCH) * (1 - p) * (1 - p);
     }
 
     // Anticipation: squash primed groups in the ~3 frames before the blade reaches them

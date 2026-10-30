@@ -116,5 +116,6 @@
 "board.nameAria":"Name auf der Rangliste",
 "set.errors":"Fehlerberichte senden","set.errorsNote":"Anonyme Absturzdaten, ohne Namen oder Spielstände",
 "title.practice":"Training","pr.title":"Training","pr.practise":"Trainieren","pr.practiseAria":"{name} trainieren","pr.sayOpen":"Training: {name}. Wähle Abschnitt, Tempo und Wand, dann Enter.","pr.wall":"Wand","pr.wall.still":"Ruhig","pr.wall.rising":"Steigend","pr.wall.fast":"Schnell","pr.wall.pressure":"Druck","pr.wallNote.still":"Keine steigenden Reihen: nur der Groove","pr.wallNote.rising":"Reihen steigen im Tempo des Satzes","pr.wallNote.fast":"Jeden Takt eine neue Reihe","pr.wallNote.pressure":"Startet einen Schub vor der Gefahr, steigt alle 2 Takte","pr.start":"Start","pr.startAria":"{name} trainieren starten","pr.backAria":"Zurück zum Satz","pr.again":"Nochmal","pr.change":"Einstellungen ändern",
-"pr.section":"Abschnitt"
+"pr.section":"Abschnitt",
+"title.remix":"B-Seite","rx.sides":"Seiten","rx.aside":"A-SEITE","rx.bside":"B-Seite","rx.sayA":"A-Seiten: die Odyssee.","rx.sayB":"B-Seiten: jeder Satz als Remix mit neuer Regel.","rx.twist.flip":"Kopfüber","rx.twist.five":"Fünf","rx.twist.double":"Doppeltempo","rx.desc.flip":"Die Wand hängt von der Decke: Neue Reihen schieben nach unten, Blöcke fallen nach oben.","rx.desc.five":"Fünf Farben ab dem ersten Takt.","rx.desc.double":"Die Wand steigt im Doppeltempo: jeden Takt eine neue Reihe.","rx.playAria":"B-Seite von {name} spielen","rx.cleared":"B-SEITE GESCHAFFT","rx.clearedTag":"Geschafft","rx.sayCleared":"B-Seite geschafft: {name}. Weiter so."
 }

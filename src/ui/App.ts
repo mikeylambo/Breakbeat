@@ -3,7 +3,7 @@
  * One frame loop: query the audio clock once, hand the result to engine, renderer and HUD.
  */
 
-import { t as tr, tx } from '../i18n/i18n.js';
+import { getLang, t as tr, tx } from '../i18n/i18n.js';
 import { etudeHint, etudeName } from '../meta/Etude.js';
 import { TUNING, computeComboMultiplier, type GameMode } from '../tuning.js';
 import { BeatClock, createBeatQuery } from '../pulse/BeatClock.js';
@@ -35,6 +35,7 @@ import { installBrowserLifecycle } from '../platform/Lifecycle.js';
 import { loadSave, mastery, todayUtc, writeSave, type SaveData } from '../meta/Save.js';
 import { evaluate as evaluateAchievements, noteDaily, type AchContext, type AchDef } from '../meta/Achievements.js';
 import type { PracticeSetup } from '../meta/Practice.js';
+import { bsideKey, remixRules } from '../meta/Remix.js';
 import { awardChallenges, recordStats } from '../meta/Progress.js';
 import type { EtudeDef } from '../meta/Etude.js';
 import { loadSettings, saveSettings, type Settings } from '../meta/Settings.js';
@@ -199,12 +200,10 @@ export class App {
         if (!run || !e) return { title: '', score: '', quit: this.quitLabel() };
         const t = run.track;
         const title =
-          run.mode === 'etude'
-            ? `${run.cfg.etude?.topic ? 'TRY IT' : 'ETUDE'} · ${run.cfg.etude?.name.toUpperCase() ?? ''}`
-            : run.mode === 'overture'
-              ? 'OVERTURE'
-              : `${run.mode === 'odyssey' ? `ACT ${t.act} · ` : `${run.mode.toUpperCase()} · `}${t.number} ${t.name.toUpperCase()} · BAR ${Math.max(1, e.currentBar)}`;
-        return { title, score: run.mode === 'overture' || run.mode === 'etude' ? '' : Math.round(e.telemetry.score * run.bpmScale).toLocaleString('en-US'), quit: this.quitLabel() };
+          run.mode === 'etude' || run.mode === 'overture'
+            ? this.modeLabel(run)
+            : `${run.mode === 'odyssey' ? `${tr('sl.act', { n: t.act }).toUpperCase()} · ` : `${this.modeLabel(run)} · `}${t.number} ${t.name.toUpperCase()} · ${tr('hud.barN', { n: Math.max(1, e.currentBar) })}`;
+        return { title, score: run.mode === 'overture' || run.mode === 'etude' ? '' : Math.round(e.telemetry.score * run.bpmScale).toLocaleString(getLang()), quit: this.quitLabel() };
       }
     });
   }
@@ -373,6 +372,7 @@ export class App {
     const trackIndex = App.trackIndex(cfg.mode, cfg.movement);
     const track = cfg.track ?? (overture ? OVERTURE : MOVEMENTS[trackIndex]!);
     const practice = cfg.mode === 'practice' ? cfg.practice : undefined;
+    const remix = cfg.mode === 'remix' ? remixRules(track, trackIndex) : undefined;
     const bpmScale = cfg.mode === 'daily' || overture ? 1 : practice ? Math.max(0.7, Math.min(1, practice.tempo)) : this.settings.bpmScale;
     const bpm = track.bpm * bpmScale;
     const seed = cfg.seed ?? (cfg.mode === 'daily' ? `daily-${todayUtc()}` : `${cfg.mode}-${Date.now().toString(36)}`);
@@ -385,8 +385,9 @@ export class App {
         seed,
         mode: cfg.mode,
         bpm,
-        colorCount: track.colors,
-        riseBars: cfg.etude?.pressure ?? (practice?.wall === 'fast' ? 1 : practice?.wall === 'pressure' ? 2 : track.riseBars),
+        colorCount: remix?.colors ?? track.colors,
+        riseBars: cfg.etude?.pressure ?? remix?.riseBars ?? (practice?.wall === 'fast' ? 1 : practice?.wall === 'pressure' ? 2 : track.riseBars),
+        pressureFrom: remix?.flip ? 'top' : 'bottom',
         pressureEnabled: !overture && (!cfg.etude || !!cfg.etude.pressure) && practice?.wall !== 'still',
         fixedDeal: cfg.etude?.board,
         initialRows: practice?.wall === 'pressure' ? TUNING.BOARD_ROWS - TUNING.DANGER_ROWS - 1 : undefined,
@@ -426,6 +427,7 @@ export class App {
     this.audio.setDanger(0, this.audio.now + 0.05, 0.05);
     this.wall.markDirty();
     this.wall.dangerLevel = 0;
+    this.wall.setFlipped(engine.config.pressureFrom === 'top');
     this.wall.setPoolTint(trackTint(track), performance.now() / 1000, 0);
     this.applyWorld(track, !overture && !cfg.etude);
     this.wall.dealIn(performance.now() / 1000);
@@ -442,12 +444,20 @@ export class App {
     else if (!overture) announce(tr('say.movementBpm', { num: track.number, name: track.name, bpm: Math.round(bpm) }));
   }
 
+  /** "ENDLESS", "B-SIDE", "TRY IT · PRIME"…: the run's mode in the current language, upper case. */
+  private modeLabel(run: RunState): string {
+    if (run.mode === 'etude') return `${run.cfg.etude?.topic ? tr('tut.tryTag') : tr('say.etude').toUpperCase()} · ${run.cfg.etude ? etudeName(run.cfg.etude).toUpperCase() : ''}`;
+    if (run.mode === 'overture') return tr('ls.overture').toUpperCase();
+    return tx(`title.${run.mode}`, run.mode).toUpperCase();
+  }
+
   /** The key a run's best (and its ghost) is kept under; null for runs that keep none. */
   static ghostKey(cfg: RunConfig, movement: number): string | null {
     if (cfg.etude || cfg.mode === 'overture' || cfg.mode === 'practice') return null;
     if (cfg.track) return cfg.track.id;
     if (cfg.mode === 'daily') return `daily-${todayUtc()}`;
     if (cfg.mode === 'odyssey') return MOVEMENTS[movement]!.id;
+    if (cfg.mode === 'remix') return bsideKey(MOVEMENTS[movement]!.id);
     return cfg.mode;
   }
 
@@ -799,7 +809,7 @@ export class App {
     const ghostKey = App.ghostKey(run.cfg, run.startMovement);
     if (replay && ghostKey) void this.ghosts.offer({ key: ghostKey, score, scale: run.bpmScale, replay, at: Date.now() });
     this.ghost = null;
-    const key = run.cfg.track ? run.cfg.track.id : run.mode === 'odyssey' ? MOVEMENTS[run.startMovement]!.id : run.mode;
+    const key = run.cfg.track ? run.cfg.track.id : run.mode === 'odyssey' ? MOVEMENTS[run.startMovement]!.id : run.mode === 'remix' ? bsideKey(MOVEMENTS[run.startMovement]!.id) : run.mode;
     let previousBest = 0;
     if (run.mode === 'daily') {
       const today = todayUtc();
@@ -836,7 +846,7 @@ export class App {
     this.blade.setStyle(c.blade, c.accent);
     this.fx.setShardMaterial(c.shard);
     if (!card) return;
-    this.card.innerHTML = `<div class="mc-num">${track.flatMix ? `MY BEAT · ${Math.round(track.bpm)} BPM` : `${track.number} · ${track.style.toUpperCase()}`}</div><div class="mc-name">${track.name}</div>`;
+    this.card.innerHTML = `<div class="mc-num">${track.flatMix ? `MY BEAT · ${Math.round(track.bpm)} BPM` : this.run?.mode === 'remix' ? `${track.number} · ${tr('rx.bside').toUpperCase()} · ${tx(`rx.twist.${remixRules(track, this.run.startMovement).twist}`, '').toUpperCase()}` : `${track.number} · ${track.style.toUpperCase()}`}</div><div class="mc-name">${track.name}</div>`;
     this.card.style.setProperty('--accent', `#${c.accent.toString(16).padStart(6, '0')}`);
     this.card.classList.remove('show');
     void this.card.offsetWidth;
@@ -878,8 +888,20 @@ export class App {
     const run = this.run;
     const e = this.engine;
     if (!run || !e || run.ended || run.morph) return;
-    if (run.cfg.track || (run.mode !== 'odyssey' && run.mode !== 'endless' && run.mode !== 'daily')) return;
     const earned = e.telemetry.score - run.movementStartScore;
+    if (run.mode === 'remix' && earned >= run.track.quota) {
+      // A B-side is one movement: reaching its quota clears it, then it plays on until the wall wins
+      if (!this.save.bsides.includes(run.track.id)) {
+        this.save.bsides.push(run.track.id);
+        this.persistSave();
+      }
+      run.movementsCleared++;
+      run.movementStartScore = Number.POSITIVE_INFINITY;
+      this.hud.calloutText(tr('rx.cleared'), run.track.name.toUpperCase());
+      announce(tr('rx.sayCleared', { name: run.track.name }));
+      return;
+    }
+    if (run.cfg.track || (run.mode !== 'odyssey' && run.mode !== 'endless' && run.mode !== 'daily')) return;
     if (earned < run.track.quota) return;
     if (run.mode === 'odyssey') {
       const id = run.track.id;
@@ -1137,7 +1159,7 @@ export class App {
         chainRank: e.chainRank,
         combo: computeComboMultiplier(e.comboPasses),
         layers: this.stems.activeLayers,
-        movement: run.cfg.track ? run.track.name.toUpperCase() : run.mode === 'etude' ? `${run.cfg.etude?.topic ? 'TRY IT' : 'ETUDE'} · ${run.cfg.etude?.name.toUpperCase() ?? ''}` : run.mode === 'overture' ? 'OVERTURE' : run.mode === 'odyssey' ? `${run.track.number} · ${run.track.name.toUpperCase()}` : `${run.mode.toUpperCase()} · ${run.track.name.toUpperCase()}`,
+        movement: run.cfg.track ? run.track.name.toUpperCase() : run.mode === 'odyssey' ? `${run.track.number} · ${run.track.name.toUpperCase()}` : run.mode === 'etude' || run.mode === 'overture' ? this.modeLabel(run) : `${this.modeLabel(run)} · ${run.track.name.toUpperCase()}`,
         bpm: this.clock.bpm,
         bar: e.currentBar,
         risesIn: e.barsUntilNextPush,

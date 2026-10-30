@@ -147,6 +147,7 @@ async function main(): Promise<void> {
   const setlist = new SetlistScreen({
     play: i => w(() => play({ mode: 'odyssey', movement: i }))(),
     practise: (i, setup) => w(() => play({ mode: 'practice', movement: i, practice: setup }))(),
+    remix: i => w(() => play({ mode: 'remix', movement: i }))(),
     preview: i => preview('odyssey', i),
     back: () => {
       setlist.hide();

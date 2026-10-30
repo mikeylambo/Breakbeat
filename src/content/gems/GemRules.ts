@@ -19,6 +19,9 @@ import type {
 } from '../../pulse/types.js';
 import type { BlockMaterialType } from './Skins.js';
 
+/** Wildcard / hazard / detonator blocks in Remix. Engine support exists; rendering does not yet. */
+const SPECIAL_BLOCKS = false;
+
 export class GemRules implements ContentRules {
   readonly gesture = 'tap-prime-hold' as const;
   readonly cols = TUNING.BOARD_COLS;
@@ -69,7 +72,8 @@ export class GemRules implements ContentRules {
       let timerBars: number | undefined;
 
       // PURITY gate: special blocks ONLY in 'remix' mode
-      if (ctx.mode === 'remix' && ctx.bar > 0) {
+      // Off until special blocks have art and a tutorial: an unseen hazard would read as a bug
+      if (SPECIAL_BLOCKS && ctx.mode === 'remix' && ctx.bar > 0) {
         const roll = rng.nextFloat();
         if (roll < 0.04) {
           special = 'wildcard';

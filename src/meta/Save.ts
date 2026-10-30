@@ -24,6 +24,8 @@ export interface SaveData {
   achievements: string[];
   /** Achievement counters that no other save field keeps (e.g. distinct Daily days) */
   counters: Record<string, number>;
+  /** Movement ids whose B-side (Remix) quota has been reached */
+  bsides: string[];
 }
 
 export interface LifetimeStats {
@@ -57,7 +59,8 @@ export function loadSave(): SaveData {
     equipped: { blade: d.equipped?.blade ?? 'auto', shard: d.equipped?.shard ?? 'auto' },
     etudes: Array.isArray(d.etudes) ? d.etudes : [],
     achievements: Array.isArray(d.achievements) ? d.achievements : [],
-    counters: d.counters && typeof d.counters === 'object' ? d.counters : {}
+    counters: d.counters && typeof d.counters === 'object' ? d.counters : {},
+    bsides: Array.isArray(d.bsides) ? d.bsides.filter(x => typeof x === 'string') : []
   };
 }
 
@@ -69,6 +72,11 @@ export function writeSave(s: SaveData): void {
 export function nextMovementIndex(s: SaveData): number {
   for (let i = 0; i < MOVEMENTS.length; i++) if (!s.cleared.includes(MOVEMENTS[i]!.id)) return i;
   return MOVEMENTS.length - 1;
+}
+
+/** The Odyssey is complete: every movement cleared. B-sides (Remix) open then, New Game+ style. */
+export function odysseyComplete(s: SaveData): boolean {
+  return MOVEMENTS.every(m => s.cleared.includes(m.id));
 }
 
 export function isUnlocked(s: SaveData, index: number): boolean {

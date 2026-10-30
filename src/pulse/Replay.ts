@@ -21,6 +21,8 @@ export interface Replay {
   colors: number;
   rise: number;
   pressure: boolean;
+  /** Pressure from the top (B-side Flip); absent in older replays, which all rise from the bottom */
+  flip?: boolean;
   events: ReplayEvent[];
   /** Engine step where the run ended, and its raw score (before the tempo-scale normalisation) */
   end: { s: number; score: number };
@@ -46,6 +48,7 @@ export function replayOf(engine: PulseEngine): Replay {
     colors: c.colorCount ?? engine.config.colorCount,
     rise: c.riseBars ?? engine.config.riseBars,
     pressure: c.pressureEnabled ?? true,
+    ...(c.pressureFrom === 'top' ? { flip: true } : {}),
     events: engine.log.map(e => ({ ...e })),
     end: { s: engine.currentStep, score: engine.telemetry.score }
   };
@@ -60,7 +63,7 @@ function advance(e: PulseEngine, target: number): void {
 
 /** A fresh engine for `r`, before any event. */
 export function engineFor(r: Replay, rules: ContentRules): PulseEngine {
-  return new PulseEngine({ seed: r.seed, mode: r.mode, bpm: r.bpm, colorCount: r.colors, riseBars: r.rise, pressureEnabled: r.pressure }, rules);
+  return new PulseEngine({ seed: r.seed, mode: r.mode, bpm: r.bpm, colorCount: r.colors, riseBars: r.rise, pressureEnabled: r.pressure, pressureFrom: r.flip ? 'top' : 'bottom' }, rules);
 }
 
 /**

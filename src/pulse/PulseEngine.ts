@@ -783,7 +783,11 @@ export class PulseEngine {
 
     // Run ContentRules.collapse(board) while protecting remaining locked groups
     const remainingLocked = this.getLockedTileIds();
+    // A wall that hangs from the ceiling (pressure from the top) falls upward: collapse it mirrored
+    const flipped = this.config.pressureFrom === 'top';
+    if (flipped) this.mirrorRows();
     const { movedTileIds } = this.rules.collapse(this.board, remainingLocked);
+    if (flipped) this.mirrorRows();
 
     if (movedTileIds.length > 0) {
       for (const id of movedTileIds) {
@@ -814,6 +818,12 @@ export class PulseEngine {
 
     this.checkWallStateBonuses(step);
     this.updateDanger(step);
+  }
+
+  /** Reverses the board's rows in place (tile rows follow), so rules written for downward gravity run upward. */
+  private mirrorRows(): void {
+    this.board.reverse();
+    for (let r = 0; r < this.board.length; r++) for (const t of this.board[r]!) if (t) t.row = r;
   }
 
   /** All Clear / One Colour Left, evaluated after a 16th's detonations and collapse. */

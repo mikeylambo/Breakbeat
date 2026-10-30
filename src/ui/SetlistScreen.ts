@@ -8,7 +8,8 @@
 import { ACTS, MOVEMENTS } from '../audio/tracks.js';
 import { t } from '../i18n/i18n.js';
 import { challengesFor, starCount } from '../meta/Progress.js';
-import { isUnlocked, mastery, nextMovementIndex, type SaveData } from '../meta/Save.js';
+import { isUnlocked, mastery, nextMovementIndex, odysseyComplete, type SaveData } from '../meta/Save.js';
+import { bsideKey, twistFor } from '../meta/Remix.js';
 import { readJson, writeJson } from '../platform/Storage.js';
 import { hex } from '../render/palette.js';
 import { worldFor } from '../render/worlds.js';
@@ -20,6 +21,8 @@ import { SleeveLayer } from './SleeveLayer.js';
 export interface SetlistActions {
   play(index: number): void;
   practise(index: number, setup: PracticeSetup): void;
+  /** Play the movement's B-side (Remix) */
+  remix(index: number): void;
   preview(index: number): void;
   back(): void;
 }
@@ -45,6 +48,9 @@ export class SetlistScreen {
   /** The practice setup panel is showing for the selected movement */
   private practising = false;
   private setup = loadSetup();
+  /** Showing the B-sides (open once the Odyssey is complete) */
+  private bside = false;
+  private readonly sideTabs = el('div', 'side-tabs', '', { role: 'tablist', 'aria-label': t('rx.sides') });
 
   constructor(private readonly a: SetlistActions) {
     this.list = new MenuList({
@@ -58,7 +64,11 @@ export class SetlistScreen {
           else this.a.back();
           return true;
         }
-        if ((e.key === 'p' || e.key === 'P') && !e.repeat && this.save && isUnlocked(this.save, this.selected)) {
+        if ((e.key === 'b' || e.key === 'B') && !e.repeat && this.save && odysseyComplete(this.save)) {
+          this.setSide(!this.bside);
+          return true;
+        }
+        if ((e.key === 'p' || e.key === 'P') && !e.repeat && !this.bside && this.save && isUnlocked(this.save, this.selected)) {
           uiSound('pick');
           this.showPractice(!this.practising);
           return true;
@@ -78,7 +88,7 @@ export class SetlistScreen {
       }
     });
     const head = el('div', 'sl-head');
-    head.append(el('h2', 'sl-title', t('sl.title')), this.acts);
+    head.append(el('h2', 'sl-title', t('sl.title')), this.acts, this.sideTabs);
     const left = el('section', 'sl-left');
     left.append(head, this.list.root);
     const foot = el('div', 'sl-foot', t('sl.keys'));
@@ -95,6 +105,7 @@ export class SetlistScreen {
   open(save: SaveData, index = nextMovementIndex(save), practice = false): void {
     this.save = save;
     this.practising = practice && isUnlocked(save, index);
+    if (!odysseyComplete(save) || practice) this.bside = false;
     this.act = MOVEMENTS[index]!.act;
     this.root.classList.remove('hidden');
     this.renderList(MOVEMENTS.filter(m => m.act === this.act).indexOf(MOVEMENTS[index]!));
@@ -111,10 +122,30 @@ export class SetlistScreen {
     this.renderList(at);
   }
 
+  private setSide(b: boolean): void {
+    this.bside = b;
+    this.practising = false;
+    uiSound('move', b ? 3 : 1);
+    this.root.classList.toggle('bside', b);
+    this.renderList(MOVEMENTS.filter(m => m.act === this.act).indexOf(MOVEMENTS[this.selected]!));
+    announce(b ? t('rx.sayB') : t('rx.sayA'));
+  }
+
   private renderList(index: number): void {
     const save = this.save;
     if (!save) return;
     const next = nextMovementIndex(save);
+    const complete = odysseyComplete(save);
+    this.sideTabs.hidden = !complete;
+    this.sideTabs.innerHTML = '';
+    if (complete)
+      for (const b of [false, true]) {
+        const tab = button(`act-tab side-tab${b === this.bside ? ' on' : ''}`, b ? t('rx.bside').toUpperCase() : t('rx.aside'), b ? t('rx.bside') : t('rx.aside'), () => b !== this.bside && this.setSide(b));
+        tab.setAttribute('role', 'tab');
+        tab.setAttribute('aria-selected', String(b === this.bside));
+        this.sideTabs.appendChild(tab);
+      }
+    this.root.classList.toggle('bside', this.bside);
     this.acts.innerHTML = '';
     for (const a of ACTS) {
       const tab = button(`act-tab${a === this.act ? ' on' : ''}`, actName(a).toUpperCase(), actName(a), () => this.setAct(a, 0));
@@ -126,6 +157,20 @@ export class SetlistScreen {
     MOVEMENTS.forEach((m, i) => {
       if (m.act !== this.act) return;
       const unlocked = isUnlocked(save, i);
+      if (this.bside) {
+        const best = save.best[bsideKey(m.id)] ?? 0;
+        const rank = best > 0 ? mastery(best).rank : null;
+        const done = save.bsides.includes(m.id);
+        const twist = t(`rx.twist.${twistFor(m, i)}`);
+        items.push({
+          id: String(i),
+          label: `${m.number} ${m.name}, ${t('rx.bside')}: ${twist}.${done ? ` ${t('et.solvedAria')}` : ''}`,
+          cls: 'track-row',
+          action: () => this.a.remix(i),
+          html: `<span class="track-num">${m.number}</span><span class="track-name">${m.name}<small>${twist.toUpperCase()}</small></span><span class="track-stars" aria-hidden="true">${done ? '✓' : ''}</span>${rank ? `<span class="badge badge-${rank.toLowerCase()}">${BADGE_LABEL[rank]}</span>` : '<span class="badge badge-none"></span>'}<span class="track-lock"></span>`
+        });
+        return;
+      }
       const best = save.best[m.id] ?? 0;
       const rank = best > 0 ? mastery(best).rank : null;
       const sc = starCount(save.stars[m.id]);
@@ -152,6 +197,7 @@ export class SetlistScreen {
     const accent = hex(worldFor(m.style).accent);
     this.root.style.setProperty('--sel-accent', accent);
     (this.root.querySelector('.sl-ghost') as HTMLElement).textContent = m.number;
+    if (this.bside) return this.renderBside(i);
     const best = save.best[m.id] ?? 0;
     const ms = mastery(best);
     const mask = save.stars[m.id] ?? 0;
@@ -186,6 +232,29 @@ export class SetlistScreen {
       }
       this.a.preview(i);
     }
+  }
+
+  /** A B-side in detail: its twist in place of the challenges, its own best, and Play. */
+  private renderBside(i: number): void {
+    const save = this.save!;
+    const m = MOVEMENTS[i]!;
+    const twist = twistFor(m, i);
+    const best = save.best[bsideKey(m.id)] ?? 0;
+    const ms = mastery(best);
+    const done = save.bsides.includes(m.id);
+    this.detail.innerHTML = `
+      <div class="sld-kicker">${t('rx.bside').toUpperCase()} · ${actName(m.act).toUpperCase()} · ${m.number}</div>
+      <div class="sld-name">${m.name}</div>
+      <div class="sld-meta"><span>${m.style.toUpperCase()}</span><span>${m.bpm} BPM</span><span>${t('sl.key', { key: m.key.toUpperCase() })}</span></div>
+      <div class="sld-best"><div><small>${t('sl.best')}</small><b>${best ? fmt(best) : '—'}</b></div>${best ? `<span class="badge badge-${ms.rank.toLowerCase()}">${ms.rank}</span>` : ''}</div>
+      <div class="rx-twist"><b>${t(`rx.twist.${twist}`)}</b><span>${t(`rx.desc.${twist}`)}</span>${done ? `<small>✓ ${t('rx.clearedTag')}</small>` : ''}</div>`;
+    this.detail.appendChild(
+      button('btn btn-primary sld-play', `${ICONS.play}<span>${t('title.play')}</span>`, t('rx.playAria', { name: m.name }), () => {
+        uiSound('pick');
+        this.a.remix(i);
+      })
+    );
+    this.a.preview(i);
   }
 
   private showPractice(on: boolean): void {

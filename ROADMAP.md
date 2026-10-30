@@ -85,8 +85,11 @@ can't be cheated cheap to build, so use it.
       (A / B / C), 70–100% tempo, and a wall (Still, Rising, Fast, or Under pressure: dealt one push from the
       danger line). The cadence never tightens. No bests, stars, ghosts or replays; stats and the coach still
       count. Results offer Again and Change setup; Odyssey results offer Practise, next to "Practise next".
-- [ ] **Remix (B-side) variants**: each movement gets a remix ruleset (inverted gravity, 5 colours from bar
-      one, double-time pressure) for New Game+. That doubles the content without new music.
+- [x] **Remix (B-side) variants**: once the Odyssey is complete, the Odyssey screen gets A-SIDE / B-SIDE tabs
+      (or B). Each B-side has one twist, chosen among those that change it: Flip (the wall hangs from the
+      ceiling, blocks fall up), Five (five colours from bar one), Double time (a row every bar). Act I rotates
+      all three, Act II flip / double, Act III and the Coda flip. Own best, ghost and cleared mark; no stars.
+      Replays carry `flip`. Later: special blocks (wildcard / hazard / detonator) need art before they spawn.
 - [ ] **Mixtape mode**: a playlist of movements back to back, with bar-aligned crossfades. Score is cumulative.
 - [ ] **Streamer / photo mode**: a chroma-key background, a big-score overlay, and a replay director that
       pauses, scrubs and frees the camera on the best-pass loop.

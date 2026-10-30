@@ -714,6 +714,12 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .bt-del:hover { color: var(--magenta); }
 .bt-progress { margin-top: 18px; height: 3px; background: rgba(244, 241, 234, 0.08); overflow: hidden; }
 .bt-progress i { display: block; height: 100%; background: var(--held); transform-origin: left; transition: transform 0.4s var(--ease-out); box-shadow: 0 0 10px var(--held); }
+.side-tabs { margin-left: 14px; padding-left: 14px; border-left: 1px solid var(--hair); display: flex; gap: 2px; }
+.side-tabs[hidden] { display: none; }
+.rx-twist { margin-top: 16px; display: flex; flex-direction: column; gap: 5px; max-width: 34ch; }
+.rx-twist b { font: 600 10px/1 var(--mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--held); }
+.rx-twist span { font: 500 11.5px/1.45 var(--body); color: var(--text); }
+.rx-twist small { font: 500 10px/1 var(--mono); letter-spacing: 0.12em; color: var(--secondary); }
 .pr-panel { margin-top: 14px; display: flex; flex-direction: column; gap: 7px; }
 .pr-panel + .bt-actions { margin-top: 12px; }
 .pr-kicker { font: 600 10px/1 var(--mono); letter-spacing: 0.18em; color: var(--held); }

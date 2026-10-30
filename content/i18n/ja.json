@@ -116,5 +116,6 @@
 "board.nameAria":"ボードに表示する名前",
 "set.errors":"エラーレポートを送信","set.errorsNote":"匿名のクラッシュ情報のみ。名前やセーブは送りません",
 "title.practice":"練習","pr.title":"練習","pr.practise":"練習する","pr.practiseAria":"{name}を練習","pr.sayOpen":"練習：{name}。セクション、テンポ、壁を選んでEnter。","pr.wall":"壁","pr.wall.still":"静止","pr.wall.rising":"上昇","pr.wall.fast":"高速","pr.wall.pressure":"プレッシャー","pr.wallNote.still":"段はせり上がらない：グルーヴだけ","pr.wallNote.rising":"楽章本来のペースでせり上がる","pr.wallNote.fast":"毎小節、新しい段","pr.wallNote.pressure":"危険まであと1段から開始、2小節ごとにせり上がる","pr.start":"スタート","pr.startAria":"{name}の練習を開始","pr.backAria":"楽章へ戻る","pr.again":"もう一度","pr.change":"設定を変える",
-"pr.section":"セクション"
+"pr.section":"セクション",
+"title.remix":"Bサイド","rx.sides":"サイド","rx.aside":"Aサイド","rx.bside":"Bサイド","rx.sayA":"Aサイド：オデッセイ。","rx.sayB":"Bサイド：全楽章を新しいルールでリミックス。","rx.twist.flip":"フリップ","rx.twist.five":"ファイブ","rx.twist.double":"ダブルタイム","rx.desc.flip":"壁は天井から下がる：新しい段は下へ押し出し、ブロックは上へ落ちる。","rx.desc.five":"1小節目から5色。","rx.desc.double":"壁は倍速でせり上がる：毎小節、新しい段。","rx.playAria":"{name}のBサイドをプレイ","rx.cleared":"Bサイド クリア","rx.clearedTag":"クリア済み","rx.sayCleared":"Bサイド クリア：{name}。そのまま続けよう。"
 }
