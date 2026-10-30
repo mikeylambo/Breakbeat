@@ -90,7 +90,10 @@ can't be cheated cheap to build, so use it.
       ceiling, blocks fall up), Five (five colours from bar one), Double time (a row every bar). Act I rotates
       all three, Act II flip / double, Act III and the Coda flip. Own best, ghost and cleared mark; no stars.
       Replays carry `flip`. Later: special blocks (wildcard / hazard / detonator) need art before they spawn.
-- [ ] **Mixtape mode**: a playlist of movements back to back, with bar-aligned crossfades. Score is cumulative.
+- [x] **Mixtape mode** (title menu): build a tape of 2–8 unlocked movements (repeats allowed; Shuffle, Clear;
+      remembered on the device). Each track plays 24 bars (A, B, C), then the next crossfades in on a downbeat,
+      scheduled a bar ahead, while the wall carries on. Score is cumulative; the run ends with the tape or the
+      wall. Each tape keeps its own best and ghost (key: its track ids in order).
 - [ ] **Streamer / photo mode**: a chroma-key background, a big-score overlay, and a replay director that
       pauses, scrubs and frees the camera on the best-pass loop.
 

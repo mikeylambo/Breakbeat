@@ -35,6 +35,7 @@ import { installBrowserLifecycle } from '../platform/Lifecycle.js';
 import { loadSave, mastery, todayUtc, writeSave, type SaveData } from '../meta/Save.js';
 import { evaluate as evaluateAchievements, noteDaily, type AchContext, type AchDef } from '../meta/Achievements.js';
 import type { PracticeSetup } from '../meta/Practice.js';
+import { MIXTAPE_BARS, tapeKey } from '../meta/Mixtape.js';
 import { bsideKey, remixRules } from '../meta/Remix.js';
 import { awardChallenges, recordStats } from '../meta/Progress.js';
 import type { EtudeDef } from '../meta/Etude.js';
@@ -61,6 +62,8 @@ export interface RunConfig {
   track?: TrackDef;
   /** Practice: one movement, one looping section, a chosen tempo and wall. Keeps no bests. */
   practice?: PracticeSetup;
+  /** Mixtape: movement indices in play order */
+  mixtape?: number[];
 }
 
 
@@ -79,6 +82,8 @@ export interface RunState {
   replayable: boolean;
   bpmScale: number;
   movementsCleared: number;
+  /** Mixtape: index into cfg.mixtape of the track playing */
+  tapePos: number;
   startedMs: number;
 }
 
@@ -369,7 +374,7 @@ export class App {
     this.stopAttract();
     const overture = cfg.mode === 'overture';
     const index = overture ? 0 : Math.max(0, Math.min(MOVEMENTS.length - 1, cfg.movement));
-    const trackIndex = App.trackIndex(cfg.mode, cfg.movement);
+    const trackIndex = cfg.mode === 'mixtape' && cfg.mixtape?.length ? cfg.mixtape[0]! : App.trackIndex(cfg.mode, cfg.movement);
     const track = cfg.track ?? (overture ? OVERTURE : MOVEMENTS[trackIndex]!);
     const practice = cfg.mode === 'practice' ? cfg.practice : undefined;
     const remix = cfg.mode === 'remix' ? remixRules(track, trackIndex) : undefined;
@@ -411,6 +416,7 @@ export class App {
       replayable: !overture && !cfg.etude && !practice,
       bpmScale,
       movementsCleared: 0,
+      tapePos: 0,
       startedMs: performance.now()
     };
     this.paused = false;
@@ -448,6 +454,7 @@ export class App {
   private modeLabel(run: RunState): string {
     if (run.mode === 'etude') return `${run.cfg.etude?.topic ? tr('tut.tryTag') : tr('say.etude').toUpperCase()} · ${run.cfg.etude ? etudeName(run.cfg.etude).toUpperCase() : ''}`;
     if (run.mode === 'overture') return tr('ls.overture').toUpperCase();
+    if (run.mode === 'mixtape') return `${tr('title.mixtape').toUpperCase()} ${run.tapePos + 1}/${run.cfg.mixtape?.length ?? 1}`;
     return tx(`title.${run.mode}`, run.mode).toUpperCase();
   }
 
@@ -458,6 +465,7 @@ export class App {
     if (cfg.mode === 'daily') return `daily-${todayUtc()}`;
     if (cfg.mode === 'odyssey') return MOVEMENTS[movement]!.id;
     if (cfg.mode === 'remix') return bsideKey(MOVEMENTS[movement]!.id);
+    if (cfg.mode === 'mixtape') return tapeKey(cfg.mixtape ?? [], MOVEMENTS);
     return cfg.mode;
   }
 
@@ -809,7 +817,7 @@ export class App {
     const ghostKey = App.ghostKey(run.cfg, run.startMovement);
     if (replay && ghostKey) void this.ghosts.offer({ key: ghostKey, score, scale: run.bpmScale, replay, at: Date.now() });
     this.ghost = null;
-    const key = run.cfg.track ? run.cfg.track.id : run.mode === 'odyssey' ? MOVEMENTS[run.startMovement]!.id : run.mode === 'remix' ? bsideKey(MOVEMENTS[run.startMovement]!.id) : run.mode;
+    const key = run.cfg.track ? run.cfg.track.id : run.mode === 'odyssey' ? MOVEMENTS[run.startMovement]!.id : run.mode === 'remix' ? bsideKey(MOVEMENTS[run.startMovement]!.id) : run.mode === 'mixtape' ? tapeKey(run.cfg.mixtape ?? [], MOVEMENTS) : run.mode;
     let previousBest = 0;
     if (run.mode === 'daily') {
       const today = todayUtc();
@@ -875,7 +883,9 @@ export class App {
     const n = t.sections.length;
     if (n < 2) return;
     let p: number;
-    if (run.mode === 'zen' || !Number.isFinite(run.movementStartScore) || t.quota <= 0) {
+    if (run.mode === 'mixtape') {
+      p = (e.currentBar - (run.movementStartBar ?? 1)) / MIXTAPE_BARS;
+    } else if (run.mode === 'zen' || !Number.isFinite(run.movementStartScore) || t.quota <= 0) {
       p = (e.currentBar - (run.movementStartBar ?? 0)) / (16 * n);
     } else {
       p = (e.telemetry.score - run.movementStartScore) / t.quota;
@@ -928,6 +938,34 @@ export class App {
     void this.stems.morph(track, atSec, newBar);
   }
 
+  /**
+   * Mixtape: a track plays MIXTAPE_BARS from the bar it started on, then the next one crossfades in on
+   * the downbeat (scheduled a full bar ahead so the stems start sample-accurately). After the last
+   * track the run ends.
+   */
+  private checkTape(): void {
+    const run = this.run;
+    const e = this.engine;
+    const list = run?.cfg.mixtape;
+    if (!run || !e || run.ended || run.morph || run.mode !== 'mixtape' || !list) return;
+    const start = run.movementStartBar ?? 1;
+    // Bar B begins at step (B - 1) * 16
+    const switchStep = (start + MIXTAPE_BARS - 1) * TUNING.SIXTEENTHS_PER_BAR;
+    if (run.tapePos >= list.length - 1) {
+      if (e.currentStep >= switchStep) {
+        announce(tr('mx.sayDone'));
+        this.endRun();
+      }
+      return;
+    }
+    if (switchStep - e.currentStep > TUNING.SIXTEENTHS_PER_BAR) return;
+    const next = list[run.tapePos + 1]!;
+    const atSec = this.clock.stepToAudioSec(switchStep);
+    run.morph = { step: switchStep, index: next, atSec };
+    const track = MOVEMENTS[next]!;
+    void this.stems.morph(track, atSec, (60 / (track.bpm * run.bpmScale)) * 4);
+  }
+
   private applyMorph(): void {
     const run = this.run;
     const e = this.engine;
@@ -939,10 +977,12 @@ export class App {
     this.clock.setBpmAtStep(bpm, step);
     e.reconfigure(bpm, track.colors, track.riseBars);
     run.morph = null;
+    if (run.mode === 'mixtape') run.tapePos++;
     run.movement = index;
     run.track = track;
     run.movementStartScore = e.telemetry.score;
-    run.movementStartBar = e.currentBar;
+    // A mixtape track counts its bars from its own downbeat (the engine may still be on the bar before)
+    run.movementStartBar = run.mode === 'mixtape' ? Math.floor(step / TUNING.SIXTEENTHS_PER_BAR) + 1 : e.currentBar;
     this.sfx.setTrack(track);
     this.scheduler.resetHorizon();
     this.wall.setPoolTint(trackTint(track), performance.now() / 1000, this.clock.barDurationSec);
@@ -1085,6 +1125,7 @@ export class App {
         e.advanceToStep(beat.visualStep);
         this.drain();
         this.checkQuota();
+        this.checkTape();
       }
       this.input.update(performance.now());
       this.updateDesk();

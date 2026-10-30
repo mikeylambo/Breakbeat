@@ -720,6 +720,16 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .rx-twist b { font: 600 10px/1 var(--mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--held); }
 .rx-twist span { font: 500 11.5px/1.45 var(--body); color: var(--text); }
 .rx-twist small { font: 500 10px/1 var(--mono); letter-spacing: 0.12em; color: var(--secondary); }
+.mx-count { font: 600 10px/1 var(--mono); color: var(--held); text-align: right; }
+.mx-tape { margin: 14px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; max-width: 420px; }
+.mx-track { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mx-pos { font: 500 9px/1 var(--mono); color: var(--quiet); }
+.mx-name { flex: 1; min-width: 0; font: 600 12px/1.15 var(--body); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mx-name small { display: block; font: 500 8.5px/1.3 var(--mono); color: var(--secondary); }
+.mx-remove { width: 22px; height: 22px; opacity: 0.6; }
+.mx-empty { grid-column: 1 / -1; font: 500 11px/1.45 var(--body); color: var(--secondary); max-width: 34ch; }
+.mx-detail .bt-actions { margin-top: 14px; }
+.sld-play[aria-disabled='true'] { opacity: 0.45; }
 .pr-panel { margin-top: 14px; display: flex; flex-direction: column; gap: 7px; }
 .pr-panel + .bt-actions { margin-top: 12px; }
 .pr-kicker { font: 600 10px/1 var(--mono); letter-spacing: 0.18em; color: var(--held); }

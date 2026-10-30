@@ -105,7 +105,7 @@ export class ResultsScreen {
     this.score = score;
     const practice = run.mode === 'practice' ? run.cfg.practice : undefined;
     const movementLabel =
-      run.cfg.track ? `${tr('bt.myBeat')} · ${run.track.name.toUpperCase()}` : run.mode === 'odyssey' ? `${run.track.number} · ${run.track.name.toUpperCase()}` : `${tx(`title.${run.mode}`, run.mode).toUpperCase()} · ${run.track.name.toUpperCase()}`;
+      run.mode === 'mixtape' ? `${tr('title.mixtape').toUpperCase()} · ${tn('mx.tracks', run.cfg.mixtape?.length ?? 0).toUpperCase()}` : run.cfg.track ? `${tr('bt.myBeat')} · ${run.track.name.toUpperCase()}` : run.mode === 'odyssey' ? `${run.track.number} · ${run.track.name.toUpperCase()}` : `${tx(`title.${run.mode}`, run.mode).toUpperCase()} · ${run.track.name.toUpperCase()}`;
 
     this.root.innerHTML = '';
     this.root.classList.toggle('is-pb', pb);

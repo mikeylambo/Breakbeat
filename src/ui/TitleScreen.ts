@@ -26,6 +26,7 @@ export interface TitleActions {
   etudes(): void;
   listen(): void;
   beats(): void;
+  mixtape(): void;
   /** Songs on the My Beats shelf (for the row's count) */
   beatsCount(): number;
   tutorial(): void;
@@ -112,6 +113,7 @@ export class TitleScreen {
       { id: 'endless', name: t('title.endless'), meta: save.best.endless ? fmt(save.best.endless) : '—', desc: t('title.endlessDesc'), ghost: t('title.endless'), action: a.endless },
       { id: 'daily', name: t('title.daily'), meta: save.daily.date === today ? fmt(save.daily.best) : t('title.new'), desc: t('title.dailyDesc'), ghost: t('title.daily'), cls: save.daily.date === today ? '' : 'fresh', action: a.daily },
       { id: 'zen', name: t('title.zen'), meta: save.best.zen ? fmt(save.best.zen) : '—', desc: t('title.zenDesc'), ghost: t('title.zen'), action: a.zen },
+      { id: 'mixtape', name: t('title.mixtape'), meta: '', desc: t('title.mixtapeDesc'), ghost: t('title.mixtape'), action: a.mixtape },
       { id: 'etudes', name: t('title.etudes'), meta: `${save.etudes.length}/8`, desc: t('title.etudesDesc'), ghost: t('title.etudes'), action: a.etudes },
       { id: 'listen', name: t('title.listen'), meta: `${listenQueue(save).length}/${MOVEMENTS.length + 1}`, desc: t('title.listenDesc'), ghost: t('title.listen'), action: a.listen },
       { id: 'beats', name: t('title.beats'), meta: a.beatsCount() ? String(a.beatsCount()) : t('title.new'), desc: t('title.beatsDesc'), ghost: t('title.beatsGhost'), cls: a.beatsCount() ? '' : 'fresh', action: a.beats },

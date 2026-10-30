@@ -8,6 +8,7 @@ import { TitleScreen } from './ui/TitleScreen.js';
 import { SplashScreen } from './ui/SplashScreen.js';
 import { SetlistScreen } from './ui/SetlistScreen.js';
 import { TutorialScreen } from './ui/TutorialScreen.js';
+import { MixtapeScreen } from './ui/MixtapeScreen.js';
 import { ListenScreen } from './ui/ListenScreen.js';
 import { BeatsScreen } from './ui/BeatsScreen.js';
 import { ResultsScreen } from './ui/ResultsScreen.js';
@@ -129,6 +130,10 @@ async function main(): Promise<void> {
       title.show(false);
       void beats.open();
     }),
+    mixtape: () => {
+      title.show(false);
+      mixtape.open(app.save);
+    },
     beatsCount: () => beatsCount,
     tutorial: () => {
       title.show(false);
@@ -151,6 +156,14 @@ async function main(): Promise<void> {
     preview: i => preview('odyssey', i),
     back: () => {
       setlist.hide();
+      title.show(true);
+    }
+  });
+  const mixtape = new MixtapeScreen({
+    play: list => w(() => play({ mode: 'mixtape', movement: list[0]!, mixtape: list }))(),
+    preview: i => preview('odyssey', i),
+    back: () => {
+      mixtape.hide();
       title.show(true);
     }
   });
@@ -198,7 +211,7 @@ async function main(): Promise<void> {
         });
       })()
   });
-  app.ui.append(splash.root, title.root, setlist.root, listen.root, beats.root, tutorial.root);
+  app.ui.append(splash.root, title.root, setlist.root, mixtape.root, listen.root, beats.root, tutorial.root);
   const place = (): void => applyUiTransform(app.ui, computeLayout());
   place();
   window.addEventListener('resize', place);
@@ -260,6 +273,7 @@ async function main(): Promise<void> {
     results.hide();
     title.show(false);
     setlist.hide();
+    mixtape.hide();
     if (listen.visible) listen.close();
     if (beats.visible) beats.hide();
     tutorial.hide();
@@ -282,7 +296,7 @@ async function main(): Promise<void> {
   async function play(cfg: RunConfig): Promise<void> {
     if (cfg.mode !== 'overture') lastCfg = cfg;
     // Leaving a menu: the music cuts, a blade wipes the screen, the wall deals in behind it
-    if (title.visible || results.visible || setlist.visible || tutorial.visible || beats.visible) {
+    if (title.visible || results.visible || setlist.visible || mixtape.visible || tutorial.visible || beats.visible) {
       app.stopAttract();
       await bladeWipe();
     }

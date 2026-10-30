@@ -3,7 +3,7 @@
  * Every gameplay constant lives in this file (GDD Page 8).
  */
 
-export type GameMode = 'odyssey' | 'endless' | 'zen' | 'daily' | 'remix' | 'overture' | 'etude' | 'practice';
+export type GameMode = 'odyssey' | 'endless' | 'zen' | 'daily' | 'remix' | 'overture' | 'etude' | 'practice' | 'mixtape';
 export type PressureDirection = 'bottom' | 'top';
 
 export const TUNING = {
