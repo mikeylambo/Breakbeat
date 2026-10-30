@@ -34,6 +34,7 @@ import { MOVEMENTS, OVERTURE, ZEN_INDEX, trackTint, type TrackDef } from '../aud
 import { installBrowserLifecycle } from '../platform/Lifecycle.js';
 import { loadSave, mastery, todayUtc, writeSave, type SaveData } from '../meta/Save.js';
 import { evaluate as evaluateAchievements, noteDaily, type AchContext, type AchDef } from '../meta/Achievements.js';
+import type { PracticeSetup } from '../meta/Practice.js';
 import { awardChallenges, recordStats } from '../meta/Progress.js';
 import type { EtudeDef } from '../meta/Etude.js';
 import { loadSettings, saveSettings, type Settings } from '../meta/Settings.js';
@@ -57,6 +58,8 @@ export interface RunConfig {
   etude?: EtudeDef;
   /** A player's own song (Upload Your Own Beat): played on its own, best kept per song */
   track?: TrackDef;
+  /** Practice: one movement, one looping section, a chosen tempo and wall. Keeps no bests. */
+  practice?: PracticeSetup;
 }
 
 
@@ -369,7 +372,8 @@ export class App {
     const index = overture ? 0 : Math.max(0, Math.min(MOVEMENTS.length - 1, cfg.movement));
     const trackIndex = App.trackIndex(cfg.mode, cfg.movement);
     const track = cfg.track ?? (overture ? OVERTURE : MOVEMENTS[trackIndex]!);
-    const bpmScale = cfg.mode === 'daily' || overture ? 1 : this.settings.bpmScale;
+    const practice = cfg.mode === 'practice' ? cfg.practice : undefined;
+    const bpmScale = cfg.mode === 'daily' || overture ? 1 : practice ? Math.max(0.7, Math.min(1, practice.tempo)) : this.settings.bpmScale;
     const bpm = track.bpm * bpmScale;
     const seed = cfg.seed ?? (cfg.mode === 'daily' ? `daily-${todayUtc()}` : `${cfg.mode}-${Date.now().toString(36)}`);
     const ghostKey = App.ghostKey(cfg, index);
@@ -382,9 +386,11 @@ export class App {
         mode: cfg.mode,
         bpm,
         colorCount: track.colors,
-        riseBars: cfg.etude?.pressure ?? track.riseBars,
-        pressureEnabled: !overture && (!cfg.etude || !!cfg.etude.pressure),
-        fixedDeal: cfg.etude?.board
+        riseBars: cfg.etude?.pressure ?? (practice?.wall === 'fast' ? 1 : practice?.wall === 'pressure' ? 2 : track.riseBars),
+        pressureEnabled: !overture && (!cfg.etude || !!cfg.etude.pressure) && practice?.wall !== 'still',
+        fixedDeal: cfg.etude?.board,
+        initialRows: practice?.wall === 'pressure' ? TUNING.BOARD_ROWS - TUNING.DANGER_ROWS - 1 : undefined,
+        steadyRise: !!practice
       },
       new GemRules('brick')
     );
@@ -401,7 +407,7 @@ export class App {
       seed,
       ended: false,
       morph: null,
-      replayable: !overture && !cfg.etude,
+      replayable: !overture && !cfg.etude && !practice,
       bpmScale,
       movementsCleared: 0,
       startedMs: performance.now()
@@ -416,7 +422,7 @@ export class App {
     this.clock.start(t0);
     this.director.layerOverride = overture ? 1 : null;
     this.director.attach(engine);
-    await this.stems.start(track, t0, overture ? 1 : 2);
+    await this.stems.start(track, t0, overture ? 1 : 2, practice ? Math.max(0, Math.min(track.sections.length - 1, practice.section)) : 0);
     this.audio.setDanger(0, this.audio.now + 0.05, 0.05);
     this.wall.markDirty();
     this.wall.dangerLevel = 0;
@@ -438,7 +444,7 @@ export class App {
 
   /** The key a run's best (and its ghost) is kept under; null for runs that keep none. */
   static ghostKey(cfg: RunConfig, movement: number): string | null {
-    if (cfg.etude || cfg.mode === 'overture') return null;
+    if (cfg.etude || cfg.mode === 'overture' || cfg.mode === 'practice') return null;
     if (cfg.track) return cfg.track.id;
     if (cfg.mode === 'daily') return `daily-${todayUtc()}`;
     if (cfg.mode === 'odyssey') return MOVEMENTS[movement]!.id;
@@ -799,7 +805,7 @@ export class App {
       const today = todayUtc();
       previousBest = this.save.daily.date === today ? this.save.daily.best : 0;
       if (score > previousBest) this.save.daily = { date: today, best: score };
-    } else if (run.mode !== 'overture') {
+    } else if (run.mode !== 'overture' && run.mode !== 'practice') {
       previousBest = this.save.best[key] ?? 0;
       if (score > previousBest) this.save.best[key] = score;
     }
@@ -853,7 +859,8 @@ export class App {
   private advanceSection(): void {
     const run = this.run;
     const e = this.engine;
-    if (!run || !e || run.morph || run.mode === 'overture') return;
+    // Practice holds its chosen section for the whole run
+    if (!run || !e || run.morph || run.mode === 'overture' || run.mode === 'practice') return;
     const t = run.track;
     const n = t.sections.length;
     if (n < 2) return;

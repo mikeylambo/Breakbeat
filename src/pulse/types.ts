@@ -218,6 +218,10 @@ export interface PulseConfig {
   fixedDeal?: number[][];
   /** Pressure rows rise only while enabled (Overture enables them at lesson 3). Default true. */
   pressureEnabled?: boolean;
+  /** Rows dealt at the start (Practice: "Under pressure" starts tall). Default: the rules' initialRows. */
+  initialRows?: number;
+  /** The rise cadence never tightens to every bar (Practice holds one scenario). Default false. */
+  steadyRise?: boolean;
 }
 
 /**

@@ -714,6 +714,13 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .bt-del:hover { color: var(--magenta); }
 .bt-progress { margin-top: 18px; height: 3px; background: rgba(244, 241, 234, 0.08); overflow: hidden; }
 .bt-progress i { display: block; height: 100%; background: var(--held); transform-origin: left; transition: transform 0.4s var(--ease-out); box-shadow: 0 0 10px var(--held); }
+.pr-panel { margin-top: 14px; display: flex; flex-direction: column; gap: 7px; }
+.pr-panel + .bt-actions { margin-top: 12px; }
+.pr-kicker { font: 600 10px/1 var(--mono); letter-spacing: 0.18em; color: var(--held); }
+.pr-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pr-label { font: 500 10px/1 var(--mono); letter-spacing: 0.12em; color: var(--secondary); text-transform: uppercase; }
+.pr-row .seg { min-width: 40px; text-align: center; }
+.pr-note { font: 500 10.5px/1.4 var(--body); color: var(--secondary); }
 .bt-row { margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .bt-val small { display: block; font: 500 7px/1 var(--mono); letter-spacing: 0.24em; color: var(--quiet); }
 .bt-val b { display: block; margin-top: 4px; font: 600 15px/1 var(--display); color: var(--text); font-variant-numeric: tabular-nums; }

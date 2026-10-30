@@ -146,6 +146,7 @@ async function main(): Promise<void> {
   });
   const setlist = new SetlistScreen({
     play: i => w(() => play({ mode: 'odyssey', movement: i }))(),
+    practise: (i, setup) => w(() => play({ mode: 'practice', movement: i, practice: setup }))(),
     preview: i => preview('odyssey', i),
     back: () => {
       setlist.hide();
@@ -229,7 +230,12 @@ async function main(): Promise<void> {
       const cfg = lastCfg;
       if (cfg) void play(cfg);
     },
-    title: () => showTitle()
+    title: () => showTitle(),
+    practise: movement => {
+      showTitle();
+      title.show(false);
+      setlist.open(app.save, movement, true);
+    }
   });
   let lastCfg: RunConfig | null = null;
   let nowPlaying: unknown = null;

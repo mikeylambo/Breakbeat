@@ -81,8 +81,10 @@ can't be cheated cheap to build, so use it.
 
 ## v0.14: Depth and replay value
 
-- [ ] **Practice mode**: loop any section of any movement at 70–100% tempo and repeat a pressure-row
-      scenario. It pairs with Coach's "Practise next".
+- [x] **Practice mode**: any unlocked movement from the Odyssey (Practise, or P): one section looping
+      (A / B / C), 70–100% tempo, and a wall (Still, Rising, Fast, or Under pressure: dealt one push from the
+      danger line). The cadence never tightens. No bests, stars, ghosts or replays; stats and the coach still
+      count. Results offer Again and Change setup; Odyssey results offer Practise, next to "Practise next".
 - [ ] **Remix (B-side) variants**: each movement gets a remix ruleset (inverted gravity, 5 colours from bar
       one, double-time pressure) for New Game+. That doubles the content without new music.
 - [ ] **Mixtape mode**: a playlist of movements back to back, with bar-aligned crossfades. Score is cumulative.

@@ -90,15 +90,16 @@ export class StemPlayer {
   }
 
   /** Starts `track` so its bar 1 lands exactly on `atSec` (the clock's step 0). */
-  async start(track: TrackDef, atSec: number, layers: number): Promise<void> {
+  /** Starts `track` at `section` (A = 0); a section keeps looping until setSection moves on. */
+  async start(track: TrackDef, atSec: number, layers: number, section = 0): Promise<void> {
     const set = await this.load(track);
     this.stopAll(atSec);
     this.track = track;
     this.current = set;
     this.deck = 0;
     this.layers = layers;
-    this.section = 0;
-    this.launch(0, set, track, atSec);
+    this.section = section;
+    this.launch(0, set, track, atSec, section);
     this.applyLayers(atSec, atSec + 0.01);
   }
 

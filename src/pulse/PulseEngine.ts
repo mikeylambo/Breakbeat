@@ -41,7 +41,7 @@ export interface RunTelemetry {
 }
 
 export class PulseEngine {
-  readonly config: Required<Omit<PulseConfig, 'fixedDeal'>> & Pick<PulseConfig, 'fixedDeal'>;
+  readonly config: Required<Omit<PulseConfig, 'fixedDeal' | 'initialRows'>> & Pick<PulseConfig, 'fixedDeal' | 'initialRows'>;
   readonly rules: ContentRules;
   readonly board: (PulseTile | null)[][];
   readonly groups = new Map<number, PrimedGroup>();
@@ -103,7 +103,9 @@ export class PulseEngine {
       riseBars: config.riseBars ?? TUNING.RISE_BARS,
       pressureFrom: config.pressureFrom ?? TUNING.PRESSURE_FROM,
       pressureEnabled: config.pressureEnabled ?? true,
-      fixedDeal: config.fixedDeal
+      fixedDeal: config.fixedDeal,
+      initialRows: config.initialRows,
+      steadyRise: config.steadyRise ?? false
     };
     this.pressureEnabled = this.config.pressureEnabled;
     this.initial = { ...this.config };
@@ -145,7 +147,7 @@ export class PulseEngine {
   /** Effective pressure cadence (tightens from 2 bars to 1 after RISE_TIGHTEN_BAR). */
   get effectiveRiseBars(): number {
     if (this.config.mode === 'zen') return 0;
-    if (this.currentBar >= TUNING.RISE_TIGHTEN_BAR) return 1;
+    if (this.currentBar >= TUNING.RISE_TIGHTEN_BAR && !this.config.steadyRise) return 1;
     return this.config.riseBars;
   }
 
@@ -155,7 +157,7 @@ export class PulseEngine {
     const cadence = this.effectiveRiseBars;
     if (cadence <= 1) return 1;
     for (let nextBar = Math.max(2, this.currentBar + 1); nextBar <= this.currentBar + 6; nextBar++) {
-      const c = nextBar >= TUNING.RISE_TIGHTEN_BAR ? 1 : this.config.riseBars;
+      const c = nextBar >= TUNING.RISE_TIGHTEN_BAR && !this.config.steadyRise ? 1 : this.config.riseBars;
       if ((nextBar - 1) % c === 0) {
         return Math.max(1, nextBar - Math.max(1, this.currentBar));
       }
@@ -176,7 +178,8 @@ export class PulseEngine {
       this.dealFixed(this.config.fixedDeal);
       return;
     }
-    const { rows, cols, initialRows } = this.rules;
+    const { rows, cols } = this.rules;
+    const initialRows = Math.max(1, Math.min(rows - TUNING.DANGER_ROWS, this.config.initialRows ?? this.rules.initialRows));
     const startRow = this.config.pressureFrom === 'bottom' ? rows - initialRows : 0;
     const endRow = this.config.pressureFrom === 'bottom' ? rows : initialRows;
 

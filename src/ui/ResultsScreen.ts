@@ -7,6 +7,7 @@
 
 import { t as tr, tn, tx } from '../i18n/i18n.js';
 import { actName } from './SetlistScreen.js';
+import type { PracticeSetup } from '../meta/Practice.js';
 import { mastery, todayUtc } from '../meta/Save.js';
 import { flush, prefs, savePrefs, submit, top } from '../meta/Leaderboard.js';
 import { recordRun, type CoachAdvice } from '../meta/Coach.js';
@@ -20,6 +21,8 @@ export interface ResultsActions {
   next(): void;
   replay(): void;
   title(): void;
+  /** Opens the practice setup for this movement */
+  practise(movement: number): void;
 }
 
 /** Reveal timeline (seconds from show) */
@@ -100,6 +103,7 @@ export class ResultsScreen {
     const pb = score > previousBest;
     this.pb = pb && previousBest > 0;
     this.score = score;
+    const practice = run.mode === 'practice' ? run.cfg.practice : undefined;
     const movementLabel =
       run.cfg.track ? `${tr('bt.myBeat')} · ${run.track.name.toUpperCase()}` : run.mode === 'odyssey' ? `${run.track.number} · ${run.track.name.toUpperCase()}` : `${tx(`title.${run.mode}`, run.mode).toUpperCase()} · ${run.track.name.toUpperCase()}`;
 
@@ -108,14 +112,15 @@ export class ResultsScreen {
     const left = el('section', 'results-left');
     this.scoreEl = el('div', 'results-score', '0', { 'aria-label': `${tr('say.score')} ${fmt(score)}` });
     left.append(el('div', 'results-kicker', `${run.mode === 'odyssey' ? `${actName(run.track.act).toUpperCase()} · ` : ''}${movementLabel}`), this.scoreEl);
+    if (practice) left.appendChild(el('div', 'results-pb', practiceLine(run.track, practice)));
     const rank = el('div', 'results-rank');
     const pct = Math.round(Math.max(0, Math.min(1, m.progress)) * 100);
     rank.innerHTML = `<span class="badge badge-${m.rank.toLowerCase()}">${m.rank}</span><span class="rank-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress to ${m.next ?? 'max rank'}"><span style="--p:${pct / 100}"></span></span><span class="rank-next">${m.next ? tr('results.toRank', { n: fmt(m.toNext), rank: m.next }) : tr('results.topRank')}</span>`;
-    left.appendChild(rank);
+    if (!practice) left.appendChild(rank);
     const pbLine = pb
       ? el('div', 'results-pb new', previousBest > 0 ? tr('results.newPb', { n: fmt(score - previousBest) }) : tr('results.firstClear'))
       : el('div', 'results-pb', score === 0 ? tr('results.nothing') : score === previousBest ? tr('results.level') : tr('results.toBest', { n: fmt(previousBest - score) }));
-    left.appendChild(pbLine);
+    if (!practice) left.appendChild(pbLine);
     const stats = el('div', 'results-stats');
     this.statEls = [];
     const stat = (label: string, value: number, i: number): HTMLElement => {
@@ -144,7 +149,9 @@ export class ResultsScreen {
 
     const items: MenuItem[] = [];
     const item = (id: string, name: string, action: () => void, cls = ''): MenuItem => ({ id, label: name, cls, action, html: `<span class="mi-name">${name}</span>` });
-    if (run.mode === 'odyssey') items.push(item('next', tr('results.nextMovement'), this.actions.next, 'btn-primary'), item('replay', tr('results.replay'), this.actions.replay));
+    const practise = item('practise', practice ? tr('pr.change') : tr('pr.practise'), () => this.actions.practise(run.startMovement));
+    if (run.mode === 'odyssey') items.push(item('next', tr('results.nextMovement'), this.actions.next, 'btn-primary'), item('replay', tr('results.replay'), this.actions.replay), practise);
+    else if (practice) items.push(item('replay', tr('pr.again'), this.actions.replay, 'btn-primary'), practise);
     else items.push(item('replay', tr('results.playAgain'), this.actions.replay, 'btn-primary'));
     const share = item('share', tr('results.share'), () => void this.share());
     if (!snap) share.locked = true;
@@ -165,7 +172,7 @@ export class ResultsScreen {
     this.root.classList.remove('hidden', 'revealed', 'stamped', 'pb-in', 'stats-in');
     this.actionsMenu.relayout();
     if (document.documentElement.classList.contains('reduced-motion')) this.skipReveal();
-    announce(`${tr('say.runOver')} ${movementLabel}. ${tr('say.score')} ${fmt(score)}. ${pb ? tr('say.newPb') : tr('say.toBest', { n: fmt(previousBest - score) })} ${advice ? advice.text : ''}`);
+    announce(`${tr('say.runOver')} ${movementLabel}. ${tr('say.score')} ${fmt(score)}. ${practice ? '' : pb ? tr('say.newPb') : tr('say.toBest', { n: fmt(previousBest - score) })} ${advice ? advice.text : ''}`);
   }
 
   /**
@@ -319,4 +326,9 @@ export class ResultsScreen {
       }
     }
   }
+}
+
+/** "SECTION B · 80% · RISING" for a practice run. */
+function practiceLine(track: { sections: readonly { name: string }[] }, p: PracticeSetup): string {
+  return `${tr('ls.section', { s: track.sections[p.section]?.name ?? 'A' }).toUpperCase()} · ${Math.round(p.tempo * 100)}% · ${tr(`pr.wall.${p.wall}`).toUpperCase()}`;
 }
