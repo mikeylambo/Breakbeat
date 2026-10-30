@@ -13,6 +13,7 @@
     "gates": "npm run build && node --test tests/*.test.mjs && node tools/gates.mjs && node tools/check-balance.mjs && npm run verify:deploy && node tools/browser-gates.mjs",
     "gates:browser": "node tools/browser-gates.mjs",
     "verify:deploy": "node tools/verify-deploy.mjs",
+    "stems": "node tools/validate-stems.mjs",
     "gates:fast": "npm run build && node --test tests/*.test.mjs && node tools/gates.mjs && node tools/check-balance.mjs && npm run verify:deploy"
   },
   "engines": {

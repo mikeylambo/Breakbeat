@@ -29,11 +29,31 @@ enter one per lesson: kick, then bass, keys, lead.
 | `allclear` | All Clear sting (plays one beat after the drums duck). |
 | `slide` | Pressure row pushes up. |
 
+## Validation
+
+`npm run stems -- <id>` checks a delivery before it is switched on (`npm run stems` alone checks every track
+with `"stemsReady": true`; `--all` checks every track that has files; `--json` for a machine-readable report).
+WAV is read directly; OGG is decoded by Chromium, the same decoder the game uses. The STEMS gate runs the same
+checks on every ready track, so a bad file can't ship.
+
+| Check | Target | Failing means |
+| --- | --- | --- |
+| Sample rate | 48 kHz (read from the file header) | re-export at 48 kHz |
+| Length | every stem `loopBars` at the track BPM, ±1 ms, all equal | trim or pad to exactly 24 bars |
+| Grid | ≥ 60% of the mix's hits within 15 ms of a 16th, average offset ≤ 10 ms | wrong tempo, or the file doesn't start on bar 1 (leading silence over 10 ms is also flagged) |
+| Loops | each section's last sample flows into its first: a jump over 0.02 and over 4× the motion around it is a click | fade or zero-cross the section end; let tails ring into the next section |
+| Loudness | full mix (all five stems) at **-14 LUFS** integrated (BS.1770-4), ±1.5 LU; album tracks within 2 LU of each other | master louder or quieter |
+| Peaks | no sample at full scale in any stem or the mix; mix peak at or below -1 dBFS (warning) | lower the gain or use a limiter |
+| One-shots | 48 kHz, not clipped, not silent, under 4 s (warning) | |
+
+Errors fail the command (exit code 1) and the gate; warnings are reported only.
+
 ## Drop-in
 
 1. Put files at `public/tracks/<id>/<name>.ogg` (paths in `content/tracks.json`).
-2. Set `"stemsReady": true` on that track in `content/tracks.json`.
-3. `npm run gates`, then play the movement. If any file fails to decode, that movement falls back to its
+2. `npm run stems -- <id>` until it reports no errors.
+3. Set `"stemsReady": true` on that track in `content/tracks.json`.
+4. `npm run gates`, then play the movement. If any file fails to decode, that movement falls back to its
    placeholder arrangement.
 
 Files are same-origin and decoded before the transport starts; there are no network calls at play time.

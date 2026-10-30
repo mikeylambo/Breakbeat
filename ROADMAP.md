@@ -91,9 +91,9 @@ can't be cheated cheap to build, so use it.
 
 ## Music lane (parallel, external)
 
-- [ ] **Stem validator tool + gate** (build this first, so music can drop in at any time): checks sample rate,
-      equal stem lengths, bar alignment against the BPM, seamless loop points (click detection), LUFS
-      targets, and that no file is clipping.
+- [x] **Stem validator tool + gate** (`npm run stems`, STEMS gate; targets in `AUDIO_STEMS.md`): sample rate,
+      equal stem lengths, bar alignment against the BPM, seamless loop points (click detection), -14 LUFS
+      integrated per track and an even album, and no clipping. WAV in Node; OGG through Chromium's decoder.
 - [ ] Commission or deliver the 20 tracks plus 6 one-shots per `MUSIC_BRIEF.md`. Drop each one in by flipping
       `stemsReady`.
 - [ ] Sleeve art for the 19 movements that still use generated stand-ins (only Magma has real art).

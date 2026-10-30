@@ -678,4 +678,19 @@ const put = (eng, col, row, kind) => { eng.board[row][col] = { id: gid++, col, r
   console.log(`PASS [I18N]: ${Object.keys(EN).length} English keys; ${report.join(', ')}; placeholders and markup match.`);
 }
 
-console.log('=== ALL 22 BREAKBEAT GATES GREEN ===');
+// STEMS — every track switched to real music passes the stem validator (tools/validate-stems.mjs)
+{
+  const { validateTrack, close } = await import('./validate-stems.mjs');
+  const tracks = JSON.parse(fs.readFileSync('content/tracks.json', 'utf8')).tracks;
+  const ready = tracks.filter(t => t.stemsReady);
+  const bad = [];
+  for (const t of ready) {
+    const r = await validateTrack(t);
+    if (r.errors.length) bad.push(`${t.id}: ${r.errors.join('; ')}`);
+  }
+  await close();
+  assert.deepEqual(bad, [], `STEMS gate failed (run npm run stems for the full report):\n${bad.join('\n')}`);
+  console.log(`PASS [STEMS]: ${ready.length} of ${tracks.length} tracks on real stems, all valid (48 kHz, bar-aligned, equal length, seamless loops, -14 LUFS, no clipping).`);
+}
+
+console.log('=== ALL 23 BREAKBEAT GATES GREEN ===');
