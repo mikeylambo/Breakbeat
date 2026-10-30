@@ -119,5 +119,6 @@
 "pr.section":"セクション",
 "title.remix":"Bサイド","rx.sides":"サイド","rx.aside":"Aサイド","rx.bside":"Bサイド","rx.sayA":"Aサイド：オデッセイ。","rx.sayB":"Bサイド：全楽章を新しいルールでリミックス。","rx.twist.flip":"フリップ","rx.twist.five":"ファイブ","rx.twist.double":"ダブルタイム","rx.desc.flip":"壁は天井から下がる：新しい段は下へ押し出し、ブロックは上へ落ちる。","rx.desc.five":"1小節目から5色。","rx.desc.double":"壁は倍速でせり上がる：毎小節、新しい段。","rx.playAria":"{name}のBサイドをプレイ","rx.cleared":"Bサイド クリア","rx.clearedTag":"クリア済み","rx.sayCleared":"Bサイド クリア：{name}。そのまま続けよう。",
 "title.mixtape":"ミックステープ","title.mixtapeDesc":"好きな楽章を続けてプレイ。壁もスコアもひとつ。","mx.keys":"<b>ENTER</b>追加<b>DEL</b>削除<b>S</b>シャッフル<b>P</b>プレイ<b>ESC</b>戻る","mx.addAria":"Enterでテープに追加。","mx.kicker":"テープ · {n}/{max}曲","mx.yourTape":"あなたのテープ","mx.empty":"左から楽章を選んで追加。2曲以上でプレイ。","mx.removeAria":"{name}をテープから削除","mx.playAria":"テープをプレイ","mx.shuffle":"シャッフル","mx.clearAria":"テープを空にする","mx.full":"テープがいっぱいです：最大{max}曲。","mx.needTwo":"2曲以上追加するとプレイできます。","mx.sayOpen":"ミックステープ。楽章を選んでテープを作り、Pでプレイ。","mx.sayAdded":"{name}を追加：{n}曲目。","mx.sayRemoved":"{name}を削除しました。","mx.sayShuffled":"テープをシャッフルしました。","mx.sayDone":"テープが終わりました。",
-"mx.tracks_one":"{n}曲","mx.tracks_other":"{n}曲"
+"mx.tracks_one":"{n}曲","mx.tracks_other":"{n}曲",
+"set.streamer":"配信モード","set.streamerNote":"壁の後ろをグリーンバックに、スコアを大きく表示","ph.title":"フォトモード","ph.sayOn":"フォトモード。スペースで一時停止、矢印でコマ送り、＋−でズーム、ドラッグで移動、Cで終了。","ph.sayOff":"フォトモードを終了。","ph.back16":"16分音符ひとつ戻る","ph.fwd16":"16分音符ひとつ進む","ph.zoomIn":"ズームイン","ph.zoomOut":"ズームアウト","ph.reset":"カメラをリセット","ph.exit":"フォトモードを終了","ph.keys":"<b>SPACE</b>一時停止<b>← →</b>コマ送り<b>+ −</b>ズーム<b>ドラッグ</b>移動<b>H</b>隠す<b>C</b>終了"
 }

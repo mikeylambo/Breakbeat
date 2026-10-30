@@ -864,3 +864,25 @@ button:focus-visible { outline: 2px solid var(--held); outline-offset: 2px; }
 .settings-scrim .settings-head .settings-close, .profile-sheet .settings-head .settings-close { margin-left: auto; }
 .settings-scrim .set-tabs, .profile-sheet .settings-head .set-tabs { order: 3; flex: 1 0 100%; justify-content: flex-start; flex-wrap: wrap; }
 .settings-scrim .set-tab, .profile-sheet .set-tab { padding: 6px 9px 7px; }
+
+/* Streamer mode: flat chroma-key green behind the wall, a big score overlay */
+html.streamer .game-host { background: #00b140; }
+.stream-score { position: absolute; left: 50%; top: 4px; transform: translateX(-50%); display: flex; align-items: baseline; gap: 12px; padding: 4px 16px; background: rgba(5, 6, 10, 0.86); clip-path: var(--chamfer); --cut: 8px; pointer-events: none; }
+.stream-score[hidden] { display: none; }
+.stream-score b { font: 800 26px/1 var(--display, var(--body)); color: var(--held); letter-spacing: 0.01em; }
+.stream-score span { font: 600 10px/1 var(--mono); letter-spacing: 0.14em; color: var(--text); }
+
+/* Photo mode: the best-pass replay full screen under a director bar */
+.results.photo > :not(.photo-bar) { visibility: hidden; }
+.results.photo { cursor: grab; }
+.results.photo::before { display: none; }
+.results.photo:active { cursor: grabbing; }
+.photo-bar { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); display: none; align-items: center; gap: 6px; padding: 6px 10px; background: rgba(11, 13, 21, 0.92); border: 1px solid var(--hair); border-radius: 10px; }
+.results.photo .photo-bar { display: flex; }
+.results.photo.bare .photo-bar { display: none; }
+.photo-line { display: flex; gap: 3px; margin: 0 6px; }
+.photo-line i { width: 7px; height: 14px; border-radius: 2px; background: rgba(244, 241, 234, 0.12); }
+.photo-line i.beat { background: rgba(244, 241, 234, 0.24); }
+.photo-line i.on { background: var(--held); }
+.photo-keys { margin-left: 8px; font: 500 8px/1 var(--mono); letter-spacing: 0.1em; color: var(--secondary); white-space: nowrap; }
+.photo-keys b { margin: 0 4px 0 8px; padding: 2px 4px; border: 1px solid var(--hair); border-radius: 3px; color: var(--text); font-weight: 600; }

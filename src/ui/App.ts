@@ -353,6 +353,27 @@ export class App {
     this.hud.setHidden(s.hudHidden);
     this.clock.outputLatencySec = this.audio.outputLatencySec + s.offsetMs / 1000;
     document.documentElement.classList.toggle('reduced-motion', s.reducedMotion);
+    // Streamer mode: a flat chroma-key green behind the wall (world, visualizer and light pool off)
+    document.documentElement.classList.toggle('streamer', s.streamer);
+    if (this.world) this.world.root.renderable = !s.streamer;
+    if (this.vis) this.vis.root.renderable = !s.streamer;
+    this.stage.background.renderable = !s.streamer;
+    this.streamScore.hidden = true;
+  }
+
+  /** Streamer mode's big score overlay: score, chain and what is playing, sized for a stream. */
+  private readonly streamScore = el('div', 'stream-score', '', { 'aria-hidden': 'true' });
+  private lastStream = '';
+  private updateStreamScore(score: number, combo: number, run: RunState): void {
+    const on = this.settings.streamer && !run.ended && run.mode !== 'overture';
+    this.streamScore.hidden = !on;
+    if (!on) return;
+    if (!this.streamScore.isConnected) this.ui.appendChild(this.streamScore);
+    const html = `<b>${fmt(score)}</b><span>×${combo.toFixed(1)} · ${run.track.name.toUpperCase()}</span>`;
+    if (html !== this.lastStream) {
+      this.lastStream = html;
+      this.streamScore.innerHTML = html;
+    }
   }
 
   persistSettings(): void {
@@ -717,6 +738,7 @@ export class App {
     this.engine = null;
     this.director.engine = null;
     this.hud.show(false);
+    this.streamScore.hidden = true;
     this.desk.setRun(false);
     this.setHover(-1);
   }
@@ -841,6 +863,7 @@ export class App {
     this.persistSave();
     setTimeout(() => {
       this.hud.show(false);
+      this.streamScore.hidden = true;
       this.hooks.onRunEnd?.({ run, engine, score, previousBest, key, newStars, replay });
     }, 1700);
   }
@@ -1195,6 +1218,7 @@ export class App {
       this.stage.setZoom(this.fx.zoom);
     }
     if (e && run && !run.ended) {
+      this.updateStreamScore(Math.round(e.telemetry.score * run.bpmScale), computeComboMultiplier(e.comboPasses), run);
       this.hud.update({
         score: Math.round(e.telemetry.score * run.bpmScale),
         chainRank: e.chainRank,
@@ -1206,7 +1230,7 @@ export class App {
         risesIn: e.barsUntilNextPush,
         charge: e.charge,
         ghost: this.stepGhost(e.currentStep, Math.round(e.telemetry.score * run.bpmScale)),
-        best: run.cfg.track ? (this.save.best[run.cfg.track.id] ?? 0) : run.mode === 'daily' ? (this.save.daily.date === todayUtc() ? this.save.daily.best : 0) : (this.save.best[run.mode === 'odyssey' ? MOVEMENTS[run.startMovement]!.id : run.mode] ?? 0),
+        best: run.mode === 'daily' ? (this.save.daily.date === todayUtc() ? this.save.daily.best : 0) : (this.save.best[App.ghostKey(run.cfg, run.startMovement) ?? run.mode] ?? 0),
         groups: e.telemetry.groupsCleared,
         credit: run.cfg.track ? `♪ ${run.track.name} · ${Math.round(run.track.bpm)} BPM` : run.mode === 'overture' ? '♪ Overture' : `♪ ${run.track.number} ${run.track.name} · ${run.track.style[0]!.toUpperCase()}${run.track.style.slice(1)}`,
         pulse: this.settings.reducedMotion ? 0 : (1 - beat.beatProgress) * (1 - beat.beatProgress),

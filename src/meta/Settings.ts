@@ -36,6 +36,8 @@ export interface Settings {
   calibrated: boolean;
   /** Opt-in: send uncaught errors (scrubbed, anonymous) to the developer */
   errorReports: boolean;
+  /** Chroma-key green background and a big score overlay, for streaming and capture */
+  streamer: boolean;
 }
 
 const KEY = 'breakbeat-settings-v1';
@@ -59,7 +61,8 @@ export const DEFAULT_SETTINGS: Settings = {
   zenVisualizer: false,
   listenVisualizer: 'rings',
   calibrated: false,
-  errorReports: false
+  errorReports: false,
+  streamer: false
 };
 
 export function loadSettings(): Settings {

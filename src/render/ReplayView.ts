@@ -92,6 +92,15 @@ export class ReplayView {
     return H;
   }
 
+  /** One bar of the replay in seconds (the pass), and the whole loop (pass plus half a bar of rest). */
+  get barSeconds(): number {
+    return this.barSec;
+  }
+
+  get loopSeconds(): number {
+    return this.barSec * 1.5;
+  }
+
   setSnapshot(snap: BestPassSnapshot | null, bpm: number): void {
     this.snap = snap;
     this.barSec = (60 / bpm) * 4;

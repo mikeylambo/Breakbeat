@@ -94,8 +94,11 @@ can't be cheated cheap to build, so use it.
       remembered on the device). Each track plays 24 bars (A, B, C), then the next crossfades in on a downbeat,
       scheduled a bar ahead, while the wall carries on. Score is cumulative; the run ends with the tape or the
       wall. Each tape keeps its own best and ghost (key: its track ids in order).
-- [ ] **Streamer / photo mode**: a chroma-key background, a big-score overlay, and a replay director that
-      pauses, scrubs and frees the camera on the best-pass loop.
+- [x] **Streamer / photo mode**: Settings > Display > Streamer mode puts a flat chroma-key green (#00B140)
+      behind the wall (world, visualizer and light pool off) and a big score / chain / track overlay on top.
+      Results > Photo mode (or C) takes the best-pass replay full screen under a director: pause (Space),
+      step a 16th (← →, with a timeline), zoom (+ − or wheel), pan (drag or Shift / ↑ ↓), reset (0),
+      hide the bar (H).
 
 ## Music lane (parallel, external)
 

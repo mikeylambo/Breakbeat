@@ -13,7 +13,7 @@ import { flush, prefs, savePrefs, submit, top } from '../meta/Leaderboard.js';
 import { recordRun, type CoachAdvice } from '../meta/Coach.js';
 import { ReplayView } from '../render/ReplayView.js';
 import type { App, RunResult } from './App.js';
-import { announce, button, coveredBySheet, el, fmt, setText, uiSound } from './dom.js';
+import { announce, button, coveredBySheet, el, fmt, ICONS, setText, uiSound } from './dom.js';
 import { MenuList, type MenuItem } from './MenuList.js';
 import { sharePass } from './share.js';
 
@@ -49,14 +49,33 @@ export class ResultsScreen {
   private statEls: { el: HTMLElement; value: number; at: number }[] = [];
   private ticks = 0;
   private pb = false;
+  /**
+   * Photo mode: the best-pass replay full screen under a director. Space pauses, ← → step a 16th,
+   * + − or the wheel zoom, drag or Shift + arrows pan, 0 resets the camera, H hides the bar,
+   * C or Esc leaves.
+   */
+  private photo = false;
+  private barStep = -1;
+  private paused = false;
+  private rt = 0;
+  private cam = { zoom: 1, x: 0, y: 0 };
+  private drag: { x: number; y: number; cx: number; cy: number } | null = null;
+  private readonly photoBar = el('div', 'photo-bar', '', { role: 'toolbar', 'aria-label': tr('ph.title') });
 
   constructor(
     private readonly app: App,
     private readonly actions: ResultsActions
   ) {
-    this.actionsMenu = new MenuList({ cls: 'results-actions', horizontal: true, active: () => this.visible && this.revealDone });
+    this.actionsMenu = new MenuList({ cls: 'results-actions', horizontal: true, active: () => this.visible && this.revealDone && !this.photo });
     window.addEventListener('keydown', e => {
       if (!this.visible || coveredBySheet(this.root) || e.metaKey || e.ctrlKey) return;
+      if (this.photo) {
+        if (this.photoKey(e)) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+        return;
+      }
       if (!this.revealDone) {
         this.skipReveal();
         e.preventDefault();
@@ -67,20 +86,45 @@ export class ResultsScreen {
       } else if ((e.key === 'r' || e.key === 'R') && !e.repeat) {
         uiSound('pick');
         this.actions.replay();
+      } else if ((e.key === 'c' || e.key === 'C') && !e.repeat && this.result?.engine.bestPassSnapshot) {
+        this.setPhoto(true);
       }
     });
-    this.root.addEventListener('pointerdown', () => {
+    this.root.addEventListener('pointerdown', e => {
       if (!this.revealDone) this.skipReveal();
+      if (this.photo && !(e.target as HTMLElement).closest('.photo-bar')) {
+        this.drag = { x: e.clientX, y: e.clientY, cx: this.cam.x, cy: this.cam.y };
+        this.root.setPointerCapture(e.pointerId);
+      }
     });
+    this.root.addEventListener('pointermove', e => {
+      const d = this.drag;
+      if (!d) return;
+      // Screen pixels to stage pixels (the UI stage is scaled to fit the window)
+      const k = 844 / Math.max(1, this.root.getBoundingClientRect().width);
+      this.cam.x = d.cx + (e.clientX - d.x) * k;
+      this.cam.y = d.cy + (e.clientY - d.y) * k;
+      this.placeReplay();
+    });
+    const end = (): void => void (this.drag = null);
+    this.root.addEventListener('pointerup', end);
+    this.root.addEventListener('pointercancel', end);
+    this.root.addEventListener(
+      'wheel',
+      e => {
+        if (!this.photo) return;
+        e.preventDefault();
+        this.zoom(e.deltaY < 0 ? 1.1 : 1 / 1.1);
+      },
+      { passive: false }
+    );
   }
 
   private ensureReplay(): ReplayView {
     if (!this.replay) {
       this.replay = new ReplayView(this.app.atlas);
-      const scale = 0.62;
-      this.replay.root.scale.set(scale);
-      this.replay.root.position.set(812 - this.replay.width * scale - 5, 46);
       this.app.stage.root.addChild(this.replay.root);
+      this.placeReplay();
     }
     return this.replay;
   }
@@ -155,7 +199,9 @@ export class ResultsScreen {
     else items.push(item('replay', tr('results.playAgain'), this.actions.replay, 'btn-primary'));
     const share = item('share', tr('results.share'), () => void this.share());
     if (!snap) share.locked = true;
-    items.push(share, item('title', tr('results.title'), this.actions.title, 'quiet'));
+    const photo = item('photo', tr('ph.title'), () => this.setPhoto(true));
+    if (!snap) photo.locked = true;
+    items.push(share, photo, item('title', tr('results.title'), this.actions.title, 'quiet'));
     const foot = el('div', 'results-foot');
     foot.append(this.actionsMenu.root, el('div', 'results-keys', tr('results.keys')));
     this.root.append(left, right, foot);
@@ -165,6 +211,8 @@ export class ResultsScreen {
     replay.setSnapshot(snap, this.app.clock.bpm);
     replay.root.visible = !!snap;
     this.t0 = performance.now() / 1000;
+    this.rt = 0;
+    this.paused = false;
     this.last = this.t0;
     this.revealT = 0;
     this.ticks = 0;
@@ -233,7 +281,132 @@ export class ResultsScreen {
     return card;
   }
 
+  // ---------------------------------------------------------------- photo mode
+
+  /** The replay's place: the results corner, or full screen under the photo camera. */
+  private placeReplay(): void {
+    const r = this.replay;
+    if (!r) return;
+    if (!this.photo) {
+      const scale = 0.62;
+      r.root.scale.set(scale);
+      r.root.position.set(812 - r.width * scale - 5, 46);
+      return;
+    }
+    const fit = Math.min(844 / (r.width + 48), 390 / (r.height + 48));
+    const scale = fit * this.cam.zoom;
+    r.root.scale.set(scale);
+    r.root.position.set(422 - (r.width * scale) / 2 + this.cam.x, 195 - (r.height * scale) / 2 + this.cam.y);
+  }
+
+  private setPhoto(on: boolean): void {
+    this.photo = on;
+    this.paused = false;
+    this.cam = { zoom: 1, x: 0, y: 0 };
+    this.root.classList.toggle('photo', on);
+    this.root.classList.remove('bare');
+    uiSound(on ? 'pick' : 'back');
+    if (on && !this.photoBar.isConnected) this.root.appendChild(this.photoBar);
+    this.renderBar();
+    this.placeReplay();
+    announce(on ? tr('ph.sayOn') : tr('ph.sayOff'));
+  }
+
+  private zoom(f: number): void {
+    this.cam.zoom = Math.max(0.6, Math.min(4, this.cam.zoom * f));
+    this.placeReplay();
+  }
+
+  /** Pauses on the 16th `d` steps from the current one (wrapping through the loop). */
+  private scrub(d: number): void {
+    const r = this.replay;
+    if (!r) return;
+    const step = r.barSeconds / 16;
+    const n = Math.round(r.loopSeconds / step);
+    const k = (((Math.round(this.rt / step) + d) % n) + n) % n;
+    this.rt = k * step;
+    this.paused = true;
+    uiSound('tick', ((k % 4) + 4) % 4);
+    this.renderBar();
+  }
+
+  private photoKey(e: KeyboardEvent): boolean {
+    const pan = 24;
+    switch (e.key) {
+      case 'Escape':
+      case 'c':
+      case 'C':
+        this.setPhoto(false);
+        return true;
+      case ' ':
+        this.paused = !this.paused;
+        uiSound('tick', this.paused ? 0 : 2);
+        this.renderBar();
+        return true;
+      case 'ArrowLeft':
+      case 'ArrowRight':
+        if (e.shiftKey) {
+          this.cam.x += e.key === 'ArrowLeft' ? pan : -pan;
+          this.placeReplay();
+        } else this.scrub(e.key === 'ArrowLeft' ? -1 : 1);
+        return true;
+      case 'ArrowUp':
+      case 'ArrowDown':
+        this.cam.y += e.key === 'ArrowUp' ? pan : -pan;
+        this.placeReplay();
+        return true;
+      case '+':
+      case '=':
+        this.zoom(1.15);
+        return true;
+      case '-':
+      case '_':
+        this.zoom(1 / 1.15);
+        return true;
+      case '0':
+        this.cam = { zoom: 1, x: 0, y: 0 };
+        this.placeReplay();
+        return true;
+      case 'h':
+      case 'H':
+        this.root.classList.toggle('bare');
+        return true;
+    }
+    return false;
+  }
+
+  /** The director bar: play / pause, step, a 16-step timeline, zoom and exit. */
+  private renderBar(): void {
+    if (!this.photo) return;
+    const r = this.replay;
+    const step = r ? r.barSeconds / 16 : 1;
+    const at = Math.floor((this.rt % (r?.loopSeconds ?? 1)) / step);
+    const bar = this.photoBar;
+    bar.innerHTML = '';
+    const b = (html: string, label: string, fn: () => void, cls = ''): HTMLButtonElement => button(`ls-btn ${cls}`, html, label, fn);
+    const line = el('div', 'photo-line', '', { 'aria-hidden': 'true' });
+    for (let i = 0; i < 16; i++) line.appendChild(el('i', i === at ? 'on' : i % 4 === 0 ? 'beat' : ''));
+    bar.append(
+      b('‹', tr('ph.back16'), () => this.scrub(-1)),
+      b(this.paused ? ICONS.play : ICONS.pause, this.paused ? tr('title.play') : tr('hud.pause'), () => {
+        this.paused = !this.paused;
+        this.renderBar();
+      }, 'ls-play'),
+      b('›', tr('ph.fwd16'), () => this.scrub(1)),
+      line,
+      b('−', tr('ph.zoomOut'), () => this.zoom(1 / 1.15)),
+      b('+', tr('ph.zoomIn'), () => this.zoom(1.15)),
+      b('⟲', tr('ph.reset'), () => {
+        this.cam = { zoom: 1, x: 0, y: 0 };
+        this.placeReplay();
+      }),
+      b(ICONS.close, tr('ph.exit'), () => this.setPhoto(false)),
+      el('span', 'photo-keys', tr('ph.keys'))
+    );
+  }
+
   hide(): void {
+    if (this.photo) this.setPhoto(false);
     this.root.classList.add('hidden');
     if (this.replay) this.replay.root.visible = false;
     this.result = null;
@@ -291,7 +464,16 @@ export class ResultsScreen {
       this.revealT += dt;
       this.step(this.revealT);
     }
-    if (this.replay) this.replay.update(now - this.t0, dt);
+    if (!this.paused) this.rt += dt;
+    if (this.replay) this.replay.update(this.rt, this.paused ? 0 : dt);
+    // The timeline follows playback (a cheap check: re-render only when the 16th changes)
+    if (this.photo && this.replay && !this.paused) {
+      const k = Math.floor((this.rt % this.replay.loopSeconds) / (this.replay.barSeconds / 16));
+      if (k !== this.barStep) {
+        this.barStep = k;
+        this.renderBar();
+      }
+    }
     this.last = now;
   }
 
